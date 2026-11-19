@@ -143,13 +143,6 @@ export function endRefusal(
 }
 
 /**
- * The roles no new account and no registration's approval gives: an Admin and the Department Head
- * are made through a role change.
- */
-export const madeByRoleChange = (roleKey: string) =>
-  roleKey === ADMIN_ROLE || roleKey === HEAD_ROLE;
-
-/**
  * The rule that refuses giving a role, in a new account, a registration's approval and a role
  * change alike: an Admin and the Department Head are made by an Admin, and another role with the
  * GLOBAL scope (the Monitoring Team) by an Admin or the Head.

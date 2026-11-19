@@ -288,7 +288,7 @@ describe('the officials page', () => {
     expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
-    // the Department Head role is never offered
+    // the Department Head role is an Admin's to give: the Head is not offered it
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));

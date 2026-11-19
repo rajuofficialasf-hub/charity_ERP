@@ -561,6 +561,23 @@ describe('staff registrations', () => {
     expect(approved.body.data.roles).toEqual(['monitoring_team']);
   });
 
+  it('an Admin approves a registration as an Admin, and as the Department Head only while the post is empty', async () => {
+    const admin = await as(world.users.admin);
+    const first = await registerStaff();
+    const taken = await decide(admin, first.userId, {
+      decision: 'approve',
+      roleKey: 'department_head',
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('user.department_head_exists');
+    // nothing was written: the registration still waits
+    const row = await h.db.query('SELECT state FROM users WHERE id = $1', [first.userId]);
+    expect(row.rows[0].state).toBe('pending');
+    const approved = await decide(admin, first.userId, { decision: 'approve', roleKey: 'admin' });
+    expect(approved.status).toBe(200);
+    expect(approved.body.data.roles).toEqual(['admin']);
+  });
+
   it('staff registrations are listed for staff approvers only', async () => {
     const staff = await registerStaff();
     const ids = async (s: Session) =>
@@ -569,7 +586,7 @@ describe('staff registrations', () => {
     expect(await ids(await as(world.users.rpmDhaka))).toEqual([]);
   });
 
-  it('an RPM gets 403; the Department Head role cannot be given; a rejection needs a reason', async () => {
+  it('an RPM gets 403; the Head gives neither role at the top; a rejection needs a reason', async () => {
     const staff = await registerStaff();
     expect(
       (
@@ -580,11 +597,14 @@ describe('staff registrations', () => {
       ).status,
     ).toBe(403);
     const head = await as(world.users.head);
-    const owner = await decide(head, staff.userId, {
-      decision: 'approve',
-      roleKey: 'department_head',
-    });
-    expect(owner.status).toBe(422);
+    for (const roleKey of ['department_head', 'admin']) {
+      const top = await decide(head, staff.userId, { decision: 'approve', roleKey });
+      expect(top.status, roleKey).toBe(403);
+      expect(top.body.error).toMatchObject({
+        code: 'permission.grant_refused',
+        params: { rule: 'role_admin_only' },
+      });
+    }
     expect(
       (await decide(head, staff.userId, { decision: 'approve', roleKey: 'volunteer_general' }))
         .status,

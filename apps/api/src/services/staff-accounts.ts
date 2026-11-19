@@ -27,6 +27,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { DeliveryError, type EmailAdapter } from '../notifications/adapters.js';
 import type { SettingsService } from './settings.js';
+import { assertHeadSeatFree, headSeatError } from './department-head.js';
 import { isGivableOfficialRole, refuseRole } from './registrations.js';
 
 /** The set-password link: 72 hours, once. */
@@ -87,6 +88,7 @@ export class StaffAccountsService {
         await assertStaffRefs(tx, body, null);
         const taken = await this.taken(tx, body);
         if (taken) throw taken;
+        await assertHeadSeatFree(tx, body.roleKey);
         await tx.user.create({
           data: {
             id,
@@ -128,7 +130,8 @@ export class StaffAccountsService {
         });
         return this.issue(tx, actor, id, false);
       });
-    } catch (error) {
+    } catch (failure) {
+      const error = headSeatError(failure);
       // two admins typing the same job ID or contact at once: the unique index answers
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
         throw (await this.taken(this.prisma, body)) ?? error;

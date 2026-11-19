@@ -778,7 +778,7 @@ describe('staff registration decision', () => {
     expect(save).toBeDisabled();
     await user.click(within(dialog).getByRole('combobox', { name: /রোল/ }));
     const list = await screen.findByRole('listbox');
-    // the Main Admin's role and volunteer roles are not offered
+    // the Department Head role is an Admin's to give, and volunteer roles are never an official's
     expect(
       within(list).queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' }),
     ).not.toBeInTheDocument();

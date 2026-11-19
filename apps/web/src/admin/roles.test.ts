@@ -29,6 +29,7 @@ import {
   canOversee,
   canSeeStaff,
   holdsGlobalRole,
+  mayGiveRole,
 } from './roles';
 
 // What the admin area shows per role (permissions.yaml role defaults; the server decides anyway).
@@ -100,6 +101,17 @@ describe('admin role lists', () => {
     }
     expect(canOversee(as('program_manager'))).toBe(false);
     expect(holdsGlobalRole(as('program_manager'))).toBe(false);
+  });
+
+  it('lets an Admin give every official role, and anyone else every one but the two at the top', () => {
+    for (const role of ['admin', 'department_head', 'monitoring_team', 'program_manager'])
+      expect(mayGiveRole(as('admin'), role), role).toBe(true);
+    for (const actor of ['department_head', 'program_manager']) {
+      expect(mayGiveRole(as(actor), 'admin')).toBe(false);
+      expect(mayGiveRole(as(actor), 'department_head')).toBe(false);
+      expect(mayGiveRole(as(actor), 'monitoring_team')).toBe(true);
+      expect(mayGiveRole(as(actor), 'project_executive')).toBe(true);
+    }
   });
 
   it('gives an Admin everything the Department Head has', () => {

@@ -5,8 +5,9 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
-import { TOP_ROLES } from '../roles';
+import { mayGiveRole } from '../roles';
 import { decideStaff, roles } from './registrations-api';
 
 type Decision = 'approve' | 'reject';
@@ -44,6 +45,7 @@ export function StaffDecisionDialog({
   const tc = useTranslations('common.action');
   const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
+  const { me } = useAuth();
   const catalogue = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: open });
   const form = useForm<DecisionFields>({
     resolver: useSchemaResolver(DECISION_SCHEMA),
@@ -79,8 +81,8 @@ export function StaffDecisionDialog({
     onClose();
   };
   const options = (catalogue.data ?? [])
-    // an Admin and the Department Head are made by a role change, never through a registration
-    .filter((r) => r.kind === 'official' && !TOP_ROLES.includes(r.key))
+    // an Admin and the Department Head are an Admin's to give
+    .filter((r) => r.kind === 'official' && me !== null && mayGiveRole(me, r.key))
     .map((r) => ({ value: r.key, label: r.name[locale] }));
 
   return (

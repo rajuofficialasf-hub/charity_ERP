@@ -3,7 +3,6 @@ import type { OwnerTransferRequest, RoleChangeRequest, RoleHistoryRow } from '@c
 import { SCOPES } from '../access/schema.js';
 import {
   ADMIN_ROLE,
-  HEAD_ROLE,
   type HardRule,
   overrideStands,
   roleChangeRefusal,
@@ -15,17 +14,15 @@ import type { AuditWriter } from '../audit/audit-writer.js';
 import type { PermissionVersionService } from '../auth/permission-version.service.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
-import { isUniqueViolationOf } from '../core/db-errors.js';
 import { assertIfMatch } from '../core/etag.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { pendingHandoverItems } from '../handover/providers.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import type { AuthService } from './auth.js';
+import { assertHeadSeatFree, headSeatError } from './department-head.js';
 import type { UsersService } from './users.js';
 
-/** The partial unique index that keeps one live Department Head. */
-const ONE_HEAD = 'user_roles_one_department_head_key';
 const scopeTypes: readonly string[] = SCOPES;
 
 const invalid = (path: string) =>
@@ -120,12 +117,7 @@ export class RoleChangesService {
         const pending = await pendingHandoverItems(tx, user.id);
         if (pending.some((item) => item.requiredRole !== null && item.requiredRole !== role.key))
           throw new ApiError('handover.items_outstanding', 409);
-        if (role.key === HEAD_ROLE) {
-          const other = await tx.userRole.count({
-            where: { roleKey: HEAD_ROLE, revokedAt: null, NOT: { userId: user.id } },
-          });
-          if (other) throw new ApiError('user.department_head_exists', 409);
-        }
+        await assertHeadSeatFree(tx, role.key, user.id);
 
         await tx.userRole.updateMany({
           where: { userId: user.id, revokedAt: null },
@@ -155,10 +147,7 @@ export class RoleChangesService {
         return null;
       });
     } catch (error) {
-      // two appointments at once: the index lets one through
-      if (isUniqueViolationOf(error, ONE_HEAD))
-        throw new ApiError('user.department_head_exists', 409);
-      throw error;
+      throw headSeatError(error);
     }
     if (refused) return this.refuse(userId, refused, role.key, body.reason);
     this.versions.settled(userId);

@@ -25,6 +25,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { locations } from '../../features/registration/registration-api';
 import { ApiFailure } from '../../api/client';
+import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
@@ -37,7 +38,7 @@ import {
   updateProfile,
 } from './staff-api';
 import './staff.css';
-import { TOP_ROLES } from '../roles';
+import { mayGiveRole } from '../roles';
 import { LoadError } from '../../components/LoadError';
 
 const NONE = 'none';
@@ -175,6 +176,7 @@ function OfficialForm({
   const ta = useTranslations('admin.staff.affiliation');
   const tc = useTranslations('common.action');
   const locale = useLocale() as Locale;
+  const { me } = useAuth();
   const schema = useMemo(() => officialSchema(!official), [official]);
   const form = useForm<OfficialFields>({
     resolver: useSchemaResolver(schema),
@@ -270,8 +272,8 @@ function OfficialForm({
     (affiliation === 'department' || unit.trim() !== '') &&
     (official ? etag !== undefined : roleKey !== '');
   const roleOptions = (roleList.data ?? [])
-    // an Admin and the Department Head are made by a role change, never by a new account
-    .filter((r) => r.kind === 'official' && !TOP_ROLES.includes(r.key))
+    // an Admin and the Department Head are an Admin's to give
+    .filter((r) => r.kind === 'official' && me !== null && mayGiveRole(me, r.key))
     .map((r) => ({ value: r.key, label: localized(r.name, locale) }));
   const programOptions = [
     { value: NONE, label: t('no_program') },

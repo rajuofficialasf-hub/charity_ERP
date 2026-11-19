@@ -119,9 +119,65 @@ describe('who gives a role with the whole reach', () => {
       [manager.id],
     );
     expect(refusals.rows).toEqual([{ new: { role: 'monitoring_team', rule: 'role_admin_only' } }]);
-    // an Admin and the Department Head come from a role change, whoever asks
-    for (const roleKey of ['admin', 'department_head'])
-      expect((await create(official({ roleKey }), await login(h, admin))).status).toBe(422);
+  });
+
+  it('lets an Admin add an Admin, and a Department Head only while the post is empty', async () => {
+    const admin = await login(h, await account(h.db, { role: 'admin' }));
+    const added = await create(official({ roleKey: 'admin' }), admin);
+    expect(added.status).toBe(201);
+    const roles = await h.db.query(
+      'SELECT role_key FROM user_roles WHERE user_id = $1 AND revoked_at IS NULL',
+      [added.body.data.userId],
+    );
+    expect(roles.rows).toEqual([{ role_key: 'admin' }]);
+    // the file's Department Head is in office: a second one is refused, and no account is made
+    const second = official({ roleKey: 'department_head' });
+    const taken = await create(second, admin);
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('user.department_head_exists');
+    expect(
+      (await h.db.query('SELECT 1 FROM users WHERE email = $1', [second.email])).rowCount,
+    ).toBe(0);
+    // the post falls empty, and the Admin fills it with a new account
+    await h.db.query(
+      `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
+      [head.id],
+    );
+    try {
+      expect((await create(second, admin)).status).toBe(201);
+    } finally {
+      // the rest of the file works with its own Head again
+      await h.db.query(
+        `UPDATE user_roles SET revoked_at = now()
+          WHERE role_key = 'department_head' AND revoked_at IS NULL AND user_id <> $1`,
+        [head.id],
+      );
+      await h.db.query(
+        `UPDATE user_roles SET revoked_at = NULL WHERE user_id = $1 AND role_key = 'department_head'`,
+        [head.id],
+      );
+    }
+  });
+
+  it('refuses the Department Head the two roles at the top, audited', async () => {
+    for (const roleKey of ['admin', 'department_head']) {
+      const body = official({ roleKey });
+      const res = await create(body);
+      expect(res.status, roleKey).toBe(403);
+      expect(res.body.error).toMatchObject({
+        code: 'permission.grant_refused',
+        params: { rule: 'role_admin_only' },
+      });
+      expect(
+        (await h.db.query('SELECT 1 FROM users WHERE email = $1', [body.email])).rowCount,
+      ).toBe(0);
+    }
+    const refusals = await h.db.query(
+      `SELECT new->>'role' AS role FROM audit_log
+        WHERE entity_id = $1 AND action = 'permission_change_refused' ORDER BY created_at`,
+      [head.id],
+    );
+    expect(refusals.rows.map((r) => r.role)).toEqual(['admin', 'department_head']);
   });
 });
 
@@ -217,8 +273,8 @@ describe('creating an official', () => {
     expect(mobile.body.error.code).toBe('registration.account_exists');
   });
 
-  it('gives only an official role, never the Department Head role', async () => {
-    for (const roleKey of ['department_head', 'volunteer_general', 'no_such_role']) {
+  it('gives only an official role', async () => {
+    for (const roleKey of ['volunteer_general', 'no_such_role']) {
       const res = await create(official({ roleKey }));
       expect(res.status, roleKey).toBe(422);
       expect(res.body.error.details[0]).toMatchObject({

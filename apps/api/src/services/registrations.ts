@@ -7,7 +7,7 @@ import {
   type RegistrationCorrectionCreate,
   type StaffDecision,
 } from '@css/shared/registration';
-import { type HardRule, madeByRoleChange, roleRefusal } from '../access/hard-rules.js';
+import { type HardRule, roleRefusal } from '../access/hard-rules.js';
 import type { AccessRegistry } from '../access/registry.js';
 import { type Scope, volunteerWhere } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
@@ -29,6 +29,7 @@ import type { PrismaService, Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { AccountEvents } from '../notifications/account-events.js';
+import { assertHeadSeatFree, headSeatError } from './department-head.js';
 import { addressProblem } from './registration.js';
 import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details.js';
 
@@ -47,18 +48,17 @@ export const UNFINISHED = ['open', 'submitted'];
 const MAX_REFUSED_ANSWERS = 10;
 const REFUSAL_WINDOW_MS = 3_600_000;
 /**
- * An official role that a staff decision or the admin's new account may give: an Admin and the
- * Department Head are made by an Admin through a role change (docs/security/RBAC.md, "Roles").
+ * A role that a staff decision or a new account may name at all: an official's. Who may give
+ * which of them is the hard rules' to say (`roleRefusal`; docs/security/RBAC.md, "Roles").
  */
 export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string): boolean {
-  const role = registry.roles.get(roleKey);
-  return Boolean(role && role.kind === 'official' && !madeByRoleChange(role.key));
+  return registry.roles.get(roleKey)?.kind === 'official';
 }
 
 /**
- * Answers a role the actor may not give (docs/security/RBAC.md, "Roles": the Monitoring Team is
- * given by an Admin or the Department Head): the refusal is audited on `entityId` in a transaction
- * of its own, then answered 403 with the rule.
+ * Answers a role the actor may not give (docs/security/RBAC.md, "Roles": an Admin and the
+ * Department Head are given by an Admin, the Monitoring Team by an Admin or the Head): the refusal
+ * is audited on `entityId` in a transaction of its own, then answered 403 with the rule.
  */
 export async function refuseRole(
   deps: { prisma: PrismaService; audit: AuditWriter },
@@ -581,54 +581,59 @@ export class RegistrationsService {
           { path: 'roleKey', code: 'validation.option_unknown' },
         ]);
     }
-    const refused = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-      const user = await tx.user.findFirst({
-        where: { id: userId, kind: 'staff', state: 'pending', ...SELF_REGISTERED },
-        select: { id: true },
-      });
-      if (!user) {
-        this.access.denied(actor.userId, 'staff.registration.approve', 'global');
-        throw new ApiError('permission.not_found', 404);
-      }
-      // the role must be one this person may give; nothing is written when it is not
-      const rule =
-        body.decision === 'approve'
-          ? roleRefusal(this.registry, await this.access.rolesOf(actor.userId, tx), body.roleKey!)
-          : null;
-      if (rule) return rule;
-      if (body.decision === 'reject') {
-        await this.events.registrationDecided(
-          tx,
-          userId,
-          { approved: false, reason: body.reason! },
-          actor.userId,
-        );
-        await this.close(tx, actor, userId, body.reason!);
+    const refused = await this.prisma
+      .$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+        const user = await tx.user.findFirst({
+          where: { id: userId, kind: 'staff', state: 'pending', ...SELF_REGISTERED },
+          select: { id: true },
+        });
+        if (!user) {
+          this.access.denied(actor.userId, 'staff.registration.approve', 'global');
+          throw new ApiError('permission.not_found', 404);
+        }
+        // the role must be one this person may give; nothing is written when it is not
+        const rule =
+          body.decision === 'approve'
+            ? roleRefusal(this.registry, await this.access.rolesOf(actor.userId, tx), body.roleKey!)
+            : null;
+        if (rule) return rule;
+        if (body.decision === 'reject') {
+          await this.events.registrationDecided(
+            tx,
+            userId,
+            { approved: false, reason: body.reason! },
+            actor.userId,
+          );
+          await this.close(tx, actor, userId, body.reason!);
+          return null;
+        }
+        // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
+        // so the person chooses a new password at the next sign-in
+        // (the same stored flag that sets the password length in AuthService)
+        const stored = await tx.role.findUnique({
+          where: { key: body.roleKey! },
+          select: { globalScope: true },
+        });
+        const passwordChangeRequired = stored?.globalScope === true;
+        await assertHeadSeatFree(tx, body.roleKey!, userId);
+        await tx.user.update({
+          where: { id: userId },
+          data: { state: 'active', passwordChangeRequired },
+        });
+        await tx.userRole.create({
+          data: { id: uuidv7(), userId, roleKey: body.roleKey!, grantedBy: actor.userId },
+        });
+        await this.versions.bump(tx, userId, {
+          action: 'auth.approved',
+          new: { kind: 'staff', role: body.roleKey },
+        });
+        await this.events.registrationDecided(tx, userId, { approved: true }, actor.userId);
         return null;
-      }
-      // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
-      // so the person chooses a new password at the next sign-in
-      // (the same stored flag that sets the password length in AuthService)
-      const stored = await tx.role.findUnique({
-        where: { key: body.roleKey! },
-        select: { globalScope: true },
+      })
+      .catch((error: unknown) => {
+        throw headSeatError(error);
       });
-      const passwordChangeRequired = stored?.globalScope === true;
-      await tx.user.update({
-        where: { id: userId },
-        data: { state: 'active', passwordChangeRequired },
-      });
-      await tx.userRole.create({
-        data: { id: uuidv7(), userId, roleKey: body.roleKey!, grantedBy: actor.userId },
-      });
-      await this.versions.bump(tx, userId, {
-        action: 'auth.approved',
-        new: { kind: 'staff', role: body.roleKey },
-      });
-      await this.events.registrationDecided(tx, userId, { approved: true }, actor.userId);
-      return null;
-    });
     if (refused)
       await refuseRole({ prisma: this.prisma, audit: this.audit }, refused, body.roleKey!, userId);
     // `bump` evicted inside the transaction; a request in between may have cached the old facts

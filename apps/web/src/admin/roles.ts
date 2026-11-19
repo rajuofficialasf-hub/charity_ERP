@@ -250,10 +250,16 @@ export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_A
 export const GLOBAL_ROLES: readonly string[] = ['admin', 'department_head', 'monitoring_team'];
 export const holdsGlobalRole = (me: Pick<Me, 'roles'>) => holds(me, GLOBAL_ROLES);
 /**
- * The two roles at the top: an Admin, who maintains the system, and the Department Head. Neither
- * is given by a new account or a registration's approval: an Admin gives them by a role change.
+ * The two roles at the top: an Admin, who maintains the system, and the Department Head. An Admin
+ * alone gives them.
  */
 export const TOP_ROLES: readonly string[] = ['admin', 'department_head'];
+/**
+ * The official roles a person may give in a new account or a registration's approval: an Admin
+ * gives every one, anyone else every one but the two at the top. The server decides again.
+ */
+export const mayGiveRole = (me: Pick<Me, 'roles'>, roleKey: string) =>
+  me.roles.includes('admin') || !TOP_ROLES.includes(roleKey);
 /** The oversight the Monitoring Team keeps beside them: the audit log and the message deliveries. */
 export const canOversee = (me: Pick<Me, 'roles'>) => holds(me, GLOBAL_ROLES);
 export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);
