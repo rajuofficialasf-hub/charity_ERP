@@ -351,7 +351,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - U13: the `down.sql` restores the column with its default and check.
 
 ## Progress
-- **Branch:** fix/open-issues-tests (U3 to U5); U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
+- **Branch:** U3 ships alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
 - **Next:** U4 (characterize first: a refresh in flight at the sign-out), then U5, then C2
 - **Reviewed through:** C1 at fb6d6e34 (U1 and U2 went through the pull request's own six checks and develop's run after the merge, all green; no reviewer run: two small units, one a workflow change)
 - **Uncommitted:** —

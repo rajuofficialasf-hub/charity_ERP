@@ -15,7 +15,7 @@ import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
 
 /**
- * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of
+ * Demo set: one account per official role, 21 volunteers, 50 beneficiaries in two divisions (one of
  * them blocked) and one draft winter project. Every identity is obviously fake
  * (docs/testing/TEST_STRATEGY.md, "Test data strategy"); the shared password is listed in
  * docs/testing/DEMO_ACCOUNTS.md (development only). Later tasks extend this set as their entities
