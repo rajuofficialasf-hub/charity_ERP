@@ -46,7 +46,7 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 
 | Scope | Meaning | Resolved from |
 |---|---|---|
-| GLOBAL | Whole country, all programs | `roles.global_scope` or an explicit GLOBAL grant (volunteer and beneficiary tabs for officials, BR-185) |
+| GLOBAL | Whole country, all programs | `roles.global_scope` or an explicit GLOBAL grant (the beneficiary tab of the Media roles, BR-185; the tabs of the other officials follow their program and areas since D-189) |
 | PROGRAM | All projects of the programs the user manages | `programs.pm_user_id` (and panel grants naming a program) |
 | PROJECT | A specific project | `project_volunteers` rows, `project_staff` rows, Procurement attachment to house-construction projects |
 | REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff`; Official দায়ী through their project assignment |
@@ -57,10 +57,11 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 Resolution rules:
 
 - Volunteers outside any project (D-084): a pending or unassigned volunteer is reached through the address. REGION and the area scopes reach volunteers whose division, district, upazila or union is one of the caller's area locations; PROGRAM reaches those in the area locations of the program's projects; GLOBAL reaches all. This is how the approvers of Q-19 see the registrations of their region.
+- The reach of the two tabs (D-189, BR-324 to BR-327; built unit by unit by `docs/plans/2026-11-19-1800-feat-area-scoped-people-plan.md`, so until its release the code still reads the tabs at GLOBAL). Volunteers: the areas a person holds on projects at work (active or closing), by the volunteer's address: an RPM the division of `project_areas`, a Project Executive and an Official দায়ী the districts of their staff place or its whole division, a PM every area of the own program's projects; a draft's areas serve only the candidate list of that project. Extra areas of a person (`user_extra_areas`) add locations, or the whole country, for the entity `volunteer` alone. Beneficiaries: an area of a project reaches the people with an application of that project placed there, also after the close; a location granted without a project keeps the address rule. An official's account carries no area: the home division is not read.
 
 - The resolver computes, per request, the set of scope instances the user holds for the target entity type (for example `{REGION: [projectA/divisionX], PROJECT: [projectB]}`) and the repository turns it into a mandatory `WHERE` clause (SYSTEM_ARCHITECTURE §6 step 7). A user with no instance for the entity type gets an empty result, never an error that reveals existence.
 - Several scopes add up: an RPM who is also assigned as Official দায়ী on another project holds REGION for the first and the Official দায়ী grants for the second.
-- GLOBAL read of the volunteer and beneficiary tabs does not imply write: writing still needs the specific permission at its scope (BR-185).
+- Reading the volunteer and beneficiary tabs does not imply write: writing still needs the specific permission at its scope (BR-185).
 - The overview of programs and projects (D-176): `project.overview.view` is held at GLOBAL by the PM, the RPM and the Project Executive (the two global roles hold it as they hold every permission). It shows every program and every project as cards with counts and the names of the program's PM and of the RPMs, and nothing else about a person, no identity number and no budget; the cover photos of the cards are read with it, through the file routes, while they are the covers (FILES_AND_DOCUMENTS, "Cover photos"). It opens no session: a session's page, its applications, its to-do figures and its budget stay with `project.view`, `application.view` and `budget.view` at the caller's own scope, and creating or changing anything stays with its own permission. The Official দায়ী, the Finance, Media and Procurement Teams and the volunteers do not hold it (default deny) and keep the reads they had.
 - District split (Q-08, O-09): when `project_areas` names districts for an RPM, REGION for that RPM means those districts only; until then every RPM of the division sees the whole division.
 - Scope instances are cached per request only; permission changes bump `permission_version` and force a token refresh (AUTH.md §9).
@@ -103,7 +104,7 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 | edit_request.approve | — | ✓ | ✓ | — | — | — | — |
 | application.view | ✓ | ✓ | ✓ | own | own | own beneficiaries [ASSIGNED] | ✓ [PROJECT] |
 | application.view_official_section | ✓ | ✓ | ✓ | — | — | — | — |
-| volunteer.view_all, beneficiary.view_all (nationwide tabs) | ✓ [GLOBAL] | ✓ [GLOBAL] | ✓ [GLOBAL] | — | — | — | — |
+| volunteer.view_all, beneficiary.view_all (the tabs; D-189 moves the PM to PROGRAM and the RPM and Executive to REGION) | ✓ [GLOBAL] | ✓ [GLOBAL] | ✓ [GLOBAL] | — | — | — | — |
 | beneficiary.lookup | ✓ | ✓ | ✓ | ✓ [PROJECT] | ✓ [PROJECT] | — | — |
 | beneficiary.match | — | ✓ | ✓ | ✓ | ✓ | — | — |
 | beneficiary.view_nid, volunteer.view_sensitive | ✓ | ✓ | ✓ | — | — | — | — |
@@ -180,7 +181,7 @@ The Implementer column is gone: the role is retired (D-162, owner 2026-11-08). A
 
 | Permission | Official দায়ী |
 |---|---|
-| volunteer.view_all, beneficiary.view_all | ✓ [GLOBAL] (A5: "any official or Official দায়ী") |
+| volunteer.view_all, beneficiary.view_all | ✓ [GLOBAL] (A5: "any official or Official দায়ী"; D-189 moves it to REGION, as a Project Executive) |
 | application.view / view_official_section | ✓ [ASSIGNED] |
 | beneficiary.view_nid | ✓ |
 | application.create / submit / review, progress.update, voucher.verify, beneficiary.lookup, beneficiary.match | — |
@@ -260,7 +261,7 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 ## 11. Interpretations, confirmed by the owner on 2026-10-10 (O-26, O-27, O-28) and amended by D-101 (2026-10-18)
 
 1. **Implementer** (SOP role, safe water): was modelled as Project Executive-level rights restricted to safe-water projects (`safe_water_only`) plus document register rights (O-26). Retired on 2026-11-08 (D-162): the Project Executive or the Official দায়ী on the project is the implementer, so no separate role is given; a Project Executive already holds every right the role had.
-2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver by default; **the RPM may grant application approval (approve, reject, waitlist) per project** like the Executive's "if RPM grants" extras, and the grant extends application view to REGION on that project (O-27).
+2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5; the areas of the own projects since D-189), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver by default; **the RPM may grant application approval (approve, reject, waitlist) per project** like the Executive's "if RPM grants" extras, and the grant extends application view to REGION on that project (O-27).
 3. **Media Team**: O-28's Media tab is replaced by D-101 (2026-10-18): a PM or an RPM refers an approved application as publishable (`media.referral.create`, no consent asked since D-137); the Media Director or the Media Assistant Director accepts, returns or rejects it (`media.referral.decide`); the team runs the work through editable stages with production roles, scripts and publications on the platforms (`media.work.manage`, `story.manage`), the director reviews before publication (`media.publication.review`); referrers follow the media status (`media.work.view`). On a referred application the team sees the beneficiary's details: father's or husband's name, age, mobile, full address, occupation, monthly income, project and year, and of the official section only the comment (BR-265); NID, ratings, categories and donor data stay hidden.
 4. **`nisab.set`** given to the PM at GLOBAL (Q-29 "PM or above"); the nisab is one global table (O-15). Confirmed (O-26).
 5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).

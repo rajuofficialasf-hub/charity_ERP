@@ -1,7 +1,7 @@
 ---
 title: Who sees which volunteers and beneficiaries: by the areas of the projects a person works on
 type: feat
-status: ready
+status: in-progress
 source: brainstorm
 date: 2026-11-19
 doc_review: 2026-11-19
@@ -125,7 +125,7 @@ Every unit keeps the existing tests and E2E specs green: where a narrower reach 
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Several districts for a staff place
 - **Goal:** an RPM gives an Executive or an Official দায়ী one or several districts of the own division on a project.
@@ -286,3 +286,11 @@ One pull request into `develop` after C7, because the narrower reach (U3, U5) wi
 - R1 to R15 are met and each has a test at the layer named in its unit.
 - The decision is in `docs/DECISION_LOG.md`; BR-020, BR-036 and BR-185 say what the system does; RBAC.md, the OpenAPI contract, the authorization matrix, the schema documents, SCREENS.md and the UAT scripts are updated in the same change.
 - Every command under Verification was run and its result is in `docs/STATUS.md`.
+
+## Progress
+- **Branch:** `feat/area-scoped-people`
+- **Updated:** 2026-11-19
+- **Next:** U2: several districts for a staff place, starting with the migration and its test in `apps/api/test/integration/migrations.test.ts`
+- **Reviewed through:** none yet (C1 follows U2)
+- **Uncommitted:** none
+- **Notes:** the decision is D-189; the new rules are BR-324 to BR-327. The second part of the Admin role plan (`docs/plans/2026-11-19-1000-feat-admin-role-and-permissions-plan.md`, units 7 to 10) waits for this plan, on the owner's word.
