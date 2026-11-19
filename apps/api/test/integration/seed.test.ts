@@ -311,7 +311,7 @@ describe('demo set', () => {
       media_director: 1,
       media_assistant_director: 1,
       finance_team: 1,
-      volunteer_general: 16,
+      volunteer_general: 17,
       volunteer_both: 1,
       volunteer_local_daee: 1,
       volunteer_team_member: 1,
@@ -513,7 +513,7 @@ describe('demo set', () => {
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );
     expect(rows[0].argon).toBe(rows[0].n);
-    expect(rows[0].n).toBe(35);
+    expect(rows[0].n).toBe(36);
   });
 });
 

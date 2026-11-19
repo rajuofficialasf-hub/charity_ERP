@@ -7,7 +7,7 @@ import { filterBy, mainMenu, openTab, rows as listRows, scan, signIn } from './s
 // the refusal for volunteers. Mobile and desktop share the database, so each signs in with its own
 // accounts.
 const ACCOUNTS = {
-  desktop: { official: 'rpm.dhaka@example.org', volunteer: '01700000111' },
+  desktop: { official: 'rpm.dhaka@example.org', volunteer: '01700000103' },
   mobile: { official: 'pm.hum@example.org', volunteer: '01700000113' },
 } as const;
 const accounts = (info: TestInfo) =>

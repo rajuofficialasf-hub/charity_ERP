@@ -15,7 +15,7 @@ import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
 
 /**
- * Demo set: one account per official role, 20 volunteers, 50 beneficiaries in two divisions (one of
+ * Demo set: one account per official role, 21 volunteers, 50 beneficiaries in two divisions (one of
  * them blocked) and one draft winter project. Every identity is obviously fake
  * (docs/testing/TEST_STRATEGY.md, "Test data strategy"); the shared password is listed in
  * docs/testing/DEMO_ACCOUNTS.md (development only). Later tasks extend this set as their entities
@@ -219,12 +219,16 @@ const VOLUNTEER_ROLE: Record<VolunteerType, string> = {
   team_member: 'volunteer_team_member',
   paid: 'volunteer_paid',
 };
-/** 20 volunteers: 16 general, then one each of both, local দায়ী, team member and paid. */
+const SPECIAL_VOLUNTEERS = ['both', 'local_daee', 'team_member', 'paid'] as const;
+/**
+ * 21 volunteers: 16 general, then one each of both, local দায়ী, team member and paid, and a last
+ * general one (Dhaka) kept for the offline journeys alone, which sign out all its devices.
+ */
 export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
-  { length: 20 },
+  { length: 21 },
   (_, i) => ({
     n: i + 1,
-    type: (['general', 'both', 'local_daee', 'team_member', 'paid'] as const)[Math.max(0, i - 15)]!,
+    type: SPECIAL_VOLUNTEERS[i - 16] ?? 'general',
   }),
 );
 
