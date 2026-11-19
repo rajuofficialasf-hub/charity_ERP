@@ -54,8 +54,8 @@ describe('access request schemas', () => {
   });
 
   it('takes a Main Admin transfer to a user id with a password, and nothing else', () => {
-    // a test-only value, never a real password
-    const password = 'Nadi kul 2026';
+    // twelve letters stand in for what the person types; no real value is written here
+    const password = 'a'.repeat(12);
     expect(ownerTransferRequestSchema.safeParse({ toUserId: userId, password }).success).toBe(true);
     for (const body of [
       { toUserId: 'someone', password },
