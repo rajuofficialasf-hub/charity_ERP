@@ -112,6 +112,47 @@ describe('project grants', () => {
     expect(row.rows[0].extra_permissions).toEqual([]);
   });
 
+  it("refuses an extra the target's own role may not hold, though another role may", async () => {
+    // the catalogue lets an RPM give `exam.record` to a Local দায়ী, never to a Project Executive
+    const res = await setGrants(world.a1.id, world.users.executive, [
+      'application.approve',
+      'exam.record',
+    ]);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'permission.grant_refused',
+      params: { rule: 'not_rpm_grantable' },
+    });
+    const row = await h.db.query(
+      'SELECT extra_permissions FROM project_staff WHERE project_id = $1 AND user_id = $2',
+      [world.a1.id, world.users.executive],
+    );
+    expect(row.rows[0].extra_permissions).not.toContain('exam.record');
+  });
+
+  it('refuses a change of the own extras, added or taken away', async () => {
+    // the RPM as a staff member of the own project, with an extra already there
+    const place = randomUUID();
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, extra_permissions, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, $5, $3)`,
+      [place, world.a1.id, world.users.rpmDhaka, world.dhaka.division, ['application.approve']],
+    );
+    for (const permissions of [['application.approve', 'application.reject'], []]) {
+      const res = await setGrants(world.a1.id, world.users.rpmDhaka, permissions);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatchObject({
+        code: 'permission.grant_refused',
+        params: { rule: 'self_change' },
+      });
+    }
+    const row = await h.db.query('SELECT extra_permissions FROM project_staff WHERE id = $1', [
+      place,
+    ]);
+    expect(row.rows[0].extra_permissions).toEqual(['application.approve']);
+    await h.db.query('UPDATE project_staff SET ended_at = now() WHERE id = $1', [place]);
+  });
+
   it('refuses a permission without "if RPM grants" and one the RPM does not hold there', async () => {
     const plain = await setGrants(world.a1.id, world.users.executive, ['permission.view']);
     expect(plain.status).toBe(403);

@@ -59,7 +59,7 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Staff registration pending | monitoring | A, E | `staff_registration_pending` | 1 |
 | Profile edit request submitted | rpm(region), Project Executive of the region | A | `edit_request_submitted` | 1 |
 | Edit request approved (field opened) / closed | owner | A | `edit_request_approved` | 1 |
-| Role or permission changed (panel or project grant) | affected user | A | `permission_changed` | 1 |
+| Role or permission changed (panel, project grant or role change) | affected user | A | `permission_changed` | 1 |
 | Account blocked / unblocked | affected user (sees the block message at login); monitoring | A | `account_blocked`, `account_unblocked` | 1 |
 | Device session revoked by an official | affected user (shown at next login) | A | `session_revoked` | 1 |
 | Account locked after failed attempts | affected user; monitoring when 10 locks/day (O-25) | A; E to monitoring | `account_locked`, `security_lockout_alert` | 1 |

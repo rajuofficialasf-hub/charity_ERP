@@ -124,6 +124,19 @@ describe('publishing an event', () => {
     expect(emails).toHaveLength(1);
   });
 
+  it('tells the Admins, the Department Head and the Monitoring Team what the whole department must know', async () => {
+    await publish({
+      key: 'staff_registration_pending',
+      recipients: [{ roles: MONITORING }],
+      params: { applicant_name: 'নমুনা কর্মী' },
+      about: 'staff-registrations:everyone',
+    });
+    const told = new Set((await rowsOf('staff_registration_pending')).map((r) => r.user_id));
+    for (const userId of [world.users.admin, world.users.head, world.users.monitoring])
+      expect(told.has(userId), userId).toBe(true);
+    expect(told.has(world.users.pm)).toBe(false);
+  });
+
   it('sends the email about another record, and never twice for one event', async () => {
     const about = (record: string, eventId?: string): NotificationInput => ({
       key: 'security_refresh_reuse',

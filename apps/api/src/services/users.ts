@@ -1,4 +1,5 @@
 import type { Affiliation, UserState, UserStateRequest } from '@css/shared/auth';
+import { isTopRole } from '../access/effective.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import { type AuditWriter } from '../audit/audit-writer.js';
@@ -9,6 +10,7 @@ import type { Env } from '../config/env.js';
 import type { Clock } from '../core/clock.js';
 import { assertIfMatch } from '../core/etag.js';
 import { type PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import {
   buildPage,
   decodeCursor,
@@ -152,13 +154,21 @@ export class UsersService {
 
   /** The user and its ETag source (`updated_at`), inside the caller's scope (404 outside). */
   async get(scope: Scope, userId: string) {
-    const {
-      userRolesUser,
-      lockedUntil: _locked,
-      passwordHash,
-      updatedAt,
-      ...user
-    } = await this.access.findUser(scope, userId, userSelect);
+    return this.view(await this.access.findUser(scope, userId, userSelect));
+  }
+
+  /**
+   * The same view by the id alone, for the answer of a change the caller has just made on a user
+   * found inside their scope: the change itself (a new role) may have moved the person out of it.
+   */
+  async afterChange(userId: string) {
+    return this.view(
+      await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: userSelect }),
+    );
+  }
+
+  private async view(row: Prisma.UserGetPayload<{ select: typeof userSelect }>) {
+    const { userRolesUser, lockedUntil: _locked, passwordHash, updatedAt, ...user } = row;
     const photos = await staffPhotos(this.prisma, [user.id]);
     return {
       user: {
@@ -195,11 +205,11 @@ export class UsersService {
       );
       assertIfMatch(ifMatch, user.updatedAt);
       if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
-      // Only the Department Head blocks an account or lifts a block, whatever permission the caller
-      // holds. Deactivation is not covered by this rule.
+      // Only an Admin or the Department Head blocks an account or lifts a block, whatever
+      // permission the caller holds. Deactivation is not covered by this rule.
       const blockOrUnblock =
         body.state === 'blocked' || (user.state === 'blocked' && body.state === 'active');
-      if (blockOrUnblock && !actor.roles.includes('department_head')) {
+      if (blockOrUnblock && !isTopRole(actor.roles)) {
         this.access.denied(actor.userId, scope.permission, scope.entity);
         throw new ApiError('permission.denied', 403);
       }

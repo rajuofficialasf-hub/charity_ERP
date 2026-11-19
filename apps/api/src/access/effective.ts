@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Tx } from '../core/prisma.service.js';
+import { IF_RPM_GRANTS, mayHold, revokesReach } from './hard-rules.js';
 import type { AccessRegistry, DefaultGrant } from './registry.js';
 import { SCOPES, type ScopeType } from './schema.js';
 
@@ -41,8 +42,7 @@ export interface AccessFacts {
   overrides: PanelOverride[];
 }
 
-export const IF_RPM_GRANTS = 'if_rpm_grants';
-const OWNER_TRANSFER = 'system.owner.transfer';
+export { ADMIN_ROLE, HEAD_ROLE, IF_RPM_GRANTS, isTopRole, OWNER_TRANSFER } from './hard-rules.js';
 
 const sameGrant = (g: EffectiveGrant) =>
   [g.permission, g.scopeType, g.scopeRef, g.condition, g.source, g.projectId].join('|');
@@ -204,18 +204,14 @@ export function effectiveAccess(
         projectId: o.scopeType === 'PROJECT' ? o.scopeRef : null,
         grantId: o.id,
       });
-  // Hard rules kept here too so a stray row cannot break them (docs/security/RBAC.md, "Permission
-  // panel" and "Special cases"): revokes never strip the Department Head (Main Admin); only the
-  // Department Head holds the owner transfer; volunteers never hold a sensitive permission.
-  const head = facts.roles.includes('department_head');
-  const revocations = head ? [] : live.filter((o) => o.effect === 'revoke');
-  const official = facts.roles.some((r) => registry.roles.get(r)?.kind === 'official');
+  // The hard rules are asked here too, so a stray row cannot break them (docs/security/RBAC.md,
+  // "Permission panel" and "Special cases"): revokes never strip an Admin or the Department Head;
+  // only an Admin holds the owner transfer; volunteers never hold a sensitive permission.
+  const revocations = revokesReach(facts.roles) ? live.filter((o) => o.effect === 'revoke') : [];
   return {
     grants: [...grants.values()].filter(
       (g) =>
-        !revocations.some((r) => revokes(r, g)) &&
-        (g.permission !== OWNER_TRANSFER || head) &&
-        (official || !registry.permissions.get(g.permission)?.sensitive),
+        !revocations.some((r) => revokes(r, g)) && mayHold(registry, facts.roles, g.permission),
     ),
     instanceRevokes: revocations.filter((r) => r.scopeRef !== null && r.scopeType !== 'GLOBAL'),
   };

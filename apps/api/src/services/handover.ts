@@ -134,7 +134,14 @@ export class HandoverService {
       const recorded: HandoverScope = handoverScopeSchema.parse(handover.scope);
       const now = this.clock.now();
       for (const item of picked) {
-        await providerOf(item.itemType).reassign(tx, item, userId, target.id, actor.userId);
+        await providerOf(item.itemType).reassign(
+          tx,
+          item,
+          userId,
+          target.id,
+          actor.userId,
+          this.access.registry,
+        );
         recorded.items.push({
           item_type: item.itemType,
           item_id: item.itemId,

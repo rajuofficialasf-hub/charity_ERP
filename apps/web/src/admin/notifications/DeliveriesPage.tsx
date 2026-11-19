@@ -16,7 +16,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canAdministerSystem } from '../roles';
+import { canOversee } from '../roles';
 import { useTabView } from '../use-tab-view';
 import {
   DELIVERIES_KEY,
@@ -51,7 +51,7 @@ export function DeliveriesPage() {
   const t = useTranslations('admin.deliveries');
   const locale = useLocale() as Locale;
   const { filters, setFilters, change, cursor, setCursor } = useTabView(DELIVERY_FILTERS);
-  const allowed = Boolean(me && canAdministerSystem(me));
+  const allowed = Boolean(me && canOversee(me));
   // a stale link with another value shows everything instead of an error
   const status = DELIVERY_STATUSES.find((s) => s === filters.status);
   const channel = DELIVERY_CHANNELS.find((c) => c === filters.channel);

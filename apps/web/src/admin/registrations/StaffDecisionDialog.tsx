@@ -5,12 +5,12 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+import { mayGiveRole } from '../roles';
 import { decideStaff, roles } from './registrations-api';
 
 type Decision = 'approve' | 'reject';
-/** The Main Admin's role is never given through a registration. */
-const NOT_GIVEN = 'department_head';
 
 /** An approval names the role; a rejection gives a reason of three letters at least. */
 const DECISION_SCHEMA = z
@@ -45,6 +45,7 @@ export function StaffDecisionDialog({
   const tc = useTranslations('common.action');
   const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
+  const { me } = useAuth();
   const catalogue = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: open });
   const form = useForm<DecisionFields>({
     resolver: useSchemaResolver(DECISION_SCHEMA),
@@ -80,7 +81,8 @@ export function StaffDecisionDialog({
     onClose();
   };
   const options = (catalogue.data ?? [])
-    .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
+    // an Admin and the Department Head are an Admin's to give
+    .filter((r) => r.kind === 'official' && me !== null && mayGiveRole(me, r.key))
     .map((r) => ({ value: r.key, label: r.name[locale] }));
 
   return (

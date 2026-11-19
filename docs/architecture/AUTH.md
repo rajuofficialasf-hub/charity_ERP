@@ -152,7 +152,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 ## 9. Role or permission change forces a session refresh (O-05)
 
 - Each user has a `permission_version` incremented whenever their roles, project assignments, permission sets, permission-panel overrides, blocklist state or account state change.
-- The access token carries `pv`; on every request the server compares it with the stored version (same cached lookup as the session check). A mismatch returns 401 `token_stale`; the PWA silently refreshes, receives a token with the new version, and reloads its cached roles and menu. The user never has to log in again for a permission change.
+- The access token carries `pv`; on every request the server compares it with the stored version (same cached lookup as the session check). A mismatch returns 401 `token_stale`; the PWA silently refreshes, receives a token with the new version, and reloads its cached roles and menu. The user never has to log in again for a permission change. The cached lookup of a person is dropped when the version is raised and once more after that transaction commits (`PermissionVersionService.settled`, called by the permission panel and the project grants), so a request that read the old version in between leaves nothing behind.
 - Removal of all roles or deactivation revokes all sessions outright.
 - Offline: the PWA keeps working with its cached permissions until it next syncs; the server re-checks every permission at sync time, so a volunteer whose permission was revoked while offline gets per-record failures with reasons, never a silent acceptance (SYSTEM_ARCHITECTURE §7).
 
@@ -165,9 +165,11 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 
 ## 11. Main Admin protection (constitution §5, BR-035)
 
-- The Department Head account is flagged `is_system_owner`. It cannot be deleted, deactivated, blocked, demoted or have its sessions revoked by anyone else through the API; the only path is transferring the flag to another active official (Department Head confirms with password; audited), after which the previous holder becomes an ordinary account.
-- At least one active Department Head must exist at all times; the transfer is the only operation that changes who it is.
-- The Monitoring Team has the same functional access as the Department Head everywhere (BR-184) except this one operation.
+- One Admin account is flagged `is_system_owner` (D-188; before it, the Department Head account). It cannot be deleted, deactivated, blocked, demoted or have its sessions revoked by anyone else through the API; the only path is transferring the flag to another active Admin (the Main Admin alone confirms with their password, checked under the login throttle; audited), after which the previous holder is an ordinary Admin.
+- A system owner exists at all times (the database refuses a state without one); the transfer is the only operation that changes who it is. The Department Head is appointed and replaced by an Admin; the department may be without a Head between two appointments.
+- A role change (an Admin or the Department Head, BR-321) bumps the person's permission version, so their sessions refresh at once.
+- As built (`apps/api/src/services/role-changes.ts`): `POST /system-owner/transfer` takes `{ toUserId, password }`. The service asks whether the caller is the Main Admin before anything else, so another Admin is refused with 403 `permission.denied` (audited as `permission_change_refused`) and no password of theirs is counted. The password is confirmed by `AuthService.confirmPassword`: a wrong one answers 403 `auth.password_confirmation_failed`, is audited as `auth.login_failed` and counted with the login failures under the same row lock, so the fifth locks the account (423), and a locked account is refused before its password is looked at and again after it, should a wrong one sent beside it have locked the account meanwhile. The right password clears the earlier wrong ones, as a sign-in does. A wrong confirmation counts toward the lock of the sign-in on purpose: whoever holds a stolen session of the Main Admin cannot try passwords without end. The target must be another active Admin (422 on `toUserId` otherwise). Both rows are locked in one order; the flag leaves the old row before it lands on the new one; both permission versions are raised; the earlier holder is audited with `auth.system_owner_transferred`, the new one with `auth.system_owner_received`; both and everyone who watches over the system are told (`system_owner_transferred`). The route counts in the `password-reset` class, per person.
+- `POST /users/{userId}/role` (`user.role.change`, If-Match) changes an official's role: the hard rules of RBAC.md section 7 are asked with the live roles of both people, the Main Admin is refused (409), an account that is not active is refused (409 `user.role_change_inactive`: a waiting registration takes its role from the approval), the work only the old role may hold must be handed over first (409 `handover.items_outstanding`), a second Department Head is refused (409 `user.department_head_exists`, and the partial unique index decides between two appointments at once). The old role ends and the new one starts in one transaction, which also ends the panel overrides and project extras the new role may not hold, asks a new holder of a role with the whole reach for the longer password at the next sign-in, audits `user.role_changed` with both roles and the reason, and tells the person. `GET /users/{userId}/roles` (`permission.view`) lists the roles a person holds or held.
 
 ## 12. Rate limiting (NFR-41, BR-209)
 
@@ -177,6 +179,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 | OTP request | 5 per hour per mobile or email; 20 per hour per IP | number/address, IP |
 | OTP verify | 5 attempts per code (section 2, reserved atomically); 20 per hour per IP (D-075) | code, IP |
 | Password reset start | 5 per hour per login id (counted on the normalized id, section 1); 20 per hour per IP (D-075) | login id, IP |
+| Password change and Main Admin transfer (signed in) | 5 per hour per person; 20 per hour per IP (the same class) | user, IP |
 | Refresh | 60 per hour per session | session id |
 | Public application form | 20 submissions per hour per IP (O-08) | IP |
 
@@ -200,10 +203,10 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 | auth.session_revoked / session_revoked_by_official | Device revocation |
 | auth.password_changed / password_reset_started / password_reset_completed | Password flows |
 | user.language_changed | Own interface language changed (I18N 2; endpoint `PUT /me/language`, live with T1.7, O-56) |
-| auth.role_changed / permission_changed (written by the access module) | Permission version bump |
+| user.role_changed / permission_change (written by the access module) | Permission version bump; a role change carries the old roles, the new role and what it ended |
 | auth.state_changed | pending/active/blocked/deactivated transitions with reason |
 | auth.handover_started / handover_completed | Deactivation handover |
-| auth.system_owner_transferred | Main Admin transfer |
+| auth.system_owner_transferred / system_owner_received | Main Admin transfer, on the earlier holder and on the new one |
 
 Security monitoring (D-057): login failures, lockouts, refresh reuse and revocations are also counted on the metrics endpoint; thresholds raise in-app alerts to the Monitoring Team.
 

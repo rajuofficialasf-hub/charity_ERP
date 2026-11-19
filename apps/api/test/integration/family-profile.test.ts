@@ -98,6 +98,7 @@ async function readReachingOnly(projects: readonly string[], beneficiaryId: stri
     volunteerAreas: [],
     revokedProjectIds: [],
     revokedProgramIds: [],
+    revokedLocationIds: [],
   });
   const read = await h.container.beneficiaries.profile(
     {

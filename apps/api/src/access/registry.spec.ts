@@ -21,12 +21,17 @@ const perms = (file: Record<string, unknown>) => file.permissions as Perm[];
 describe('access registry', () => {
   it('loads the real permissions.yaml with its roles, permissions, sets and field classes', () => {
     const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);
-    // the Implementer is retired
-    expect(registry.roles.size).toBe(16);
+    // the Implementer is retired; the Admin joined
+    expect(registry.roles.size).toBe(17);
     expect(registry.roles.has('implementer')).toBe(false);
-    expect(registry.permissions.size).toBe(159);
-    expect(registry.roles.get('department_head')?.globalScope).toBe(true);
+    expect(registry.permissions.size).toBe(160);
+    for (const role of ['admin', 'department_head', 'monitoring_team'])
+      expect(registry.roles.get(role)?.globalScope, role).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([
+      'monitoring_team',
+      'department_head',
+    ]);
+    expect(registry.permissions.get('permission.panel.manage')?.globalRolesExcluded).toEqual([
       'monitoring_team',
     ]);
     expect(registry.sensitiveFields.map((f) => f.key)).toContain('volunteer.identity');

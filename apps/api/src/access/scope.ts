@@ -35,6 +35,12 @@ export interface ScopeInstances {
   /** Programs a panel revoke took out; only GLOBAL needs them, the other instances drop them. */
   revokedProgramIds: string[];
   /**
+   * Locations a panel revoke took out (a division, a district, an upazila or a union): every
+   * filter of a record that has a place leaves out the records placed there, whichever grant
+   * would reach them.
+   */
+  revokedLocationIds: string[];
+  /**
    * With SELF on applications: the caller's active team places (project and lead), so the
    * applications they created stay theirs only while the owner is still their lead there.
    */
@@ -90,6 +96,7 @@ export const NO_INSTANCES: ScopeInstances = {
   volunteerAreas: [],
   revokedProjectIds: [],
   revokedProgramIds: [],
+  revokedLocationIds: [],
 };
 
 declare const SCOPE_BRAND: unique symbol;
@@ -134,9 +141,10 @@ const areaKey = (a: Area) => `${a.projectId}|${a.locationId}`;
 /**
  * Removes the instances a panel revoke names (docs/security/RBAC.md, "Permission panel": a revoke
  * beats every grant source). A revoked program also removes its projects and their areas
- * (`projectsOfRevokedPrograms`). The revoked projects and programs are kept, so the filters exclude
- * them where a program, an area without a project or GLOBAL still reaches them. Exported as a pure
- * helper so its rules are tested without a database.
+ * (`projectsOfRevokedPrograms`). The revoked projects, programs and locations are kept, so the
+ * filters exclude them where a broader grant still reaches them: a program, an area without a
+ * project, a region around a revoked district, or GLOBAL. Exported as a pure helper so its rules
+ * are tested without a database.
  */
 export function applyInstanceRevokes(
   instances: ScopeInstances,
@@ -148,7 +156,9 @@ export function applyInstanceRevokes(
   const programs = new Set(named('PROGRAM'));
   const projects = new Set([...named('PROJECT'), ...projectsOfRevokedPrograms]);
   const locations = new Set(
-    revokes.filter((r) => AREA_SCOPES.includes(r.scopeType)).map((r) => r.scopeRef),
+    revokes.flatMap((r) =>
+      AREA_SCOPES.includes(r.scopeType) && r.scopeRef !== null ? [r.scopeRef] : [],
+    ),
   );
   const keep = (a: Area) =>
     !locations.has(a.locationId) && !(a.projectId && projects.has(a.projectId));
@@ -160,6 +170,7 @@ export function applyInstanceRevokes(
     volunteerAreas: instances.volunteerAreas.filter(keep),
     revokedProjectIds: [...new Set([...instances.revokedProjectIds, ...projects])],
     revokedProgramIds: [...new Set([...instances.revokedProgramIds, ...programs])],
+    revokedLocationIds: [...new Set([...instances.revokedLocationIds, ...locations])],
   };
 }
 
@@ -231,6 +242,7 @@ export async function resolveInstances(
     volunteerAreas: [],
     revokedProjectIds: [],
     revokedProgramIds: [],
+    revokedLocationIds: [],
   };
   let ownPrograms = false;
   let ownProjects = false;
@@ -419,11 +431,13 @@ function volunteersIn(a: Area, others: { projectId?: { notIn: string[] } }): Pri
  * the caller's programs and projects; for an area, the users working in that location (inside its
  * project when the area names one, by home division otherwise); for a volunteer area, only the
  * volunteers there. A revoked project reaches nobody; its people stay when another path reaches
- * them. No instance means no user.
+ * them. A revoked location leaves out the people whose own place it is (`userOutsideRevoked`),
+ * whichever grant reaches them. No instance means no user.
  */
 export function userWhere(scope: Scope): Prisma.UserWhereInput {
   const i = scope.instances;
-  if (i.global) return {};
+  const outside = userOutsideRevoked(i);
+  if (i.global) return outside ?? {};
   const or: Prisma.UserWhereInput[] = [];
   const others = projectNotRevoked(i);
   if (i.self) or.push({ id: scope.actorId });
@@ -443,22 +457,53 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
     if (!a.projectId) or.push({ homeDivisionId: a.locationId });
   }
   for (const a of i.volunteerAreas) or.push(volunteersIn(a, others));
-  return or.length ? { OR: or } : { id: { in: [] } };
+  if (!or.length) return { id: { in: [] } };
+  return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
 const ADDRESS_COLUMNS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const;
 const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
+
+/** The address columns that name one of the locations, at any level. */
+const addressIn = (locationIds: string[]) =>
+  ADDRESS_COLUMNS.map((column) => ({ [column]: { in: locationIds } }));
+
+/**
+ * The condition that a record with an address (a volunteer, a beneficiary) lies in none of the
+ * revoked locations, or null without such a revoke. A district names its unions too: each record
+ * carries every level of its address.
+ */
+function addressOutsideRevoked(i: ScopeInstances) {
+  return i.revokedLocationIds.length ? { NOT: { OR: addressIn(i.revokedLocationIds) } } : null;
+}
+
+/**
+ * The same for a user: an official's place is the home division, a volunteer's the address. An
+ * official without a home division is in no location, so no revoked location leaves them out.
+ */
+function userOutsideRevoked(i: ScopeInstances): Prisma.UserWhereInput | null {
+  const ids = i.revokedLocationIds;
+  if (!ids.length) return null;
+  return {
+    AND: [
+      { OR: [{ homeDivisionId: null }, { homeDivisionId: { notIn: ids } }] },
+      { NOT: { volunteersUser: { is: { OR: addressIn(ids) } } } },
+    ],
+  };
+}
 
 /**
  * The volunteers a scope reaches by their address (entity `volunteer`): everyone at GLOBAL; the own
  * row for SELF; for an area (REGION, a split district or a smaller area) the volunteers whose
  * division, district, upazila or union is that location; for PROGRAM and PROJECT the volunteers in
  * the area locations of those projects, never of a revoked one. A pending or unassigned volunteer
- * is on no project, so the address decides.
+ * is on no project, so the address decides. A volunteer whose address lies in a revoked location is
+ * left out, whichever grant reaches them.
  */
 export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const i = scope.instances;
-  if (i.global) return {};
+  const outside = addressOutsideRevoked(i);
+  if (i.global) return outside ?? {};
   const or: Prisma.VolunteerWhereInput[] = [];
   if (i.self) or.push({ userId: scope.actorId });
   const locations = [...new Set([...i.areas, ...i.volunteerAreas].map((a) => a.locationId))];
@@ -473,19 +518,22 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
       ...inAreasOf({ project: { programId: { in: i.programIds } }, ...projectNotRevoked(i) }),
     );
   if (i.projectIds.length) or.push(...inAreasOf({ projectId: { in: i.projectIds } }));
-  return or.length ? { OR: or } : { id: { in: [] } };
+  if (!or.length) return { id: { in: [] } };
+  return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
 /**
  * The beneficiaries a scope reaches (entity `beneficiary`): everyone at GLOBAL;
  * for an area the beneficiaries whose division, district, upazila or union is that location; for
  * PROGRAM and PROJECT the beneficiaries with an application in those projects (the Procurement
- * Team's house-construction projects among them), never through a revoked project. A
- * beneficiary has no account, so SELF reaches nobody.
+ * Team's house-construction projects among them), never through a revoked project and never a
+ * beneficiary whose address lies in a revoked location. A beneficiary has no account, so SELF
+ * reaches nobody.
  */
 export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
   const i = scope.instances;
-  if (i.global) return {};
+  const outside = addressOutsideRevoked(i);
+  if (i.global) return outside ?? {};
   const or: Prisma.BeneficiaryWhereInput[] = [];
   const locations = [...new Set(i.areas.map((a) => a.locationId))];
   if (locations.length)
@@ -498,7 +546,8 @@ export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
     });
   if (i.projectIds.length)
     or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds } } } });
-  return or.length ? { OR: or } : { id: { in: [] } };
+  if (!or.length) return { id: { in: [] } };
+  return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
 /**
@@ -508,17 +557,19 @@ export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
  */
 export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prisma.Sql {
   const i = scope.instances;
-  if (i.global) return Prisma.sql`TRUE`;
   const row = Prisma.raw(alias);
   const uuids = (ids: string[]) => Prisma.sql`ARRAY[${Prisma.join(ids)}]::uuid[]`;
+  const placedIn = (locations: string[]) => {
+    const ids = uuids(locations);
+    return Prisma.sql`(${row}.division_id = ANY(${ids}) OR ${row}.district_id = ANY(${ids}) OR ${row}.upazila_id = ANY(${ids}) OR ${row}.union_id = ANY(${ids}))`;
+  };
+  const outside = i.revokedLocationIds.length
+    ? Prisma.sql`NOT ${placedIn(i.revokedLocationIds)}`
+    : null;
+  if (i.global) return outside ?? Prisma.sql`TRUE`;
   const or: Prisma.Sql[] = [];
   const locations = [...new Set(i.areas.map((a) => a.locationId))];
-  if (locations.length) {
-    const ids = uuids(locations);
-    or.push(
-      Prisma.sql`(${row}.division_id = ANY(${ids}) OR ${row}.district_id = ANY(${ids}) OR ${row}.upazila_id = ANY(${ids}) OR ${row}.union_id = ANY(${ids}))`,
-    );
-  }
+  if (locations.length) or.push(placedIn(locations));
   const notRevokedSql = i.revokedProjectIds.length
     ? Prisma.sql` AND NOT (ap.project_id = ANY(${uuids(i.revokedProjectIds)}))`
     : Prisma.empty;
@@ -530,7 +581,9 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
     or.push(
       Prisma.sql`EXISTS (SELECT 1 FROM applications ap WHERE ap.beneficiary_id = ${row}.id AND ap.project_id = ANY(${uuids(i.projectIds)}))`,
     );
-  return or.length ? Prisma.sql`(${Prisma.join(or, ' OR ')})` : Prisma.sql`FALSE`;
+  if (!or.length) return Prisma.sql`FALSE`;
+  const reach = Prisma.sql`(${Prisma.join(or, ' OR ')})`;
+  return outside ? Prisma.sql`(${reach} AND ${outside})` : reach;
 }
 
 /**
@@ -612,15 +665,17 @@ const applicationsIn = (locationId: string): Prisma.ApplicationWhereInput => ({
  * revoked for the caller; for SELF the applications the caller's volunteer owns and the ones the
  * caller created (a team member's own records); for an area, the applications placed in that
  * location at any of its levels, inside the area's project when the area names one (an RPM holds
- * a region project by project); the applications of the caller's programs and projects. No
- * instance means no application.
+ * a region project by project); the applications of the caller's programs and projects. An
+ * application placed in a revoked location is left out, whichever grant reaches it. No instance
+ * means no application.
  */
 export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
   const i = scope.instances;
   const notRevoked: Prisma.ApplicationWhereInput = i.revokedProjectIds.length
     ? { projectId: { notIn: i.revokedProjectIds } }
     : {};
-  if (i.global) return notRevoked;
+  const outside = i.revokedLocationIds.map((id) => ({ NOT: applicationsIn(id) }));
+  if (i.global) return outside.length ? { AND: [notRevoked, ...outside] } : notRevoked;
   const or: Prisma.ApplicationWhereInput[] = [];
   if (i.self) or.push(...ownApplicationsWhere(scope.actorId, i.teamLeads ?? []));
   for (const a of i.areas)
@@ -632,7 +687,7 @@ export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
   if (i.programIds.length) or.push({ project: { programId: { in: i.programIds } } });
   if (i.projectIds.length) or.push({ projectId: { in: i.projectIds } });
   if (!or.length) return { id: { in: [] } };
-  return { AND: [{ OR: or }, notRevoked] };
+  return { AND: [{ OR: or }, notRevoked, ...outside] };
 }
 
 /**

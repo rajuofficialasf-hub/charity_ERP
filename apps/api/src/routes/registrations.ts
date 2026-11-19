@@ -282,7 +282,7 @@ export function registrationsRouter(
     rateLimit: 'default',
     params: { userId: uuid },
     body: staffDecisionSchema,
-    responses: { 200: userView, 401: null, 403: null, 404: null, 422: null },
+    responses: { 200: userView, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) => {
       await c.registrations.decideStaff(principalOf(req), params.userId, body);
       return ok((await c.users.get(scopeOf(req), params.userId)).user);

@@ -1,4 +1,6 @@
 import { uuidv7 } from '@css/shared';
+import { rpmGrantable } from '../access/hard-rules.js';
+import type { AccessRegistry } from '../access/registry.js';
 import type { Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
 
@@ -36,7 +38,14 @@ export interface HandoverProvider {
   itemType: HandoverItemType;
   list(db: Tx, userId: string): Promise<HandoverItem[]>;
   /** Moves one listed item; an item that is no longer the official's is refused (stale). */
-  reassign(tx: Tx, item: HandoverItem, from: string, to: string, actorId: string): Promise<void>;
+  reassign(
+    tx: Tx,
+    item: HandoverItem,
+    from: string,
+    to: string,
+    actorId: string,
+    registry: AccessRegistry,
+  ): Promise<void>;
 }
 
 const stale = () =>
@@ -119,7 +128,7 @@ const projectStaff: HandoverProvider = {
       requiredRole: r.roleKey,
     }));
   },
-  async reassign(tx, item, from, to, actorId) {
+  async reassign(tx, item, from, to, actorId, registry) {
     const row = await tx.projectStaff.findFirst({
       where: { id: item.itemId, userId: from, endedAt: null },
     });
@@ -139,7 +148,10 @@ const projectStaff: HandoverProvider = {
         canView: row.canView,
         canEdit: row.canEdit,
         canDelete: row.canDelete,
-        extraPermissions: row.extraPermissions,
+        // only the extras the role of the place may hold go across; a stray one ends here
+        extraPermissions: row.extraPermissions.filter((permission) =>
+          rpmGrantable(registry, [row.roleKey], permission),
+        ),
         grantedBy: actorId,
       },
     });

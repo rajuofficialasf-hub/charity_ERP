@@ -140,6 +140,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
 | client | client.origin_refused | 403 | a POST, PUT, PATCH or DELETE whose `Origin` is missing, `null`, or neither the PWA's own nor an allowed one; answered before any route |
 | auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
+| auth | auth.password_confirmation_failed | 403 | a wrong password where a signed-in person confirms an act with it (the Main Admin transfer); counted as a wrong login is, so the fifth answers 423 `auth.account_locked` (AUTH.md §11) |
 | auth | auth.password_unchanged | 422 (as detail of validation.failed) | password change to the password the account already has (O-66) |
 | auth | auth.invitation_invalid | 404 | the set-password link is unknown; ask the admin for a new link (D-097) |
 | auth | auth.invitation_expired | 410 | the set-password link was used, replaced or is older than 72 hours (BR-262) |
@@ -148,7 +149,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
 | permission | permission.denied | 403 | the action needs a permission the caller lacks |
 | permission | permission.not_found | 404 | record does not exist **or** is outside the caller's scope (no existence leak, RBAC.md §8) |
-| permission | permission.grant_refused | 403 | the permission panel or a project grant refuses the change; `params.rule` names the rule: `owner_transfer_only_head`, `global_scope_protected`, `sensitive_to_volunteer`, `not_held_by_granter`, `not_rpm_grantable` (RBAC.md §6, §7; D-078) |
+| permission | permission.grant_refused | 403 | the permission panel or a project grant refuses the change; `params.rule` names the rule: `self_change`, `top_role_protected`, `key_permission_admin_only`, `owner_transfer_only_admin`, `global_scope_protected`, `sensitive_to_volunteer`, `not_held_by_granter`, `not_rpm_grantable`; a new account and the approval of an official's registration answer it with `role_admin_only` for a role the caller may not give (RBAC.md §6, §7; D-078, D-188) |
 | validation | validation.failed | 422 | see details |
 | validation | validation.unknown_parameter | 400 | unknown query parameter |
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |
@@ -168,6 +169,9 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
+| user | user.role_unchanged | 409 | a role change to the role the official already holds (BR-321) |
+| user | user.role_change_inactive | 409 | a role change of an account that is not active: a waiting registration takes its role from the approval, a blocked or closed account takes none (BR-321) |
+| user | user.department_head_exists | 409 | the Department Head role given while another official holds it, in a new account, a registration's approval or a role change; the earlier Head changes role first (BR-320) |
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
 | user | user.job_id_taken | 409 | the job ID belongs to another account, in any letter case (BR-261) |

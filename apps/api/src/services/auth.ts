@@ -110,43 +110,7 @@ export class AuthService {
     if (!ok || !user) {
       let lockedUntil: Date | null;
       if (user) {
-        lockedUntil = null;
-        await this.prisma.$transaction(async (tx) => {
-          // the counter is read again under a row lock, so wrong passwords sent in parallel are
-          // counted one by one and cannot slip past the lock (docs/architecture/AUTH.md, "Lockout
-          // after failed attempts")
-          const [fresh] = await tx.$queryRaw<
-            { failed_login_count: number; locked_until: Date | null }[]
-          >`SELECT failed_login_count, locked_until FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
-          if (fresh?.locked_until && fresh.locked_until > now) {
-            // a parallel attempt has just locked the account: the lock stands as it is
-            lockedUntil = fresh.locked_until;
-            return;
-          }
-          const next = afterFailure(fresh?.failed_login_count ?? user.failedLoginCount, now);
-          lockedUntil = next.lockedUntil;
-          await tx.user.update({
-            where: { id: user.id },
-            data: { failedLoginCount: next.failedCount, lockedUntil: next.lockedUntil },
-          });
-          await this.audit.record(tx, {
-            action: 'auth.login_failed',
-            entityType: 'user',
-            entityId: user.id,
-            actorUserId: user.id,
-            new: { loginIdHash: key },
-          });
-          if (next.lockedUntil) {
-            await this.audit.record(tx, {
-              action: 'auth.locked',
-              entityType: 'user',
-              entityId: user.id,
-              actorUserId: user.id,
-              new: { lockedUntil: next.lockedUntil.toISOString() },
-            });
-            await this.events.accountLocked(tx, user.id, minutesLeft(next.lockedUntil, now), now);
-          }
-        });
+        lockedUntil = await this.countFailure(user, now, { loginIdHash: key });
       } else {
         lockedUntil = this.unknownIds.fail(key, now);
         await this.auditAlone({
@@ -273,6 +237,89 @@ export class AuthService {
         },
       });
     return undefined;
+  }
+
+  /**
+   * Counts one wrong password of an account and locks it at the limit; returns the lock's end, or
+   * null while the account stays open. The counter is read again under a row lock, so wrong
+   * passwords sent in parallel are counted one by one and cannot slip past the lock
+   * (docs/architecture/AUTH.md, "Lockout after failed attempts").
+   */
+  private async countFailure(
+    user: { id: string; failedLoginCount: number },
+    now: Date,
+    detail: Record<string, string>,
+  ): Promise<Date | null> {
+    let lockedUntil: Date | null = null;
+    await this.prisma.$transaction(async (tx) => {
+      const [fresh] = await tx.$queryRaw<
+        { failed_login_count: number; locked_until: Date | null }[]
+      >`SELECT failed_login_count, locked_until FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
+      if (fresh?.locked_until && fresh.locked_until > now) {
+        // a parallel attempt has just locked the account: the lock stands as it is
+        lockedUntil = fresh.locked_until;
+        return;
+      }
+      const next = afterFailure(fresh?.failed_login_count ?? user.failedLoginCount, now);
+      lockedUntil = next.lockedUntil;
+      await tx.user.update({
+        where: { id: user.id },
+        data: { failedLoginCount: next.failedCount, lockedUntil: next.lockedUntil },
+      });
+      await this.audit.record(tx, {
+        action: 'auth.login_failed',
+        entityType: 'user',
+        entityId: user.id,
+        actorUserId: user.id,
+        new: detail,
+      });
+      if (next.lockedUntil) {
+        await this.audit.record(tx, {
+          action: 'auth.locked',
+          entityType: 'user',
+          entityId: user.id,
+          actorUserId: user.id,
+          new: { lockedUntil: next.lockedUntil.toISOString() },
+        });
+        await this.events.accountLocked(tx, user.id, minutesLeft(next.lockedUntil, now), now);
+      }
+    });
+    return lockedUntil;
+  }
+
+  /**
+   * Asks a signed-in person for their password again before an act only they may do
+   * (docs/architecture/AUTH.md, "Main Admin protection"). A wrong password is counted as a wrong
+   * login is, so the account locks at the same limit, and a locked account is refused before the
+   * password is looked at.
+   */
+  async confirmPassword(userId: string, password: string, purpose: string): Promise<void> {
+    const now = this.clock.now();
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, passwordHash: true, failedLoginCount: true, lockedUntil: true },
+    });
+    if (user.lockedUntil && user.lockedUntil > now) throw this.lockedError(user.lockedUntil, now);
+    if (await this.hasher.verify(user.passwordHash, password)) {
+      // a wrong password sent beside this one may have locked the account while the hash was
+      // checked: the lock stands for the right password too
+      const fresh = await this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { failedLoginCount: true, lockedUntil: true },
+      });
+      if (fresh.lockedUntil && fresh.lockedUntil > now)
+        throw this.lockedError(fresh.lockedUntil, now);
+      // as a sign-in does, the right password clears the earlier wrong ones
+      if (fresh.failedLoginCount > 0)
+        await this.prisma.user.updateMany({
+          where: { id: userId, failedLoginCount: { gt: 0 } },
+          data: { failedLoginCount: 0 },
+        });
+      return;
+    }
+    const lockedUntil = await this.countFailure(user, now, { confirmation: purpose });
+    if (lockedUntil) throw this.lockedError(lockedUntil, now);
+    throw new ApiError('auth.password_confirmation_failed', 403);
   }
 
   private lockedError(until: Date, now: Date): ApiError {

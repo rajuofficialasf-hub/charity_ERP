@@ -227,6 +227,45 @@ export class AccountEvents {
     });
   }
 
+  /** The person's role was changed: the notice names the new role in each language. */
+  async roleChanged(
+    tx: Tx,
+    userId: string,
+    role: { nameBn: string; nameEn: string },
+    actorId: string,
+  ): Promise<void> {
+    const key = 'common.notification.role_changed' satisfies MessageKey;
+    await this.notifications.publish(tx, {
+      key: 'permission_changed',
+      recipients: [{ user: userId }],
+      params: {
+        summary: {
+          bn: translate('bn', key, { role: role.nameBn }),
+          en: translate('en', key, { role: role.nameEn }),
+        },
+      },
+      about: userId,
+      actorId,
+    });
+  }
+
+  /**
+   * The Main Admin flag moved: both holders and everyone who watches over the system are told,
+   * the one who moved it too.
+   */
+  async ownerTransferred(
+    tx: Tx,
+    from: { id: string; name: string },
+    to: { id: string; name: string },
+  ): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'system_owner_transferred',
+      recipients: [{ user: from.id }, { user: to.id }, { roles: MONITORING }],
+      params: { previous_name: from.name, new_name: to.name },
+      about: to.id,
+    });
+  }
+
   /** An official ended one of the person's device sessions. */
   async sessionRevoked(
     tx: Tx,

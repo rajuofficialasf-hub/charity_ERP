@@ -51,6 +51,7 @@
     "permission_granted": "{permission} granted",
     "permission_denied": "{permission} withheld",
     "permission_ended": "the separate setting for {permission} ended",
+    "role_changed": "your role is now {role}",
     "project_permissions": "{count} extra permissions on this project",
     "consent_accepted": "accepted",
     "consent_declined": "declined",

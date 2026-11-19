@@ -377,6 +377,7 @@ model UserRole {
   revokedByRef User?     @relation("user_roles_revoked_by", fields: [revokedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([userId, roleKey], where: raw("revoked_at IS NULL"), map: "user_roles_user_id_role_key_key")
+  @@unique([roleKey], where: raw("role_key = 'department_head' AND revoked_at IS NULL"), map: "user_roles_one_department_head_key")
   @@index([roleKey], where: raw("revoked_at IS NULL"), map: "user_roles_role_key_idx")
   @@index([grantedBy], map: "user_roles_granted_by_idx")
   @@index([revokedBy], map: "user_roles_revoked_by_idx")

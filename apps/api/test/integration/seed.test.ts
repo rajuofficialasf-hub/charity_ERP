@@ -11,7 +11,7 @@ import {
 import { SETTING_DEFAULTS } from '@css/shared/settings';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { json, SeedContext } from '../../seed/context.js';
+import { json, SeedContext, seedId } from '../../seed/context.js';
 import { readPermissionsFile } from '../../seed/sets/base/access.js';
 import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows.js';
 import {
@@ -171,8 +171,8 @@ describe('base set', () => {
         // the code-point order of the database's "C" collation, so '.' and '_' sort alike on both sides
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
-    expect(roles).toHaveLength(16);
-    expect(permissions).toHaveLength(159);
+    expect(roles).toHaveLength(17);
+    expect(permissions).toHaveLength(160);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -293,6 +293,112 @@ describe('base set', () => {
 });
 
 describe('demo set', () => {
+  it('makes the demo Admin the Main Admin and leaves the Head a Head', async () => {
+    const rows = (
+      await db.query(
+        `SELECT u.email, u.is_system_owner, r.role_key FROM users u JOIN user_roles r ON r.user_id = u.id AND r.revoked_at IS NULL
+         WHERE u.email IN ('admin@example.org', 'head@example.org') ORDER BY u.email`,
+      )
+    ).rows;
+    expect(rows).toEqual([
+      { email: 'admin@example.org', is_system_owner: true, role_key: 'admin' },
+      { email: 'head@example.org', is_system_owner: false, role_key: 'department_head' },
+    ]);
+  });
+
+  it('moves the Main Admin of a database seeded before the Admin role to the demo Admin, once', async () => {
+    const cloned = await cloneTemplate(inject('templateDb'));
+    const client = cloned.client;
+    const older = prismaClientFor(cloned.url);
+    const url = cloned.url;
+    try {
+      await runSeed(older, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
+      // the demo Head as the admin role migration leaves an older database: the Main Admin,
+      // holding the admin role, the Head role ended
+      const head = seedId('user:department_head');
+      await client.query(
+        `INSERT INTO users (id, kind, email, mobile, password_hash, state, display_name, is_system_owner)
+         VALUES ($1, 'staff', 'head@example.org', '01700000001', 'x', 'active', 'ডিপার্টমেন্ট হেড', true)`,
+        [head],
+      );
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by, revoked_at) VALUES
+           ($1, $2, 'department_head', $2, now()), (gen_random_uuid(), $2, 'admin', $2, NULL)`,
+        [seedId(`user-role:${head}:department_head`), head],
+      );
+      const state = async () =>
+        (
+          await client.query(
+            `SELECT u.email, u.is_system_owner, array_agg(r.role_key ORDER BY r.role_key) FILTER (WHERE r.revoked_at IS NULL) AS roles
+             FROM users u LEFT JOIN user_roles r ON r.user_id = u.id
+             WHERE u.email IN ('admin@example.org', 'head@example.org') GROUP BY u.email, u.is_system_owner ORDER BY u.email`,
+          )
+        ).rows;
+      await runSeed(older, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+      expect(await state()).toEqual([
+        { email: 'admin@example.org', is_system_owner: true, roles: ['admin'] },
+        { email: 'head@example.org', is_system_owner: false, roles: ['department_head'] },
+      ]);
+      // the Head's sessions reload their access after the handover
+      const version = await client.query(
+        `SELECT permission_version FROM users WHERE email = 'head@example.org'`,
+      );
+      expect(version.rows[0].permission_version).toBeGreaterThan(1);
+      // a later seed leaves a role the owner changed since as it is
+      await client.query(
+        `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
+        [head],
+      );
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by) VALUES (gen_random_uuid(), $1, 'program_manager', $1)`,
+        [head],
+      );
+      await runSeed(older, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: url });
+      expect((await state())[1]).toEqual({
+        email: 'head@example.org',
+        is_system_owner: false,
+        roles: ['program_manager'],
+      });
+    } finally {
+      await older.$disconnect();
+      await cloned.drop();
+    }
+  }, 180_000);
+
+  it('leaves a Main Admin the owner chose where it is: the new demo Admin takes no flag', async () => {
+    const cloned = await cloneTemplate(inject('templateDb'));
+    const client = cloned.client;
+    const other = prismaClientFor(cloned.url);
+    try {
+      await runSeed(other, ['base'], { NODE_ENV: 'test', DATABASE_URL: cloned.url });
+      const chosen = seedId('user:someone-else');
+      await client.query(
+        `INSERT INTO users (id, kind, email, mobile, password_hash, state, display_name, is_system_owner)
+         VALUES ($1, 'staff', 'chosen@example.org', '01700000999', 'x', 'active', 'x', true)`,
+        [chosen],
+      );
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by) VALUES (gen_random_uuid(), $1, 'admin', $1)`,
+        [chosen],
+      );
+      await runSeed(other, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: cloned.url });
+      const owners = (
+        await client.query(`SELECT email FROM users WHERE is_system_owner ORDER BY email`)
+      ).rows;
+      expect(owners).toEqual([{ email: 'chosen@example.org' }]);
+      const head = (
+        await client.query(
+          `SELECT r.role_key FROM user_roles r JOIN users u ON u.id = r.user_id
+           WHERE u.email = 'head@example.org' AND r.revoked_at IS NULL`,
+        )
+      ).rows;
+      expect(head).toEqual([{ role_key: 'department_head' }]);
+    } finally {
+      await other.$disconnect();
+      await cloned.drop();
+    }
+  }, 180_000);
+
   it('has one account per official role, the Main Admin and the volunteer mix', async () => {
     const byRole = Object.fromEntries(
       (
@@ -300,6 +406,7 @@ describe('demo set', () => {
       ).rows.map((r) => [r.role_key, r.n]),
     );
     expect(byRole).toEqual({
+      admin: 1,
       department_head: 1,
       monitoring_team: 1,
       program_manager: 3,
@@ -320,7 +427,7 @@ describe('demo set', () => {
     expect(
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
-    expect(DEMO_STAFF).toHaveLength(15);
+    expect(DEMO_STAFF).toHaveLength(16);
     // the dedicated official of the handover journey holds one project area of its own
     const areas = (
       await db.query(
@@ -513,7 +620,7 @@ describe('demo set', () => {
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );
     expect(rows[0].argon).toBe(rows[0].n);
-    expect(rows[0].n).toBe(36);
+    expect(rows[0].n).toBe(37);
   });
 });
 

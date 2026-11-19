@@ -31,4 +31,13 @@ export class PermissionVersionService {
     this.sessions.evictUser(userId);
     return user.permissionVersion;
   }
+
+  /**
+   * Drops the cached session facts of the users once more, after the transaction of their `bump`
+   * has committed: a request that ran between the bump and the commit read the old version and
+   * cached it, and an old token would pass until that cache entry ended.
+   */
+  settled(...userIds: string[]): void {
+    for (const userId of userIds) this.sessions.evictUser(userId);
+  }
 }

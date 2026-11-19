@@ -236,7 +236,7 @@ describe('a Program Manager', () => {
     expect(projectsOf(res.body).map((p) => p.id)).toEqual([inProgram.id]);
     expect((await of(pm, stranger.id)).status).toBe(404);
 
-    const head = await account(h.db, { role: 'department_head' });
+    const head = await account(h.db, { role: 'admin' });
     const all = await of(head, rpm.id);
     expect(
       projectsOf(all.body)
@@ -261,7 +261,7 @@ describe('who sees the figures', () => {
   });
 
   it('finds no official behind a volunteer id, and gives a volunteer no own list', async () => {
-    const head = await account(h.db, { role: 'department_head' });
+    const head = await account(h.db, { role: 'admin' });
     const volunteer = await account(h.db, { kind: 'volunteer' });
     expect((await of(head, volunteer.id)).status).toBe(404);
     expect((await own(volunteer)).status).toBe(404);

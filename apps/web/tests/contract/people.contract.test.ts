@@ -42,8 +42,11 @@ import {
 // permission panel and the handover. Each case makes the people it reads or changes, so no shared
 // demo account is changed.
 const REASON = 'চুক্তি পরীক্ষার কারণ';
-/** A permission an RPM holds by default, given on the official's region through the panel. */
-const GRANTED_PERMISSION = 'session.revoke_user';
+/**
+ * An ordinary permission an RPM holds by default, given on the official's region through the
+ * panel by the Department Head (a key permission would be an Admin's to give).
+ */
+const GRANTED_PERMISSION = 'application.view';
 
 /** A user's id by the login id the user search finds them with. */
 async function userIdOf(caller: Caller, loginId: string): Promise<string> {

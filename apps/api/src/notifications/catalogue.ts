@@ -30,6 +30,7 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   edit_request_approved: entry('info'),
   edit_request_closed: entry('info'),
   permission_changed: entry('security'),
+  system_owner_transferred: entry('security', { email: true }),
   account_blocked: entry('security'),
   account_unblocked: entry('security'),
   session_revoked: entry('security'),

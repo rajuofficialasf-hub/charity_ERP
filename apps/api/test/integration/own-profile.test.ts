@@ -163,7 +163,7 @@ describe('the photo of a person', () => {
         .get(`/api/v1/files/${photo}/content`)
         .set(bearer(await login(h, who)));
     expect((await content(official)).status).toBe(200);
-    expect((await content(await account(h.db, { role: 'department_head' }))).status).toBe(200);
+    expect((await content(await account(h.db, { role: 'admin' }))).status).toBe(200);
     expect((await content(await account(h.db, { role: 'project_executive' }))).status).toBe(200);
     expect((await content(await account(h.db, { kind: 'volunteer' }))).status).toBe(404);
   });

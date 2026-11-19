@@ -29,6 +29,7 @@ export class TestClock {
 export const PASSWORD = 'Nadi kul 2026';
 
 const ROLES = [
+  { key: 'admin', kind: 'official', global: true },
   { key: 'department_head', kind: 'official', global: true },
   { key: 'monitoring_team', kind: 'official', global: true },
   { key: 'program_manager', kind: 'official', global: false },
@@ -70,9 +71,11 @@ export async function authHarness(
   } = {},
 ): Promise<AuthHarness> {
   const clone = await cloneTemplate(inject('templateDb'));
+  // the admin role's row comes with its migration; the others are the test's own
   for (const role of ROLES)
     await clone.client.query(
-      `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, $2, $3)`,
+      `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, $2, $3)
+       ON CONFLICT (key) DO NOTHING`,
       [role.key, role.kind, role.global],
     );
   const clock = new TestClock();
@@ -178,7 +181,7 @@ export async function systemOwner(db: Client): Promise<Account> {
   );
   const row = existing.rows[0] as { id: string; email: string; mobile: string } | undefined;
   if (row) return { id: row.id, email: row.email, mobile: row.mobile, loginId: row.email };
-  return account(db, { role: 'department_head', systemOwner: true });
+  return account(db, { role: 'admin', systemOwner: true });
 }
 
 export interface Session {

@@ -194,24 +194,145 @@ describe('grant and revoke', () => {
 });
 
 describe('refusals', () => {
-  const refused = async (body: Record<string, unknown>, rule: string, target: string) => {
-    const monitoring = await as(world.users.monitoring);
+  const refused = async (
+    body: Record<string, unknown>,
+    rule: string,
+    target: string,
+    actor: string = world.users.head,
+  ) => {
+    const session = await as(actor);
     const before = (await audits(target, 'permission_change_refused')).length;
+    const rows = async () =>
+      (
+        await h.db.query('SELECT count(*)::int AS n FROM user_permissions WHERE user_id = $1', [
+          target,
+        ])
+      ).rows[0].n as number;
+    const written = await rows();
     const res = await api()
       .post('/api/v1/permission-grants')
-      .set(bearer(monitoring))
+      .set(bearer(session))
       .send({ effect: 'grant', scopeType: 'GLOBAL', reason: REASON, userId: target, ...body })
       .expect(403);
     expect(res.body.error).toMatchObject({ code: 'permission.grant_refused', params: { rule } });
     expect(await audits(target, 'permission_change_refused')).toHaveLength(before + 1);
+    // a refused change writes nothing
+    expect(await rows()).toBe(written);
   };
+  const end = (s: Session, grantId: string) =>
+    api()
+      .post(`/api/v1/permission-grants/${grantId}/revoke`)
+      .set(bearer(s))
+      .send({ reason: 'Ending the override for the test' });
 
-  it('refuses the owner transfer to anyone but the Department Head', async () => {
+  it('refuses the owner transfer to anyone but an Admin, and leaves it to an Admin to give', async () => {
+    for (const target of [world.users.monitoring, world.users.pm])
+      await refused(
+        { permission: 'system.owner.transfer' },
+        'owner_transfer_only_admin',
+        target,
+        world.users.admin,
+      );
     await refused(
       { permission: 'system.owner.transfer' },
-      'owner_transfer_only_head',
-      world.users.monitoring,
+      'key_permission_admin_only',
+      world.users.pm,
     );
+  });
+
+  it('leaves the key permissions to an Admin: the Head is refused, and may still take one away', async () => {
+    for (const permission of ['permission.panel.manage', 'user.role.change', 'settings.manage'])
+      await refused({ permission }, 'key_permission_admin_only', world.users.pm);
+    const admin = await as(world.users.admin);
+    const head = await as(world.users.head);
+    const given = await grant(admin, {
+      userId: world.users.pm,
+      permission: 'user.create',
+    }).expect(201);
+    // taking a key permission away lowers access, so the Head may: a revoke, or the end of a grant
+    const taken = await grant(head, {
+      userId: world.users.pm,
+      permission: 'user.create',
+      effect: 'revoke',
+      scopeType: 'GLOBAL',
+    }).expect(201);
+    // lifting that revoke gives the permission back: an Admin's to do
+    const before = (await audits(world.users.pm, 'permission_change_refused')).length;
+    const lifted = await end(head, taken.body.data.id).expect(403);
+    expect(lifted.body.error).toMatchObject({
+      code: 'permission.grant_refused',
+      params: { rule: 'key_permission_admin_only' },
+    });
+    expect(await audits(world.users.pm, 'permission_change_refused')).toHaveLength(before + 1);
+    await end(admin, taken.body.data.id).expect(204);
+    await end(head, given.body.data.id).expect(204);
+  });
+
+  it('refuses a change of the own access: a grant, a revoke and the end of an override', async () => {
+    for (const actor of [world.users.head, world.users.admin]) {
+      await refused({ permission: 'permission.view' }, 'self_change', actor, actor);
+      await refused(
+        { permission: 'application.view', effect: 'revoke', scopeType: 'SELF' },
+        'self_change',
+        actor,
+        actor,
+      );
+    }
+    // an override another Admin wrote on the Head: the Head does not end it
+    const admin = await as(world.users.admin);
+    const onHead = await grant(admin, {
+      userId: world.users.head,
+      permission: 'form.library.manage',
+      scopeType: 'PROJECT',
+      scopeRef: world.a1.id,
+    }).expect(201);
+    const res = await end(await as(world.users.head), onHead.body.data.id).expect(403);
+    expect(res.body.error.params).toEqual({ rule: 'self_change' });
+    const row = await h.db.query('SELECT revoked_at FROM user_permissions WHERE id = $1', [
+      onHead.body.data.id,
+    ]);
+    expect(row.rows[0].revoked_at).toBeNull();
+    await end(admin, onHead.body.data.id).expect(204);
+  });
+
+  it('writes no revoke against an Admin or the Department Head, at any scope', async () => {
+    const other = await account(h.db, { role: 'admin' });
+    for (const target of [world.users.head, other.id])
+      for (const scope of [
+        { scopeType: 'GLOBAL' },
+        { scopeType: 'PROJECT', scopeRef: world.a1.id },
+        { scopeType: 'REGION', scopeRef: world.dhaka.division },
+      ])
+        await refused(
+          { permission: 'application.view', effect: 'revoke', ...scope },
+          'top_role_protected',
+          target,
+          world.users.admin,
+        );
+  });
+
+  it('refuses a condition on a revoke', async () => {
+    const head = await as(world.users.head);
+    const res = await grant(head, {
+      userId: world.users.executive,
+      permission: 'application.view',
+      effect: 'revoke',
+      scopeType: 'PROJECT',
+      scopeRef: world.a1.id,
+      condition: 'own_region',
+    }).expect(422);
+    expect(res.body.error.details).toContainEqual(
+      expect.objectContaining({ path: 'condition', code: 'validation.unknown_parameter' }),
+    );
+  });
+
+  it('refuses the Monitoring Team the panel itself', async () => {
+    const monitoring = await as(world.users.monitoring);
+    const res = await grant(monitoring, {
+      userId: world.users.pm,
+      permission: 'permission.view',
+    }).expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
   });
 
   it('refuses to remove the GLOBAL scope of the Monitoring Team', async () => {
@@ -232,9 +353,9 @@ describe('refusals', () => {
 
   it('answers 409 for any change that targets the Main Admin, before every other rule', async () => {
     // a Main Admin of its own, so no other test depends on the flag (it cannot be unset)
-    const owner = await account(h.db, { role: 'department_head' });
-    const monitoring = await as(world.users.monitoring);
-    const live = await grant(monitoring, {
+    const owner = await account(h.db, { role: 'admin' });
+    const head = await as(world.users.head);
+    const live = await grant(head, {
       userId: owner.id,
       permission: 'form.library.manage',
     }).expect(201);
@@ -246,7 +367,7 @@ describe('refusals', () => {
     ]) {
       const res = await api()
         .post('/api/v1/permission-grants')
-        .set(bearer(monitoring))
+        .set(bearer(head))
         .send({
           effect: 'grant',
           scopeType: 'GLOBAL',
@@ -260,7 +381,7 @@ describe('refusals', () => {
     // ending a grant of the Main Admin is refused too, and the grant stays live
     const end = await api()
       .post(`/api/v1/permission-grants/${live.body.data.id}/revoke`)
-      .set(bearer(monitoring))
+      .set(bearer(head))
       .send({ reason: 'Trying to strip the owner' })
       .expect(409);
     expect(end.body.error.code).toBe('user.system_owner_protected');

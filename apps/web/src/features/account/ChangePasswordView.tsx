@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
-import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
+import { holdsGlobalRole } from '../../admin/roles';
 import { api, refreshSession } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 
@@ -107,8 +107,7 @@ export function ChangePasswordView() {
                   password={next}
                   id="change-rules"
                   minLength={minPasswordLength(
-                    me.passwordChangeRequired === true ||
-                      me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
+                    me.passwordChangeRequired === true || holdsGlobalRole(me),
                   )}
                 />
                 <FormTextField

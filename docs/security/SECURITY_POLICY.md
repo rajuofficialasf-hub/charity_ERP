@@ -139,7 +139,7 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 
 | Constitution §13 event | Action codes |
 |---|---|
-| Permission and role changes | `permission_change`, `permission_change_refused` (refused panel and project-grant changes, including any change aimed at the Main Admin; T1.8), `auth.state_changed`, `auth.system_owner_transferred` |
+| Permission and role changes | `permission_change`, `permission_change_refused` (refused panel and project-grant changes, including any change aimed at the Main Admin; T1.8), `auth.state_changed`, `user.role_changed`, `auth.system_owner_transferred`, `auth.system_owner_received` |
 | Approvals and rejections | `application.approve`, `application.reject`, `application.waitlisted`, `auth.approved`, `auth.rejected`, `beneficiary.correction_decided`, `beneficiary.identity_added` (an identity document added by an official to a profile without one, the number masked to its last four digits, with the application it came from), `auth.edit_request_decided` |
 | Field unlock | `field.unlock`, `field.updated`, `field.relocked` |
 | Blocklist | `blocklist.set`, `blocklist.lift` |

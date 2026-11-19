@@ -122,6 +122,7 @@ import { RegistrationService } from './services/registration.js';
 import { RegistrationPhotosService } from './services/registration-photos.js';
 import { SessionsService } from './services/sessions.js';
 import { AccessPanelService } from './services/access.js';
+import { RoleChangesService } from './services/role-changes.js';
 import { OrganogramService } from './services/organogram.js';
 import { StaffAccountsService } from './services/staff-accounts.js';
 import { UsersService } from './services/users.js';
@@ -155,6 +156,7 @@ export interface Container {
   auth: AuthService;
   deviceSessions: SessionsService;
   users: UsersService;
+  roleChanges: RoleChangesService;
   ownProfile: OwnProfileService;
   projectsWork: ProjectsWorkService;
   staffAccounts: StaffAccountsService;
@@ -322,6 +324,22 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
   const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
+  const auth =
+    o.auth ??
+    new AuthService(
+      env,
+      prisma,
+      clock,
+      hasher,
+      tokens,
+      sessions,
+      otp,
+      audit,
+      logger,
+      accountEvents,
+    );
+  const users =
+    o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access);
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
   const referenceLists = o.referenceLists ?? new ReferenceListsService(prisma, audit);
   const formLibrary =
@@ -432,24 +450,22 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     permissionVersions,
     otpDelivery,
     otp,
-    auth:
-      o.auth ??
-      new AuthService(
-        env,
-        prisma,
-        clock,
-        hasher,
-        tokens,
-        sessions,
-        otp,
-        audit,
-        logger,
-        accountEvents,
-      ),
+    auth,
     deviceSessions:
       o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access, accountEvents),
-    users:
-      o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
+    users,
+    roleChanges:
+      o.roleChanges ??
+      new RoleChangesService(
+        prisma,
+        clock,
+        audit,
+        access,
+        permissionVersions,
+        accountEvents,
+        users,
+        auth,
+      ),
     ownProfile: o.ownProfile ?? new OwnProfileService(prisma),
     projectsWork: o.projectsWork ?? new ProjectsWorkService(prisma, access),
     staffAccounts:

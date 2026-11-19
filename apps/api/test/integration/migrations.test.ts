@@ -833,6 +833,99 @@ describe('migrations', () => {
     }
   });
 
+  it('the admin role migration makes the Main Admin an Admin, keeps one live Department Head, and down gives the role back', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261119120000_admin_role');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('admin');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    const file = (dir: string, name: string) =>
+      client.query(readFileSync(join(MIGRATIONS_DIR, dir, name), 'utf8'));
+    try {
+      for (const dir of dirs.slice(0, at)) await file(dir, 'migration.sql');
+      for (const key of ['department_head', 'project_executive'])
+        await client.query(
+          `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, 'official', $2)`,
+          [key, key === 'department_head'],
+        );
+      const owner = await user(client);
+      const executive = await user(client);
+      await client.query('UPDATE users SET is_system_owner = true WHERE id = $1', [owner]);
+      const grant = (userId: string, role: string) =>
+        client.query(
+          `INSERT INTO user_roles (id, user_id, role_key, granted_by) VALUES (gen_random_uuid(), $1, $2, $1)`,
+          [userId, role],
+        );
+      await grant(owner, 'department_head');
+      await grant(executive, 'project_executive');
+      // nothing limited the Heads before: two more hold the role, the first of them the longest
+      const longest = await user(client);
+      const later = await user(client);
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by, granted_at) VALUES
+           (gen_random_uuid(), $1, 'department_head', $1, '2026-01-01T00:00:00Z'),
+           (gen_random_uuid(), $2, 'department_head', $2, '2026-06-01T00:00:00Z')`,
+        [longest, later],
+      );
+      const live = async (userId: string) =>
+        (
+          await client.query(
+            `SELECT role_key FROM user_roles WHERE user_id = $1 AND revoked_at IS NULL ORDER BY role_key`,
+            [userId],
+          )
+        ).rows.map((r) => r.role_key as string);
+      const version = async (userId: string) =>
+        (await client.query('SELECT permission_version FROM users WHERE id = $1', [userId])).rows[0]
+          .permission_version as number;
+      const before = await version(owner);
+
+      await file(dirs[at]!, 'migration.sql');
+      expect(await live(owner)).toEqual(['admin']);
+      expect(await live(executive)).toEqual(['project_executive']);
+      expect(await version(owner)).toBe(before + 1);
+      // of the other Heads the one who held the role longest keeps it; the second one's ends, audited
+      expect(await live(longest)).toEqual(['department_head']);
+      expect(await live(later)).toEqual([]);
+      const surplus = await client.query(
+        `SELECT entity_id FROM audit_log WHERE action = 'user.role_changed' AND reason LIKE 'One Department Head%'`,
+      );
+      expect(surplus.rows).toEqual([{ entity_id: later }]);
+      const role = await client.query(`SELECT kind, global_scope FROM roles WHERE key = 'admin'`);
+      expect(role.rows).toEqual([{ kind: 'official', global_scope: true }]);
+      const audit = await client.query(
+        `SELECT entity_id FROM audit_log WHERE action = 'user.role_changed' AND entity_id = $1`,
+        [owner],
+      );
+      expect(audit.rows).toHaveLength(1);
+      // one live Department Head at a time: a second one is refused by the database
+      const second = await user(client);
+      await expectSqlError(grant(second, 'department_head'), SQLSTATE.uniqueViolation);
+
+      // the reverse refuses what it cannot undo: the Main Admin as a second Head, another Admin
+      await expect(file(dirs[at]!, 'down.sql')).rejects.toThrow(/second Department Head/);
+      await client.query(
+        `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
+        [longest],
+      );
+      await grant(second, 'admin');
+      await expect(file(dirs[at]!, 'down.sql')).rejects.toThrow(/hold the admin role/);
+      await client.query(
+        `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'admin'`,
+        [second],
+      );
+
+      await file(dirs[at]!, 'down.sql');
+      expect(await live(owner)).toEqual(['department_head']);
+      expect(await version(owner)).toBe(before + 2);
+      // the migration applies again on what the reverse left
+      await file(dirs[at]!, 'migration.sql');
+      expect(await live(owner)).toEqual(['admin']);
+    } finally {
+      await client.end();
+    }
+  });
+
   describe('the optional identity migration and its down.sql', () => {
     const OPTIONAL_IDENTITY = '20261112160000_beneficiary_optional_identity';
     type Db = ReturnType<typeof newClient>;

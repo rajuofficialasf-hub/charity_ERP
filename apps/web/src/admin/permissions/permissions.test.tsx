@@ -381,7 +381,7 @@ describe('permission panel', () => {
   }, 15_000);
 
   it('renders in English without accessibility violations', async () => {
-    const { container } = renderPanel({ ...ME, roles: ['monitoring_team'] }, 'en');
+    const { container } = renderPanel({ ...ME, roles: ['admin'] }, 'en');
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Permission panel' }),
     ).toBeInTheDocument();
@@ -393,6 +393,16 @@ describe('permission panel', () => {
     const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'পারমিশন' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the panel from the Monitoring Team: no menu item, and the forbidden screen at its address', async () => {
+    const monitoring = { ...ME, roles: ['monitoring_team'] };
+    const menu = renderPanel(monitoring, 'bn', '/admin');
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
+    expect(within(nav).queryByRole('link', { name: 'পারমিশন' })).not.toBeInTheDocument();
+    menu.unmount();
+    renderPanel(monitoring);
+    expect(await screen.findByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeInTheDocument();
   });
 
   it('shows the forbidden screen to a Program Manager at the panel address', async () => {
