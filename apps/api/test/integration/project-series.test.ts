@@ -976,7 +976,7 @@ describe('the request budget of the card reads', () => {
   afterAll(async () => limited.close());
 
   it('shares 60 calls a minute per user across the program cards and the series', async () => {
-    const head = await account(limited.db, { role: 'department_head' });
+    const head = await account(limited.db, { role: 'admin' });
     const s = await login(limited, head);
     const call = (path: string) => request(limited.server()).get(`/api/v1${path}`).set(bearer(s));
     for (let i = 0; i < 30; i += 1) expect((await call('/program-cards')).status).toBe(200);

@@ -8,7 +8,8 @@ Password of every demo account: `CssDemo2026` (development only; meets the O-05 
 
 | Role | Job ID | Email | Mobile | Reports to | Notes |
 |---|---|---|---|---|---|
-| Department Head | CSS-001 | head@example.org | 01700000001 | — | Main Admin (is_system_owner) |
+| Admin | CSS-000 | admin@example.org | 01700000017 | — | Main Admin (is_system_owner); maintains the system, appoints the Department Head (D-187) |
+| Department Head | CSS-001 | head@example.org | 01700000001 | — | Head of the department; a database seeded before the Admin role had this account as the Main Admin: the admin role migration makes it an Admin, and the next `pnpm db:seed` creates the demo Admin, hands the Main Admin flag over and gives this account the Head's role back, once |
 | Monitoring Team | CSS-002 | monitoring@example.org | 01700000002 | CSS-001 |  |
 | Program Manager | CSS-101 | pm.ucd@example.org | 01700000003 | CSS-001 | PM of program UCD |
 | Program Manager | CSS-102 | pm.hum@example.org | 01700000004 | CSS-001 | PM of program HUM |

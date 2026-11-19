@@ -234,7 +234,7 @@ Constraints: partial UNIQUE (user_id) WHERE used_at IS NULL AND revoked_at IS NU
 | revoked_at | timestamptz | yes | — | — |
 | revoked_by | uuid | yes | — | FK users |
 
-Constraints: partial UNIQUE (user_id, role_key) WHERE revoked_at IS NULL. Index: (role_key) WHERE revoked_at IS NULL.
+Constraints: partial UNIQUE (user_id, role_key) WHERE revoked_at IS NULL. Index: (role_key) WHERE revoked_at IS NULL. Partial UNIQUE (role_key) WHERE role_key = 'department_head' AND revoked_at IS NULL: one official holds the Department Head role at a time (D-187, BR-320). A role is never deleted: a role change ends the old row (revoked_at, revoked_by) and adds a new one (BR-321).
 
 ### permissions
 | Column | Type | Null | Default | Comment |

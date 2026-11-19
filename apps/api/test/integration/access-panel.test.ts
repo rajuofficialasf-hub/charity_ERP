@@ -238,7 +238,7 @@ describe('refusals', () => {
 
   it('answers 409 for any change that targets the Main Admin, before every other rule', async () => {
     // a Main Admin of its own, so no other test depends on the flag (it cannot be unset)
-    const owner = await account(h.db, { role: 'department_head' });
+    const owner = await account(h.db, { role: 'admin' });
     const head = await as(world.users.head);
     const live = await grant(head, {
       userId: owner.id,

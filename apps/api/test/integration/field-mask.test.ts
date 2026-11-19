@@ -108,7 +108,7 @@ describe('field mask on responses', () => {
   });
 
   it('answers server.internal instead of sending a result that breaks its schema', async () => {
-    const s = await login(h, await account(h.db, { role: 'department_head' }));
+    const s = await login(h, await account(h.db, { role: 'admin' }));
     const res = await api().get('/api/v1/mask-probe/broken').set(bearer(s)).expect(500);
     expect(res.body.error.code).toBe('server.internal');
     expect(JSON.stringify(res.body)).not.toContain('not a number');

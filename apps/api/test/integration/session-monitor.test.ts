@@ -30,7 +30,7 @@ afterAll(async () => h.close());
 
 describe('the active sessions', () => {
   it('lists active sessions only, with the person and the device, never a token or address', async () => {
-    const head = await login(h, await account(h.db, { role: 'department_head' }));
+    const head = await login(h, await account(h.db, { role: 'admin' }));
     const volunteer = await account(h.db, { kind: 'volunteer', role: 'volunteer_general' });
     await login(h, volunteer);
     const kept = await newestSession(volunteer.id);
@@ -74,7 +74,7 @@ describe('the active sessions', () => {
   });
 
   it('searches by person name', async () => {
-    const monitor = await login(h, await account(h.db, { role: 'department_head' }));
+    const monitor = await login(h, await account(h.db, { role: 'admin' }));
     const target = await account(h.db, { role: 'program_manager' });
     await h.db.query(`UPDATE users SET display_name = 'অনন্য খোঁজ' WHERE id = $1`, [target.id]);
     await login(h, target);
@@ -89,7 +89,7 @@ describe('the active sessions', () => {
   });
 
   it('a global role ends an official session with a reason; the Main Admin stays protected', async () => {
-    const monitor = await login(h, await account(h.db, { role: 'department_head' }));
+    const monitor = await login(h, await account(h.db, { role: 'admin' }));
     const official = await account(h.db, { role: 'program_manager' });
     await login(h, official);
     const officialSession = await newestSession(official.id);

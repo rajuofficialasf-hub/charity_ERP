@@ -92,8 +92,8 @@ describe('own device sessions', () => {
 });
 
 describe("an official revokes another user's device", () => {
-  it('lets the Department Head list and revoke with a reason (lost phone)', async () => {
-    const monitor = await login(h, await account(h.db, { role: 'department_head' }));
+  it('lets an Admin list and revoke with a reason (lost phone)', async () => {
+    const monitor = await login(h, await account(h.db, { role: 'admin' }));
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const phone = await login(h, volunteer);
     const list = await api()
@@ -159,7 +159,7 @@ describe("an official revokes another user's device", () => {
     expect(res.body.error.code).toBe('permission.not_found');
   });
 
-  it("answers 404 to an RPM for another official's devices in the same area, never the Department Head", async () => {
+  it("answers 404 to an RPM for another official's devices in the same area, never an Admin", async () => {
     const division = (await locationTree(h.db)).division;
     const p = await project(h.db);
     const rpm = await account(h.db, { role: 'regional_program_manager' });
@@ -174,7 +174,7 @@ describe("an official revokes another user's device", () => {
     const list = await api().get(`/api/v1/users/${colleague.id}/sessions`).set(bearer(asRpm));
     expect(list.status).toBe(404);
     expect(list.body.error.code).toBe('permission.not_found');
-    const monitoring = await login(h, await account(h.db, { role: 'department_head' }));
+    const monitoring = await login(h, await account(h.db, { role: 'admin' }));
     const seen = await api()
       .get(`/api/v1/users/${colleague.id}/sessions`)
       .set(bearer(monitoring))
@@ -185,7 +185,7 @@ describe("an official revokes another user's device", () => {
   it("protects the Main Admin's sessions from everyone else", async () => {
     const owner = await systemOwner(h.db);
     const ownerSession = await login(h, owner);
-    const monitor = await login(h, await account(h.db, { role: 'department_head' }));
+    const monitor = await login(h, await account(h.db, { role: 'admin' }));
     const list = await api()
       .get(`/api/v1/users/${owner.id}/sessions`)
       .set(bearer(monitor))
@@ -202,7 +202,7 @@ describe("an official revokes another user's device", () => {
 
 describe('user administration', () => {
   it('lists and shows users for global roles only, with an ETag', async () => {
-    const head = await login(h, await account(h.db, { role: 'department_head' }));
+    const head = await login(h, await account(h.db, { role: 'admin' }));
     const target = await account(h.db);
     const list = await api()
       .get('/api/v1/users')
@@ -236,7 +236,7 @@ describe('user administration', () => {
   });
 
   it('blocks a staff account with If-Match, bumps the version and revokes its sessions', async () => {
-    const head = await login(h, await account(h.db, { role: 'department_head' }));
+    const head = await login(h, await account(h.db, { role: 'admin' }));
     const target = await account(h.db);
     const targetSession = await login(h, target);
     const etag = (await api().get(`/api/v1/users/${target.id}`).set(bearer(head))).headers
@@ -283,7 +283,7 @@ describe('user administration', () => {
   });
 
   it('refuses the Main Admin, own account, volunteer blocks, pending accounts and same-state changes', async () => {
-    const headAccount = await account(h.db, { role: 'department_head' });
+    const headAccount = await account(h.db, { role: 'admin' });
     const head = await login(h, headAccount);
     const change = async (id: string, state: string) => {
       const etag = (await api().get(`/api/v1/users/${id}`).set(bearer(head))).headers
@@ -312,7 +312,7 @@ describe('user administration', () => {
   });
 
   it('deactivates only after a completed handover and allows reactivation', async () => {
-    const headAccount = await account(h.db, { role: 'department_head' });
+    const headAccount = await account(h.db, { role: 'admin' });
     const head = await login(h, headAccount);
     const staff = await account(h.db);
     const etag = async () =>
@@ -354,7 +354,7 @@ describe('user administration', () => {
   });
 
   it('clears a login lock with a reason', async () => {
-    const monitor = await login(h, await account(h.db, { role: 'department_head' }));
+    const monitor = await login(h, await account(h.db, { role: 'admin' }));
     const staff = await account(h.db);
     const notLocked = await api()
       .post(`/api/v1/users/${staff.id}/unlock`)

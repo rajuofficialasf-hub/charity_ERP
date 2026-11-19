@@ -23,7 +23,7 @@ afterAll(async () => h.close());
 
 /** The harness clock as a Dhaka wall clock (six hours ahead of UTC all year). */
 const dhakaNow = () => new Date(h.clock.now().getTime() + 6 * 3_600_000);
-const head = async () => login(h, await account(h.db, { role: 'department_head' }));
+const head = async () => login(h, await account(h.db, { role: 'admin' }));
 const sms = {
   provider: 'sample_gateway',
   senderId: 'ASF',
@@ -102,7 +102,7 @@ describe('the notification channels', () => {
 
 describe('the system health', () => {
   it('shows the checks, the dummy OTP, the audit partitions and the storage growth', async () => {
-    const uploader = await account(h.db, { role: 'department_head' });
+    const uploader = await account(h.db, { role: 'admin' });
     const file = (kind: string, size: number, deleted = false, at = h.clock.now()) =>
       h.db.query(
         `INSERT INTO files (id, bucket, storage_driver, object_key, kind, mime, size_bytes, sha256, uploaded_by, source, uploaded_at, deleted_at)

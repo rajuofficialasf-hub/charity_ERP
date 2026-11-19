@@ -201,8 +201,8 @@ describe('who decides', () => {
     ).toBe(200);
   });
 
-  it("never the person who asked: the Head's own request waits for an Admin", async () => {
-    const own = await official('department_head');
+  it("never the person who asked: an Admin's own request waits for another Admin", async () => {
+    const own = await official('admin');
     const created = await ask(own.session, { field: 'designation', newValue: 'বিভাগীয় প্রধান' });
     expect(created.status).toBe(201);
     const refused = await decide(own.session, created.body.data.id, { decision: 'approve' });

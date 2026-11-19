@@ -304,7 +304,7 @@ describe('the request budget of the list routes', () => {
   afterAll(async () => limited.close());
 
   it('shares 60 calls a minute per user across the list and its statistics', async () => {
-    const head = await account(limited.db, { role: 'department_head' });
+    const head = await account(limited.db, { role: 'admin' });
     const s = await login(limited, head);
     const call = (path: string) =>
       request(limited.server()).get(`/api/v1/volunteers${path}`).set(bearer(s));
