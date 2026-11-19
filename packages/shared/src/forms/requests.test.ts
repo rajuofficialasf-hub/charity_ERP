@@ -38,6 +38,7 @@ describe('a placement', () => {
   it('takes the ready form with or without a key of its own', () => {
     expect(formPlaceSchema.safeParse({ readyFormId: ID }).success).toBe(true);
     expect(formPlaceSchema.safeParse({ readyFormId: ID, key: 'iftar' }).success).toBe(true);
+    expect(formPlaceSchema.safeParse({ readyFormId: ID, replace: true }).success).toBe(true);
   });
 
   it('refuses a key that is not a snake key and a missing ready form', () => {

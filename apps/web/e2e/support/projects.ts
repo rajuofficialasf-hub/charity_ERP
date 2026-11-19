@@ -178,20 +178,15 @@ export const IDENTITY_SECTION = {
 };
 
 /**
- * The application form of a project, published: a ready form built and published by the
- * Monitoring Team through the API, then placed on the project by `loginId`, the person signed in
- * on the page; activation needs it. Journeys that are not about forms use this; the form
- * builder's own journey builds and publishes its form on the screen.
+ * A ready application form published by the Monitoring Team through the API, with the given
+ * sections and title; returns its id. The browser's origin goes with each write, as the API asks.
  */
-export async function placeReadyForm(
+export async function publishReadyForm(
   page: Page,
-  loginId: string,
-  projectId: string,
   sections: unknown[] = [IDENTITY_SECTION],
-  key = 'default',
+  title = { bn: 'আবেদন', en: 'Application' },
 ): Promise<string> {
   const origin = new URL(page.url()).origin;
-  // the API refuses a write without the app's origin, which a browser would send
   const context = await apiRequest.newContext({
     baseURL: origin,
     extraHTTPHeaders: { Origin: origin },
@@ -200,7 +195,7 @@ export async function placeReadyForm(
     const builder = await apiAs(context, MONITORING);
     const made = await builder.post('/ready-forms', {
       key: uniqueKey('e2e'),
-      title: { bn: 'আবেদন', en: 'Application' },
+      title,
       kind: 'beneficiary_application',
       source: { kind: 'blank' },
     });
@@ -217,16 +212,38 @@ export async function placeReadyForm(
     const published = await builder.post(
       `/form-versions/${ready.draftVersionId}/publish`,
       undefined,
-      {
-        'If-Match': await etag(),
-      },
+      { 'If-Match': await etag() },
     );
     expect(published.ok(), await published.text()).toBe(true);
+    return ready.id;
+  } finally {
+    await context.dispose();
+  }
+}
+
+/**
+ * The application form of a project, published: a ready form built and published by the
+ * Monitoring Team through the API, then placed on the project by `loginId`, the person signed in
+ * on the page; activation needs it. Journeys that are not about forms use this; the form
+ * builder's own journey builds and publishes its form on the screen.
+ */
+export async function placeReadyForm(
+  page: Page,
+  loginId: string,
+  projectId: string,
+  sections: unknown[] = [IDENTITY_SECTION],
+  key = 'default',
+): Promise<string> {
+  const readyFormId = await publishReadyForm(page, sections);
+  const origin = new URL(page.url()).origin;
+  // the API refuses a write without the app's origin, which a browser would send
+  const context = await apiRequest.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  try {
     const placer = await apiAs(context, loginId);
-    const placed = await placer.post(`/projects/${projectId}/forms/place`, {
-      readyFormId: ready.id,
-      key,
-    });
+    const placed = await placer.post(`/projects/${projectId}/forms/place`, { readyFormId, key });
     expect(placed.ok(), await placed.text()).toBe(true);
     return ((await placed.json()) as { data: { id: string } }).data.id;
   } finally {

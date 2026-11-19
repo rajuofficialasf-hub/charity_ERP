@@ -300,7 +300,9 @@
     "default_misplaced": "The answer filled in beforehand does not fit the question: today's date goes on a date, a text on a text question, a number on a number or an amount.",
     "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question whose smallest number is 0 or more and largest number 50 or less.",
     "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question.",
-    "table_invalid": "A number table needs at least one row and one column, each key once, at most 200 cells, and cannot sit inside a list."
+    "table_invalid": "A number table needs at least one row and one column, each key once, at most 200 cells, and cannot sit inside a list.",
+    "replace_draft_only": "The application form can be changed only while the project is a draft.",
+    "replace_not_application": "Only an application form can take the place of the application form."
   },
   "public_link": {
     "replaces_live": "The public link of this project is live on the form \"{form}\". Switching it to this form closes that link."

@@ -375,7 +375,13 @@ function ProjectWizard({ projectId }: { projectId: string }) {
     ['basics', <BasicsSection key="basics" />],
     [
       'components',
-      failed(parts) ?? <ComponentsSection components={parts.data ?? []} formHref={formHref} />,
+      failed(parts) ?? (
+        <ComponentsSection
+          components={parts.data ?? []}
+          forms={formList.data}
+          formHref={formHref}
+        />
+      ),
     ],
     ['budget', failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)],
     ['window', <WindowSection key="window" />],
