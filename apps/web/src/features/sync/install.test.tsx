@@ -2,7 +2,7 @@ import type { Me } from '@css/shared/auth';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../api/client';
@@ -32,6 +32,16 @@ const openHome = () => {
   refreshAs(VOLUNTEER);
   return renderInShell([{ index: true, element: <MyWorkPage /> }], '/');
 };
+
+// The volunteer's home loads the offline store and its reminders on demand. Loaded once here,
+// before the first test, a load still running when the file ends cannot outlive the test
+// environment.
+beforeAll(async () => {
+  await Promise.all([
+    import('../../offline/applications-store'),
+    import('../../offline/reminders'),
+  ]);
+});
 
 beforeEach(() => {
   resetClientForTests();
