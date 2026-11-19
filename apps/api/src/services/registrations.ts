@@ -593,7 +593,9 @@ export class RegistrationsService {
       }
       // the role must be one this person may give; nothing is written when it is not
       const rule =
-        body.decision === 'approve' ? roleRefusal(this.registry, actor.roles, body.roleKey!) : null;
+        body.decision === 'approve'
+          ? roleRefusal(this.registry, await this.access.rolesOf(actor.userId, tx), body.roleKey!)
+          : null;
       if (rule) return rule;
       if (body.decision === 'reject') {
         await this.events.registrationDecided(

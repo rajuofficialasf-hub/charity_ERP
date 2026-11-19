@@ -53,6 +53,19 @@ export class AccessService {
   ) {}
 
   /**
+   * The roles a person holds now, read from the database (in `db` when given). The rules about
+   * who may give what ask this inside the transaction of the change, so a role that ended a
+   * moment ago gives nothing, whatever the session still says.
+   */
+  async rolesOf(userId: string, db: Tx = this.prisma): Promise<string[]> {
+    const roles = await db.userRole.findMany({
+      where: { userId, revokedAt: null },
+      select: { roleKey: true },
+    });
+    return roles.map((r) => r.roleKey);
+  }
+
+  /**
    * The effective grants and instance revokes of a user, computed per request, and the protected
    * field classes the user's roles (account and project roles) may see.
    */

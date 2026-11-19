@@ -148,11 +148,7 @@ export class AccessPanelService {
    * of the change, so a role that ended a moment ago gives nothing.
    */
   private async actorOf(db: Tx, actor: Principal): Promise<RuleActor> {
-    const roles = await db.userRole.findMany({
-      where: { userId: actor.userId, revokedAt: null },
-      select: { roleKey: true },
-    });
-    return { id: actor.userId, roles: roles.map((r) => r.roleKey) };
+    return { id: actor.userId, roles: await this.access.rolesOf(actor.userId, db) };
   }
 
   /** The hard rule that refuses one change of the panel or of the project extras, or null. */
@@ -385,6 +381,8 @@ export class AccessPanelService {
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'permissions', code: 'validation.option_unknown' },
         ]);
+      // nobody changes their own extras, added or taken away
+      if (target.id === actor.userId) return { refused: 'self_change' as const, permission: null };
       const existing = new Set((staff ?? volunteer)!.extraPermissions);
       const granter = await this.actorOf(tx, actor);
       // an extra counts for the role the place is held in, as the evaluation reads it

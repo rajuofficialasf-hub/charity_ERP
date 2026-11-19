@@ -130,10 +130,27 @@ describe('project grants', () => {
     expect(row.rows[0].extra_permissions).not.toContain('exam.record');
   });
 
-  it('refuses an RPM the extras of the own place', async () => {
-    const res = await setGrants(world.a1.id, world.users.rpmDhaka, ['application.approve']);
-    // the RPM holds no staff place on the project, so nothing of the own is reached at all
-    expect([403, 404]).toContain(res.status);
+  it('refuses a change of the own extras, added or taken away', async () => {
+    // the RPM as a staff member of the own project, with an extra already there
+    const place = randomUUID();
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, extra_permissions, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, $5, $3)`,
+      [place, world.a1.id, world.users.rpmDhaka, world.dhaka.division, ['application.approve']],
+    );
+    for (const permissions of [['application.approve', 'application.reject'], []]) {
+      const res = await setGrants(world.a1.id, world.users.rpmDhaka, permissions);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatchObject({
+        code: 'permission.grant_refused',
+        params: { rule: 'self_change' },
+      });
+    }
+    const row = await h.db.query('SELECT extra_permissions FROM project_staff WHERE id = $1', [
+      place,
+    ]);
+    expect(row.rows[0].extra_permissions).toEqual(['application.approve']);
+    await h.db.query('UPDATE project_staff SET ended_at = now() WHERE id = $1', [place]);
   });
 
   it('refuses a permission without "if RPM grants" and one the RPM does not hold there', async () => {

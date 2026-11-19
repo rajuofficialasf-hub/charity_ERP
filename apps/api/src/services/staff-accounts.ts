@@ -70,7 +70,7 @@ export class StaffAccountsService {
     if (!isGivableOfficialRole(this.registry, body.roleKey))
       throw invalid('roleKey', 'validation.option_unknown');
     // no account exists yet, so the refusal is kept on the account of the person who asked
-    const rule = roleRefusal(this.registry, actor.roles, body.roleKey);
+    const rule = roleRefusal(this.registry, await this.access.rolesOf(actor.userId), body.roleKey);
     if (rule)
       await refuseRole(
         { prisma: this.prisma, audit: this.audit },
