@@ -5,7 +5,7 @@ import { apiAs, isPhone, mainMenu, signIn } from './support/admin';
 // docs/testing/DEMO_ACCOUNTS.md): each role opens a page of another role and sees the forbidden
 // screen, and the API refuses an operation the role does not hold with 403 `permission.denied`
 // (docs/security/AUTHORIZATION_MATRIX.md). An Admin and the Department Head hold every permission
-// (the Head's one exception, the Main Admin transfer, has no endpoint yet), so they have no row.
+// (the Head's one exception, the Main Admin transfer, is no page and no read), so they have no row.
 // The Monitoring Team reads everything and administers nothing: the panel and the settings refuse
 // it. The accounts are only read here; both projects sign in with the same ones, chosen among
 // those whose sessions and passwords no other spec depends on (docs/testing/DEMO_ACCOUNTS.md).

@@ -140,6 +140,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
 | client | client.origin_refused | 403 | a POST, PUT, PATCH or DELETE whose `Origin` is missing, `null`, or neither the PWA's own nor an allowed one; answered before any route |
 | auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
+| auth | auth.password_confirmation_failed | 403 | a wrong password where a signed-in person confirms an act with it (the Main Admin transfer); counted as a wrong login is, so the fifth answers 423 `auth.account_locked` (AUTH.md §11) |
 | auth | auth.password_unchanged | 422 (as detail of validation.failed) | password change to the password the account already has (O-66) |
 | auth | auth.invitation_invalid | 404 | the set-password link is unknown; ask the admin for a new link (D-097) |
 | auth | auth.invitation_expired | 410 | the set-password link was used, replaced or is older than 72 hours (BR-262) |
@@ -168,6 +169,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
+| user | user.role_unchanged | 409 | a role change to the role the official already holds (BR-321) |
+| user | user.department_head_exists | 409 | the Department Head role given while another official holds it; the earlier Head changes role first (BR-320) |
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
 | user | user.job_id_taken | 409 | the job ID belongs to another account, in any letter case (BR-261) |

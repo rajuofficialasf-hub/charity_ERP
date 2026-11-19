@@ -14,6 +14,7 @@
     "refresh_reused": "The session was revoked for security reasons. Log in again.",
     "csrf_failed": "The request could not be verified. Reload the page.",
     "current_password_invalid": "The current password is incorrect.",
+    "password_confirmation_failed": "The password is incorrect.",
     "password_unchanged": "The new password must differ from the current one.",
     "invitation_invalid": "This link is not valid. Ask the admin for a new link.",
     "invitation_expired": "This link has expired or was already used. Ask the admin for a new link."
@@ -213,6 +214,8 @@
     "system_owner_protected": "The system owner account cannot be changed this way.",
     "handover_required": "Hand over the user's pending work before closing the account.",
     "transition_not_allowed": "This change of account state is not possible.",
+    "role_unchanged": "The user already holds this role.",
+    "department_head_exists": "A Department Head is already in office. Change that person's role first.",
     "not_locked": "This account is not locked.",
     "job_id_taken": "This job ID belongs to another account.",
     "supervisor_invalid": "Choose an active department official who does not report to this person.",

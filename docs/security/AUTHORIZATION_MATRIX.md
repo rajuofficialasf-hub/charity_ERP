@@ -46,6 +46,9 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /users/:userId/profile | user.profile.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /users/:userId/state | user.state.change | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /users/:userId/unlock | user.lock.clear | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /users/:userId/role | user.role.change | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /users/:userId/roles | permission.view | user | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /system-owner/transfer | system.owner.transfer | global | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /users/:userId/handover | user.handover | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /users/:userId/handover | user.handover | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /users/:userId/handover/complete | user.handover | user | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -256,7 +259,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /openapi.json | public | system | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-## Permissions no endpoint uses yet (77)
+## Permissions no endpoint uses yet (75)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -323,10 +326,8 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `stock.reconcile`
 - `story.manage`
 - `story.view`
-- `system.owner.transfer`
 - `template.checklist.manage`
 - `user.deactivate_volunteer`
-- `user.role.change`
 - `volunteer.category.set`
 - `volunteer.mark_paid`
 - `volunteer.rating.set`

@@ -77,6 +77,34 @@ export const permissionGrantSchema = permissionGrantRequestSchema.extend({
 });
 export type PermissionGrant = z.infer<typeof permissionGrantSchema>;
 
+/** A change of an official's role (docs/security/RBAC.md, "Roles"). */
+export const roleChangeRequestSchema = z.strictObject({
+  roleKey: z.string().min(1).max(64),
+  reason: z.string().trim().min(3).max(1000),
+});
+export type RoleChangeRequest = z.infer<typeof roleChangeRequestSchema>;
+
+const namedUserSchema = z.object({ id: z.uuid(), displayName: z.string() });
+
+/** One role a person holds or held, with who gave it and who ended it. */
+export const roleHistoryRowSchema = z.object({
+  id: z.uuid(),
+  roleKey: z.string(),
+  name: z.object({ bn: z.string(), en: z.string() }),
+  grantedAt: z.string(),
+  grantedBy: namedUserSchema,
+  revokedAt: z.string().nullable(),
+  revokedBy: namedUserSchema.nullable(),
+});
+export type RoleHistoryRow = z.infer<typeof roleHistoryRowSchema>;
+
+/** The Main Admin hands the flag to another Admin, confirming with the own password. */
+export const ownerTransferRequestSchema = z.strictObject({
+  toUserId: z.uuid(),
+  password: z.string().min(1).max(200),
+});
+export type OwnerTransferRequest = z.infer<typeof ownerTransferRequestSchema>;
+
 export const projectGrantRequestSchema = z.object({
   userId: z.uuid(),
   permissions: z.array(z.string()).max(50),

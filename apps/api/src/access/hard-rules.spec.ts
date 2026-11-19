@@ -6,7 +6,9 @@ import {
   IF_RPM_GRANTS,
   KEY_PERMISSIONS,
   mayHold,
+  overrideStands,
   revokesReach,
+  roleChangeRefusal,
   roleRefusal,
   rpmGrantable,
 } from './hard-rules.js';
@@ -156,6 +158,66 @@ describe('giving a role', () => {
       if (role.globalScope) continue;
       expect(roleRefusal(registry, ['program_manager'], role.key), role.key).toBeNull();
     }
+  });
+});
+
+describe('a change of a role', () => {
+  it('is refused on the own account, whoever asks', () => {
+    for (const actor of [ADMIN, HEAD])
+      expect(roleChangeRefusal(registry, actor, actor, 'program_manager')).toBe('self_change');
+  });
+
+  it('leaves a change to or from an Admin or the Head to an Admin', () => {
+    const otherAdmin = party('admin-2', 'admin');
+    expect(roleChangeRefusal(registry, HEAD, EXECUTIVE, 'admin')).toBe('role_admin_only');
+    expect(roleChangeRefusal(registry, HEAD, EXECUTIVE, 'department_head')).toBe('role_admin_only');
+    expect(roleChangeRefusal(registry, HEAD, otherAdmin, 'program_manager')).toBe(
+      'role_admin_only',
+    );
+    expect(roleChangeRefusal(registry, ADMIN, HEAD, 'program_manager')).toBeNull();
+    expect(roleChangeRefusal(registry, ADMIN, EXECUTIVE, 'admin')).toBeNull();
+    expect(roleChangeRefusal(registry, ADMIN, otherAdmin, 'department_head')).toBeNull();
+  });
+
+  it('leaves a change to or from the Monitoring Team to an Admin or the Head', () => {
+    expect(roleChangeRefusal(registry, HEAD, EXECUTIVE, 'monitoring_team')).toBeNull();
+    expect(roleChangeRefusal(registry, HEAD, MONITORING, 'official_daee')).toBeNull();
+    expect(roleChangeRefusal(registry, PM, EXECUTIVE, 'monitoring_team')).toBe('role_admin_only');
+    expect(roleChangeRefusal(registry, PM, MONITORING, 'official_daee')).toBe('role_admin_only');
+  });
+
+  it('lets a holder of the role change move a person between the other roles', () => {
+    expect(roleChangeRefusal(registry, PM, EXECUTIVE, 'regional_program_manager')).toBeNull();
+  });
+});
+
+describe('a stored override after a role change', () => {
+  const as = (role: string) => party('target-1', role);
+
+  it('does not stand as a revoke on a new Admin or Head, at any scope', () => {
+    for (const role of ['admin', 'department_head'])
+      for (const scopeType of ['GLOBAL', 'PROJECT', 'REGION'])
+        expect(
+          overrideStands(registry, as(role), revoke('application.view', scopeType)),
+          `${role} ${scopeType}`,
+        ).toBe(false);
+    expect(overrideStands(registry, as('admin'), grant('form.library.manage'))).toBe(true);
+  });
+
+  it('does not stand as a GLOBAL revoke on a new member of the Monitoring Team; a narrower one does', () => {
+    expect(overrideStands(registry, as('monitoring_team'), revoke('application.view'))).toBe(false);
+    expect(
+      overrideStands(registry, as('monitoring_team'), revoke('application.view', 'PROJECT')),
+    ).toBe(true);
+  });
+
+  it('keeps the owner transfer for an Admin alone, and every other override for the other roles', () => {
+    expect(overrideStands(registry, as('admin'), grant('system.owner.transfer'))).toBe(true);
+    expect(overrideStands(registry, as('program_manager'), grant('system.owner.transfer'))).toBe(
+      false,
+    );
+    expect(overrideStands(registry, as('program_manager'), grant('user.create'))).toBe(true);
+    expect(overrideStands(registry, as('program_manager'), revoke('application.view'))).toBe(true);
   });
 });
 

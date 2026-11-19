@@ -1,4 +1,11 @@
 import {
+  type OwnerTransferRequest,
+  ownerTransferRequestSchema,
+  type RoleChangeRequest,
+  roleChangeRequestSchema,
+  roleHistoryRowSchema,
+} from '@css/shared/access';
+import {
   reasonRequestSchema,
   type ReasonRequest,
   AFFILIATIONS,
@@ -92,7 +99,10 @@ const userOp = {
  */
 export function usersRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork'>,
+  c: Pick<
+    Container,
+    'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork' | 'roleChanges'
+  >,
 ): Router {
   const router = Router();
 
@@ -271,7 +281,74 @@ export function usersRouter(
       c.users.unlock(principalOf(req), scopeOf(req), params.userId, body.reason),
   });
 
-  // The staff handover: the Department Head and the Monitoring Team only.
+  defineRoute<RoleChangeRequest, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'post',
+    path: '/users/:userId/role',
+    operationId: 'users.user.changeRole',
+    summary:
+      "Give an official another role in place of the present one, with a reason; the handover of the old role's work comes first",
+    permission: 'user.role.change',
+    audit: 'user.role_changed',
+    params: { userId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
+    body: roleChangeRequestSchema,
+    responses: { 200: null, 401: null, 403: null, 404: null, 409: null, 412: null, 422: null },
+    handler: async ({ body, params, req, res }) => {
+      const { user, updatedAt } = await c.roleChanges.change(
+        principalOf(req),
+        scopeOf(req),
+        params.userId,
+        body,
+        req.get('if-match'),
+      );
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(user, { etag });
+    },
+  });
+
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'get',
+    path: '/users/:userId/roles',
+    operationId: 'users.user.roleHistory',
+    summary: 'The roles a user holds or held, the newest first, with who gave and who ended each',
+    permission: 'permission.view',
+    audit: 'none',
+    params: { userId: uuid },
+    responses: {
+      200: z.object({ data: z.array(roleHistoryRowSchema), meta: z.object({}) }),
+      401: null,
+      403: null,
+      404: null,
+    },
+    handler: async ({ params, req }) => {
+      const rows = await c.roleChanges.history(scopeOf(req), params.userId);
+      return page(rows, { nextCursor: null, prevCursor: null, limit: rows.length });
+    },
+  });
+
+  defineRoute<OwnerTransferRequest>(router, deps, {
+    tag: 'users',
+    method: 'post',
+    path: '/system-owner/transfer',
+    status: 204,
+    operationId: 'users.systemOwner.transfer',
+    summary:
+      'Hand the Main Admin flag to another active Admin; the Main Admin alone, confirming with the own password',
+    permission: 'system.owner.transfer',
+    scope: 'global',
+    audit: 'auth.system_owner_transferred',
+    idempotency: 'none',
+    // counted per person, as a signed-in password change is
+    rateLimit: 'password-reset',
+    body: ownerTransferRequestSchema,
+    responses: { 204: null, 401: null, 403: null, 422: null, 423: null, 429: null },
+    handler: ({ body, req }) => c.roleChanges.transferOwner(principalOf(req), body),
+  });
+
+  // The staff handover: an Admin and the Department Head only.
   const handoverOp = {
     ...userOp,
     permission: 'user.handover',

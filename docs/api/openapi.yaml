@@ -1216,10 +1216,45 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     OwnerTransferRequest:
       type: object
+      additionalProperties: false
       required: [toUserId, password]
       properties:
-        toUserId: { $ref: '#/components/schemas/Uuid' }
-        password: { type: string, description: Current system owner's password }
+        toUserId: { $ref: '#/components/schemas/Uuid', description: An active Admin other than the caller }
+        password: { type: string, minLength: 1, maxLength: 200, description: "The Main Admin's own password" }
+    RoleChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [roleKey, reason]
+      properties:
+        roleKey: { type: string, minLength: 1, maxLength: 64, description: An official role of the catalogue }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    NamedUser:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+    RoleHistoryRow:
+      type: object
+      description: One role a person holds or held; `revokedAt` is null while the role is live.
+      required: [id, roleKey, name, grantedAt, grantedBy, revokedAt, revokedBy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        roleKey: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        grantedAt: { type: string, format: date-time }
+        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        revokedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
+    RoleHistoryList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/RoleHistoryRow' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
 
     # ---------------- access ----------------
     Role:
@@ -6241,6 +6276,67 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/role:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [users]
+      operationId: users.user.changeRole
+      summary: Give an official another role in place of the present one, with a reason; the handover of the old role's work comes first
+      description: >-
+        An official holds one role: the change ends the present one and starts the new one in one
+        step, ends the panel overrides and project extras the new role may not hold, raises the
+        person's permission version and tells the person. Refused with 403
+        `permission.grant_refused` (`params.rule`: `self_change`, `role_admin_only`) by the hard
+        rules of RBAC.md section 7; with 409 for the Main Admin (`user.system_owner_protected`),
+        the same role (`user.role_unchanged`), work of the old role still held
+        (`handover.items_outstanding`) and a second Department Head
+        (`user.department_head_exists`).
+      x-permission: user.role.change
+      x-scope: user
+      x-audit: user.role_changed
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleChangeRequest' }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/roles:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [users]
+      operationId: users.user.roleHistory
+      summary: The roles a user holds or held, the newest first, with who gave and who ended each
+      x-permission: permission.view
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The role history; not paginated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleHistoryList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /users/{userId}/unlock:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -6337,12 +6433,17 @@ paths:
     post:
       tags: [users]
       operationId: users.systemOwner.transfer
-      summary: Transfer the Main Admin flag to another active official (Department Head only)
+      summary: Hand the Main Admin flag to another active Admin; the Main Admin alone, confirming with the own password
+      description: >-
+        The Main Admin's own act: another Admin is refused with 403 `permission.denied`, whatever
+        permission they hold. A wrong password answers 403 `auth.password_confirmation_failed` and
+        is counted as a wrong login is; a locked account answers 423. A target who is not another
+        active Admin answers 422 on `toUserId`.
       x-permission: system.owner.transfer
       x-scope: global
       x-audit: auth.system_owner_transferred
       x-idempotency: none
-      x-rate-limit: login
+      x-rate-limit: password-reset
       requestBody:
         required: true
         content:
@@ -6353,6 +6454,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # ======================= access =======================
   /roles:

@@ -166,6 +166,42 @@ export function roleRefusal(
 }
 
 /**
+ * The rule that refuses a change of a person's role, or null: nobody changes their own role, and
+ * each role the change takes away or gives must be one the actor may give (to or from an Admin or
+ * the Department Head: an Admin; to or from the Monitoring Team: an Admin or the Head).
+ */
+export function roleChangeRefusal(
+  registry: AccessRegistry,
+  actor: RuleActor,
+  target: Pick<RuleTarget, 'id' | 'roles'>,
+  roleKey: string,
+): HardRule | null {
+  if (actor.id === target.id) return 'self_change';
+  for (const role of [...target.roles, roleKey]) {
+    const rule = roleRefusal(registry, actor.roles, role);
+    if (rule) return rule;
+  }
+  return null;
+}
+
+/** An Admin other than the person a stored override is about. */
+const SOME_ADMIN: RuleActor = { id: '', roles: [ADMIN_ROLE] };
+
+/**
+ * Whether a stored panel override could have been written for a person who holds these roles, by
+ * an Admin, who may give the most. A role change ends the overrides that could not: a revoke on a
+ * person who becomes an Admin or the Head, a GLOBAL revoke on a new member of the Monitoring Team,
+ * the owner transfer of someone who is no longer an Admin.
+ */
+export function overrideStands(
+  registry: AccessRegistry,
+  target: RuleTarget,
+  override: AccessChange,
+): boolean {
+  return changeRefusal(registry, SOME_ADMIN, target, override) === null;
+}
+
+/**
  * Whether a project extra of this permission counts for these roles: only where the catalogue
  * gives one of them the permission "if RPM grants".
  */
