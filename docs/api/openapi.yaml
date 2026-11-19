@@ -6289,7 +6289,8 @@ paths:
         person's permission version and tells the person. Refused with 403
         `permission.grant_refused` (`params.rule`: `self_change`, `role_admin_only`) by the hard
         rules of RBAC.md section 7; with 409 for the Main Admin (`user.system_owner_protected`),
-        the same role (`user.role_unchanged`), work of the old role still held
+        an account that is not active (`user.role_change_inactive`), the same role
+        (`user.role_unchanged`), work of the old role still held
         (`handover.items_outstanding`) and a second Department Head
         (`user.department_head_exists`).
       x-permission: user.role.change

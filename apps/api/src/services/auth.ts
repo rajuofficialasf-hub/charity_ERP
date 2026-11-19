@@ -300,7 +300,23 @@ export class AuthService {
       select: { id: true, passwordHash: true, failedLoginCount: true, lockedUntil: true },
     });
     if (user.lockedUntil && user.lockedUntil > now) throw this.lockedError(user.lockedUntil, now);
-    if (await this.hasher.verify(user.passwordHash, password)) return;
+    if (await this.hasher.verify(user.passwordHash, password)) {
+      // a wrong password sent beside this one may have locked the account while the hash was
+      // checked: the lock stands for the right password too
+      const fresh = await this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { failedLoginCount: true, lockedUntil: true },
+      });
+      if (fresh.lockedUntil && fresh.lockedUntil > now)
+        throw this.lockedError(fresh.lockedUntil, now);
+      // as a sign-in does, the right password clears the earlier wrong ones
+      if (fresh.failedLoginCount > 0)
+        await this.prisma.user.updateMany({
+          where: { id: userId, failedLoginCount: { gt: 0 } },
+          data: { failedLoginCount: 0 },
+        });
+      return;
+    }
     const lockedUntil = await this.countFailure(user, now, { confirmation: purpose });
     if (lockedUntil) throw this.lockedError(lockedUntil, now);
     throw new ApiError('auth.password_confirmation_failed', 403);

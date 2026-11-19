@@ -19,7 +19,7 @@ import {
   userStateRequestSchema,
   type UserStateRequest,
 } from '@css/shared/auth';
-import { Router } from 'express';
+import { type Response, Router } from 'express';
 import { z } from 'zod';
 import { principalOf, scopeOf } from '../auth/principal.js';
 import type { Container } from '../container.js';
@@ -32,6 +32,13 @@ import type { HandoverAssign } from '../services/handover.js';
 import type { UserListQuery } from '../services/users.js';
 
 const uuid = z.uuid();
+
+/** A user with the version of its row, in the `ETag` header and the answer's meta. */
+function withEtag(res: Response, user: unknown, updatedAt: Date) {
+  const etag = etagOf(updatedAt);
+  res.setHeader('ETag', etag);
+  return ok(user, { etag });
+}
 
 const handoverAssign = z.strictObject({
   toUserId: uuid,
@@ -189,9 +196,7 @@ export function usersRouter(
     responses: { 200: null, 401: null, 403: null, 404: null },
     handler: async ({ params, req, res }) => {
       const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
-      const etag = etagOf(updatedAt);
-      res.setHeader('ETag', etag);
-      return ok(user, { etag });
+      return withEtag(res, user, updatedAt);
     },
   });
 
@@ -233,9 +238,7 @@ export function usersRouter(
         req.get('if-match'),
       );
       const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
-      const etag = etagOf(updatedAt);
-      res.setHeader('ETag', etag);
-      return ok(user, { etag });
+      return withEtag(res, user, updatedAt);
     },
   });
 
@@ -259,9 +262,7 @@ export function usersRouter(
         body,
         req.get('if-match'),
       );
-      const etag = etagOf(updatedAt);
-      res.setHeader('ETag', etag);
-      return ok(user, { etag });
+      return withEtag(res, user, updatedAt);
     },
   });
 
@@ -302,9 +303,7 @@ export function usersRouter(
         body,
         req.get('if-match'),
       );
-      const etag = etagOf(updatedAt);
-      res.setHeader('ETag', etag);
-      return ok(user, { etag });
+      return withEtag(res, user, updatedAt);
     },
   });
 

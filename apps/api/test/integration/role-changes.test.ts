@@ -89,10 +89,14 @@ describe('a role change', () => {
     const session = await login(h, target);
     const admin = await as(world.users.admin);
     const before = await userRow(target.id);
-    const res = await change(admin, target.id, 'regional_program_manager');
+    const etag = await etagOf(target.id);
+    const res = await change(admin, target.id, 'regional_program_manager', etag);
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ id: target.id, roles: ['regional_program_manager'] });
-    expect(res.headers.etag).toBeTruthy();
+    // the answer carries the new version of the user, for the next change
+    expect(res.headers.etag).toMatch(/^"[^"]+"$/);
+    expect(res.headers.etag).not.toBe(etag);
+    expect(res.body.meta.etag).toBe(res.headers.etag);
     expect(await liveRoles(target.id)).toEqual(['regional_program_manager']);
     const ended = await h.db.query(
       'SELECT revoked_by FROM user_roles WHERE user_id = $1 AND revoked_at IS NOT NULL',
@@ -109,7 +113,12 @@ describe('a role change', () => {
     ]);
     const told = await notificationsOf(h.db, 'permission_changed', target.id);
     expect(told).toHaveLength(1);
-    expect(told[0]!.params).toMatchObject({ summary: { en: expect.stringContaining('role') } });
+    expect(told[0]!.params).toMatchObject({
+      summary: {
+        en: 'your role is now Regional Program Manager',
+        bn: 'আপনার রোল এখন রিজিওনাল প্রোগ্রাম ম্যানেজার',
+      },
+    });
     // the next request with the token of the old role is refused, and a refresh would follow
     const stale = await api().get('/api/v1/auth/me').set(bearer(session)).expect(401);
     expect(stale.body.error.code).toBe('auth.token_stale');
@@ -160,6 +169,17 @@ describe('a role change', () => {
     expect(same.body.error.code).toBe('user.role_unchanged');
     expect(await liveRoles(target.id)).toEqual(['project_executive']);
     expect(await audits(target.id, 'user.role_changed')).toEqual([]);
+  });
+
+  it('changes the role of an active account only', async () => {
+    const admin = await as(world.users.admin);
+    for (const state of ['pending', 'blocked', 'deactivated']) {
+      const target = await account(h.db, { role: 'project_executive', state });
+      const res = await change(admin, target.id, 'official_daee');
+      expect(res.status, state).toBe(409);
+      expect(res.body.error.code).toBe('user.role_change_inactive');
+      expect(await liveRoles(target.id)).toEqual(['project_executive']);
+    }
   });
 
   it('waits for the handover of the work only the old role may hold', async () => {

@@ -93,7 +93,7 @@ export class RoleChangesService {
         const user = await this.access.findUser(
           scope,
           userId,
-          { id: true, kind: true, isSystemOwner: true, updatedAt: true },
+          { id: true, kind: true, state: true, isSystemOwner: true, updatedAt: true },
           tx,
         );
         // a role is an official's; a volunteer's type is no role to change here
@@ -103,6 +103,9 @@ export class RoleChangesService {
         }
         assertIfMatch(ifMatch, user.updatedAt);
         if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
+        // a registration that waits is given its role by the approval, and a blocked or closed
+        // account takes no new role: the change is for an official at work
+        if (user.state !== 'active') throw new ApiError('user.role_change_inactive', 409);
         const held = await this.access.rolesOf(user.id, tx);
         const rule = roleChangeRefusal(
           this.registry,

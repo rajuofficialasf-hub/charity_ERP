@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { seedAccessCatalogue } from './support/access-fixtures.js';
 import {
   type Account,
@@ -33,6 +33,22 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await h.close();
+});
+
+// Every case starts from the same state: the flag on the first Main Admin, and no wrong password
+// counted on either Admin. The flag moves inside one transaction, as the database asks.
+beforeEach(async () => {
+  await h.db.query('BEGIN');
+  await h.db.query('UPDATE users SET is_system_owner = false WHERE is_system_owner AND id <> $1', [
+    owner.id,
+  ]);
+  await h.db.query('UPDATE users SET is_system_owner = true WHERE id = $1', [owner.id]);
+  await h.db.query('COMMIT');
+  await h.db.query(
+    'UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ANY($1::uuid[])',
+    [[owner.id, admin.id]],
+  );
+  for (const id of [owner.id, admin.id]) h.container.sessions.evictUser(id);
 });
 
 const transfer = (s: Session, toUserId: string, password: string = PASSWORD) =>
@@ -98,6 +114,10 @@ describe('the hand-over of the Main Admin flag', () => {
       confirmation: 'system_owner_transfer',
     });
     expect(await owners()).toEqual([owner.id]);
+    // the right password clears the count, as a sign-in does, and the flag moves
+    await transfer(session, admin.id).expect(204);
+    expect((await row(owner.id)).failed_login_count).toBe(0);
+    expect(await owners()).toEqual([admin.id]);
   });
 
   it('moves the flag: both sessions refresh, both accounts are audited and told', async () => {
@@ -108,14 +128,18 @@ describe('the hand-over of the Main Admin flag', () => {
     expect(await owners()).toEqual([admin.id]);
     expect((await row(owner.id)).permission_version).toBe(before.owner.permission_version + 1);
     expect((await row(admin.id)).permission_version).toBe(before.admin.permission_version + 1);
-    expect(await audits(owner.id, 'auth.system_owner_transferred')).toEqual([
-      { toUserId: admin.id },
-    ]);
-    expect(await audits(admin.id, 'auth.system_owner_received')).toEqual([
-      { fromUserId: owner.id },
-    ]);
-    for (const userId of [owner.id, admin.id])
-      expect(await notificationsOf(h.db, 'system_owner_transferred', userId)).toHaveLength(1);
+    expect(await audits(owner.id, 'auth.system_owner_transferred')).toContainEqual({
+      toUserId: admin.id,
+    });
+    expect(await audits(admin.id, 'auth.system_owner_received')).toContainEqual({
+      fromUserId: owner.id,
+    });
+    // both holders are told, and so is everyone who watches over the system
+    for (const userId of [owner.id, admin.id, head.id])
+      expect(
+        (await notificationsOf(h.db, 'system_owner_transferred', userId)).length,
+        userId,
+      ).toBeGreaterThan(0);
     // both tokens carry the old version
     for (const s of [session, adminSession]) {
       const stale = await api().get('/api/v1/auth/me').set(bearer(s)).expect(401);
@@ -130,8 +154,6 @@ describe('the hand-over of the Main Admin flag', () => {
 
   it('locks the account at the limit of wrong passwords, and refuses a locked one the right password', async () => {
     const session = await login(h, owner);
-    // one wrong password was counted above; the count is set back by the sign-in
-    expect((await row(owner.id)).failed_login_count).toBe(0);
     const statuses: number[] = [];
     for (let attempt = 0; attempt < 5; attempt += 1)
       statuses.push((await transfer(session, admin.id, WRONG)).status);

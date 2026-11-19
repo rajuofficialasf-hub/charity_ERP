@@ -170,6 +170,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
 | user | user.role_unchanged | 409 | a role change to the role the official already holds (BR-321) |
+| user | user.role_change_inactive | 409 | a role change of an account that is not active: a waiting registration takes its role from the approval, a blocked or closed account takes none (BR-321) |
 | user | user.department_head_exists | 409 | the Department Head role given while another official holds it; the earlier Head changes role first (BR-320) |
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
