@@ -104,8 +104,28 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm docs:check
       # the export PDFs print through Chromium inside its sandbox: the browser with its system
-      # libraries, and the user namespaces the runner's AppArmor keeps closed by default
-      - run: pnpm --filter @css/api exec playwright-core install --with-deps chromium
+      # libraries, and the user namespaces the runner's AppArmor keeps closed by default. The browser
+      # is cached per playwright-core version, and each try of the install has 6 minutes, since the
+      # runner's package mirror has held this kind of step for up to 25 minutes.
+      - name: playwright-core version
+        id: playwright
+        run: echo "version=$(pnpm --filter @css/api exec playwright-core --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Chromium of the PDFs
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-core-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install Chromium and its system packages
+        env:
+          CACHED: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHED" = "true" ]; then what="install-deps"; else what="install --with-deps"; fi
+          for try in 1 2 3; do
+            timeout 360 pnpm --filter @css/api exec playwright-core $what chromium && exit 0
+            echo "Try $try did not finish within 6 minutes; trying again."
+          done
+          exit 1
       - name: Allow the Chromium sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm test
@@ -190,8 +210,30 @@ jobs:
       # API build need it. Generation needs no database.
       - run: pnpm --filter @css/api db:generate
       # Chromium runs every spec as a phone and a desktop; WebKit runs the sign-in, registration and
-      # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts)
-      - run: pnpm --filter @css/web exec playwright install --with-deps chromium webkit
+      # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts). The browsers
+      # are kept in the cache per Playwright version, so a run downloads them only after an upgrade.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @css/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # The system packages the browsers need come from the runner's package mirror, which has held
+      # this step for up to 25 minutes and let the job's limit run out before the tests: each try
+      # has 6 minutes, and a try that hangs is stopped and made again.
+      - name: Install the browsers and their system packages
+        env:
+          CACHED: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHED" = "true" ]; then what="install-deps"; else what="install --with-deps"; fi
+          for try in 1 2 3; do
+            timeout 360 pnpm --filter @css/web exec playwright $what chromium webkit && exit 0
+            echo "Try $try did not finish within 6 minutes; trying again."
+          done
+          exit 1
       # the export journey prints a PDF through Chromium inside its sandbox (see the checks job)
       - name: Allow the Chromium sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
