@@ -1020,7 +1020,17 @@
       "remove_quota": "Remove the quota of {name}",
       "save_quotas": "Save the quotas",
       "quota_incomplete": "Give every quota a target of at least 1.",
-      "quota_progress": "Target {target} · came {received} · approved {approved}"
+      "quota_progress": "Target {target} · came {received} · approved {approved}",
+      "form_picker": {
+        "label": "Application form",
+        "option": "{title} (version {n})",
+        "none": "No ready application form is published. Publish one on the ready forms page.",
+        "current": "Application form: {title}",
+        "unset": "No application form is chosen yet.",
+        "confirm_title": "Change the application form?",
+        "confirm_text": "The new form becomes the project's application form and the old one is retired. It can be changed again until the project is activated.",
+        "confirm": "Change"
+      }
     },
     "picker_failed": "The projects could not be loaded.",
     "picker_chosen": "The chosen project",

@@ -45,7 +45,7 @@ The owner's answers in chat on 2026-11-19 (D-186): a replacement only while the 
 ### U2. The dropdown in the setup (web)
 - **Files:** `apps/web/src/admin/projects/setup/ApplicationFormPicker.tsx`, `ComponentsSection.tsx`, `setup.test.tsx`, `apps/web/src/admin/forms/forms-api.ts`, messages `{bn,en}/admin.json`.
 - **Tests:** component: the dropdown lists only published beneficiary-application ready forms; a first choice places with the key `default`; a second choice in a draft asks to confirm and sends `replace`; an active project shows the name read-only; the builder link stays. E2E: `form-builder.spec.ts` or `projects.spec.ts` place through the dropdown where the journey placed through the forms page.
-- **Size:** M · **Risk area:** none · **Status:** todo
+- **Size:** M · **Risk area:** none · **Status:** done
 
 ## Checkpoints
 - **Mode:** all at once (one by one 0, grouped 4, all at once 9)

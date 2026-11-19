@@ -16,6 +16,7 @@ import {
   next,
   projectIdOf,
   placeReadyForm,
+  publishReadyForm,
   section,
   state,
   typeDate,
@@ -186,6 +187,35 @@ test.describe('programs and project setup', () => {
 
     // reopen
     await move(page, 'আবার খুলুন', 'সক্রিয়');
+  });
+
+  test('a PM chooses the application form from the ready forms, and changes it while a draft', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one PM, one project');
+    await signIn(page, PM);
+    await openProjectsTab(page);
+    await newDraft(page, code(), `ফর্ম বাছাই ${code()}`);
+    const winter = `শীতের আবেদন ${code()}`;
+    const iftar = `ইফতারের আবেদন ${code()}`;
+    await publishReadyForm(page, undefined, { bn: winter, en: 'Winter' });
+    await publishReadyForm(page, undefined, { bn: iftar, en: 'Iftar' });
+    await page.reload();
+
+    // the first choice places the form at once
+    const picker = page.getByRole('combobox', { name: 'আবেদন ফর্ম' });
+    await picker.click();
+    await page.getByRole('option', { name: `${winter} (সংস্করণ 1)` }).click();
+    await expect(picker).toContainText(winter);
+    await expect(page.getByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toBeVisible();
+
+    // another choice asks first, then replaces it
+    await picker.click();
+    await page.getByRole('option', { name: `${iftar} (সংস্করণ 1)` }).click();
+    const ask = page.getByRole('alertdialog', { name: 'আবেদন ফর্ম বদলাবেন?' });
+    await ask.getByRole('button', { name: 'বদলান' }).click();
+    await expect(ask).toHaveCount(0);
+    await expect(picker).toContainText(iftar);
   });
 
   test('a draft that was never activated is cancelled and leaves the list', async ({

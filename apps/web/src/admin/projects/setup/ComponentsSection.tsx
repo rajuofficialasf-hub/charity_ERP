@@ -1,11 +1,17 @@
 import { COMPONENT_SETTINGS_DEFINITION, type ComponentKey, isComponentKey } from '@css/shared';
-import { Alert, IconButton, LinkButton, Switch } from '@/ui';
+import { Alert, IconButton, Switch } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../api/client';
+import { ApplicationFormPicker } from './ApplicationFormPicker';
 import { ComponentDrawer } from './ComponentDrawer';
-import { keepSavedComponent, type ProjectComponent, updateComponent } from './setup-api';
+import {
+  keepSavedComponent,
+  type ProjectComponent,
+  type ProjectForm,
+  updateComponent,
+} from './setup-api';
 import { SetupSection, useSetup } from './setup-context';
 
 /** 'settings' the scoring of applications reads; they are configured with the quotas (Phase 2). */
@@ -26,9 +32,12 @@ const hasSettings = (key: string) => {
  */
 export function ComponentsSection({
   components,
+  forms,
   formHref,
 }: {
   components: ProjectComponent[];
+  /** The project's forms, of which the application form component shows and chooses its own. */
+  forms: readonly ProjectForm[] | undefined;
   /** The project's form in the builder, which the application form component leads to. */
   formHref: string;
 }) {
@@ -65,9 +74,7 @@ export function ComponentsSection({
               hint={can ? undefined : t('locked')}
             />
             {c.componentKey === 'application_form' && (
-              <LinkButton variant="text" startIcon="file" to={formHref}>
-                {t('open_forms')}
-              </LinkButton>
+              <ApplicationFormPicker forms={forms} can={can} formHref={formHref} />
             )}
             {hasSettings(c.componentKey) && !phone && (
               <IconButton
