@@ -339,6 +339,11 @@ describe('demo set', () => {
         { email: 'admin@example.org', is_system_owner: true, roles: ['admin'] },
         { email: 'head@example.org', is_system_owner: false, roles: ['department_head'] },
       ]);
+      // the Head's sessions reload their access after the handover
+      const version = await client.query(
+        `SELECT permission_version FROM users WHERE email = 'head@example.org'`,
+      );
+      expect(version.rows[0].permission_version).toBeGreaterThan(1);
       // a later seed leaves a role the owner changed since as it is
       await client.query(
         `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
@@ -356,6 +361,40 @@ describe('demo set', () => {
       });
     } finally {
       await older.$disconnect();
+      await cloned.drop();
+    }
+  }, 180_000);
+
+  it('leaves a Main Admin the owner chose where it is: the new demo Admin takes no flag', async () => {
+    const cloned = await cloneTemplate(inject('templateDb'));
+    const client = cloned.client;
+    const other = prismaClientFor(cloned.url);
+    try {
+      await runSeed(other, ['base'], { NODE_ENV: 'test', DATABASE_URL: cloned.url });
+      const chosen = seedId('user:someone-else');
+      await client.query(
+        `INSERT INTO users (id, kind, email, mobile, password_hash, state, display_name, is_system_owner)
+         VALUES ($1, 'staff', 'chosen@example.org', '01700000999', 'x', 'active', 'x', true)`,
+        [chosen],
+      );
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by) VALUES (gen_random_uuid(), $1, 'admin', $1)`,
+        [chosen],
+      );
+      await runSeed(other, ['base', 'demo'], { NODE_ENV: 'test', DATABASE_URL: cloned.url });
+      const owners = (
+        await client.query(`SELECT email FROM users WHERE is_system_owner ORDER BY email`)
+      ).rows;
+      expect(owners).toEqual([{ email: 'chosen@example.org' }]);
+      const head = (
+        await client.query(
+          `SELECT r.role_key FROM user_roles r JOIN users u ON u.id = r.user_id
+           WHERE u.email = 'head@example.org' AND r.revoked_at IS NULL`,
+        )
+      ).rows;
+      expect(head).toEqual([{ role_key: 'department_head' }]);
+    } finally {
+      await other.$disconnect();
       await cloned.drop();
     }
   }, 180_000);

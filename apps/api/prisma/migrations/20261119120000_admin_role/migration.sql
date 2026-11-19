@@ -51,7 +51,42 @@ SELECT
   'The Main Admin is an Admin account (the admin role migration)'
 FROM given g;
 
--- One official holds the Department Head role at a time: a second live row is refused, so two
--- appointments made at the same moment cannot both land.
+-- One official holds the Department Head role at a time. Nothing limited their number before, so
+-- a database may hold several: the one who has held the role longest keeps it, and every other
+-- live Head role ends with an audit entry and a new permission version. An Admin gives such a
+-- person their next role.
+WITH ranked AS (
+  SELECT r.id, r.user_id,
+         row_number() OVER (ORDER BY r.granted_at, r.id) AS position
+  FROM user_roles r
+  WHERE r.role_key = 'department_head' AND r.revoked_at IS NULL
+),
+surplus AS (
+  UPDATE user_roles r
+  SET revoked_at = now(), revoked_by = r.user_id
+  FROM ranked k
+  WHERE r.id = k.id AND k.position > 1
+  RETURNING r.id, r.user_id
+),
+bumped AS (
+  UPDATE users u
+  SET permission_version = u.permission_version + 1
+  WHERE u.id IN (SELECT user_id FROM surplus)
+  RETURNING u.id
+)
+INSERT INTO audit_log (id, created_at, action, entity_type, entity_id, old, new, reason)
+SELECT
+  gen_random_uuid(),
+  now(),
+  'user.role_changed',
+  'user',
+  s.user_id,
+  jsonb_build_object('roles', jsonb_build_array('department_head'), 'userRoleId', s.id),
+  jsonb_build_object('roles', '[]'::jsonb),
+  'One Department Head at a time: a second live Head role ended (the admin role migration)'
+FROM surplus s;
+
+-- A second live row is refused from now on, so two appointments made at the same moment cannot
+-- both land.
 CREATE UNIQUE INDEX "user_roles_one_department_head_key" ON "user_roles" ("role_key")
   WHERE role_key = 'department_head' AND revoked_at IS NULL;

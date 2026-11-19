@@ -346,6 +346,8 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     // staff accounts and their roles; a PM's home program is filled in once the program exists
     const homeProgram = (s: DemoStaff) =>
       s.key.startsWith('pm_') ? seedId(`program:${s.key.slice(3).toUpperCase()}`) : null;
+    /** Whether the demo Admin is made the Main Admin by this run (decided below, before the rows are written). */
+    let adminOwns = false;
     const staffRow = (s: DemoStaff, withProgram: boolean) => ({
       id: userId(s.key),
       kind: 'staff',
@@ -353,7 +355,8 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       mobile: fakeMobile(s.mobileIndex),
       password_hash: passwordHash,
       state: 'active',
-      is_system_owner: s.key === 'admin',
+      // written when the row is made, never after: the flag moves by the owner transfer alone
+      is_system_owner: s.key === 'admin' && adminOwns,
       display_name: demoName(s.name),
       designation: s.designation,
       job_id: s.jobId,
@@ -365,15 +368,29 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       ...ctx.audit(),
     });
     // The Main Admin is the demo Admin. A database seeded before the Admin role has the demo Head
-    // as the Main Admin, holding the admin role since the admin role migration: the first seed that
-    // makes the demo Admin hands the flag over and gives the Head the Head's role back. Later seeds
-    // touch neither the flag nor a role, so what the owner changed since stays.
+    // as the Main Admin, holding the admin role alone since the admin role migration: the first
+    // seed that makes the demo Admin hands the flag over and gives the Head the Head's role back.
+    // Any other state is the owner's own doing and stays: later seeds touch neither the flag nor
+    // a role, and the demo Admin is made the Main Admin only where the database has none.
+    const headId = userId('department_head');
     const adminIsNew = (await ctx.db.user.count({ where: { id: userId('admin') } })) === 0;
-    if (adminIsNew)
-      await ctx.db.user.updateMany({
-        where: { id: userId('department_head'), isSystemOwner: true },
-        data: { isSystemOwner: false },
+    const headRoles = adminIsNew
+      ? await ctx.db.userRole.findMany({
+          where: { userId: headId, revokedAt: null },
+          select: { roleKey: true },
+        })
+      : [];
+    const handsOver =
+      adminIsNew &&
+      headRoles.length === 1 &&
+      headRoles[0]!.roleKey === 'admin' &&
+      (await ctx.db.user.count({ where: { id: headId, isSystemOwner: true } })) === 1;
+    if (handsOver)
+      await ctx.db.user.update({
+        where: { id: headId },
+        data: { isSystemOwner: false, permissionVersion: { increment: 1 } },
       });
+    adminOwns = adminIsNew && (await ctx.db.user.count({ where: { isSystemOwner: true } })) === 0;
     for (const s of DEMO_STAFF) {
       await ctx.upsert('users', s.key.startsWith('pm_') ? staffRow(s, false) : staffRow(s, true), {
         insertOnly: ['password_hash', 'is_system_owner'],
@@ -392,7 +409,9 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       });
     }
     for (const s of DEMO_STAFF.filter((x) => x.key.startsWith('pm_'))) {
-      await ctx.upsert('users', staffRow(s, true), { insertOnly: ['password_hash'] });
+      await ctx.upsert('users', staffRow(s, true), {
+        insertOnly: ['password_hash', 'is_system_owner'],
+      });
     }
     const grant = (user: string, role: string) =>
       ctx.upsert('user_roles', {
@@ -403,14 +422,13 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         granted_at: SEED_AT,
       });
     for (const s of DEMO_STAFF) await grant(userId(s.key), s.role);
-    if (adminIsNew) {
-      const head = userId('department_head');
+    if (handsOver) {
       await ctx.db.userRole.updateMany({
-        where: { userId: head, roleKey: 'admin', revokedAt: null },
-        data: { revokedAt: SEED_AT },
+        where: { userId: headId, roleKey: 'admin', revokedAt: null },
+        data: { revokedAt: SEED_AT, revokedBy: ctx.actorId },
       });
       await ctx.db.userRole.updateMany({
-        where: { id: seedId(`user-role:${head}:department_head`) },
+        where: { id: seedId(`user-role:${headId}:department_head`) },
         data: { revokedAt: null, revokedBy: null },
       });
     }

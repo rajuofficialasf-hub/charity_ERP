@@ -859,6 +859,15 @@ describe('migrations', () => {
         );
       await grant(owner, 'department_head');
       await grant(executive, 'project_executive');
+      // nothing limited the Heads before: two more hold the role, the first of them the longest
+      const longest = await user(client);
+      const later = await user(client);
+      await client.query(
+        `INSERT INTO user_roles (id, user_id, role_key, granted_by, granted_at) VALUES
+           (gen_random_uuid(), $1, 'department_head', $1, '2026-01-01T00:00:00Z'),
+           (gen_random_uuid(), $2, 'department_head', $2, '2026-06-01T00:00:00Z')`,
+        [longest, later],
+      );
       const live = async (userId: string) =>
         (
           await client.query(
@@ -875,6 +884,13 @@ describe('migrations', () => {
       expect(await live(owner)).toEqual(['admin']);
       expect(await live(executive)).toEqual(['project_executive']);
       expect(await version(owner)).toBe(before + 1);
+      // of the other Heads the one who held the role longest keeps it; the second one's ends, audited
+      expect(await live(longest)).toEqual(['department_head']);
+      expect(await live(later)).toEqual([]);
+      const surplus = await client.query(
+        `SELECT entity_id FROM audit_log WHERE action = 'user.role_changed' AND reason LIKE 'One Department Head%'`,
+      );
+      expect(surplus.rows).toEqual([{ entity_id: later }]);
       const role = await client.query(`SELECT kind, global_scope FROM roles WHERE key = 'admin'`);
       expect(role.rows).toEqual([{ kind: 'official', global_scope: true }]);
       const audit = await client.query(
@@ -883,16 +899,19 @@ describe('migrations', () => {
       );
       expect(audit.rows).toHaveLength(1);
       // one live Department Head at a time: a second one is refused by the database
-      await grant(executive, 'department_head');
       const second = await user(client);
       await expectSqlError(grant(second, 'department_head'), SQLSTATE.uniqueViolation);
+
+      // the reverse refuses what it cannot undo: the Main Admin as a second Head, another Admin
+      await expect(file(dirs[at]!, 'down.sql')).rejects.toThrow(/second Department Head/);
       await client.query(
         `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
-        [executive],
+        [longest],
       );
-      await grant(second, 'department_head');
+      await grant(second, 'admin');
+      await expect(file(dirs[at]!, 'down.sql')).rejects.toThrow(/hold the admin role/);
       await client.query(
-        `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'department_head'`,
+        `UPDATE user_roles SET revoked_at = now() WHERE user_id = $1 AND role_key = 'admin'`,
         [second],
       );
 
