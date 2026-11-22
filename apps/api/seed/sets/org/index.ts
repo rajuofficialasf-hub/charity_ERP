@@ -1,7 +1,8 @@
 import { AuditWriter } from '../../../src/audit/audit-writer.js';
 import { createInvitation, invitationLink } from '../../../src/services/staff-accounts.js';
 import { SEED_AT, type SeedContext, seedId } from '../../context.js';
-import { DEMO_PROGRAMS } from '../demo/index.js';
+import { hash } from '@node-rs/argon2';
+import { ARGON2, DEMO_PASSWORD, DEMO_PROGRAMS } from '../demo/index.js';
 import type { StaffListRow } from './staff-file.js';
 
 /**
@@ -26,6 +27,12 @@ export interface OrgOptions {
   appOrigin: string;
   now: Date;
   writeLinks: (links: OrgLink[]) => void | Promise<void>;
+  /**
+   * Opens every official still without a password with the demo set's password instead of a link,
+   * so the owner can sign in as any of them on the development database; a password of one's own
+   * stays.
+   */
+  demoPassword?: boolean;
 }
 
 const userId = (jobId: string) => seedId(`org-user:${jobId}`);
@@ -33,6 +40,7 @@ const programId = (code: string) => seedId(`program:${code}`);
 
 export async function seedOrg(ctx: SeedContext, rows: StaffListRow[], options: OrgOptions) {
   const audit = new AuditWriter();
+  const demoHash = options.demoPassword ? await hash(DEMO_PASSWORD, ARGON2) : null;
   // the links and the rows are written by the system actor, which the base set makes first
   const actor = ctx.actorId;
   if (!actor) throw new Error('the org set runs after the base set, which makes the system actor');
@@ -130,6 +138,18 @@ export async function seedOrg(ctx: SeedContext, rows: StaffListRow[], options: O
       ).map((u) => u.id),
     );
     const links: OrgLink[] = [];
+    if (demoHash) {
+      const ids = [...pending];
+      await ctx.db.accountInvitation.updateMany({
+        where: { userId: { in: ids }, usedAt: null, revokedAt: null },
+        data: { revokedAt: options.now },
+      });
+      await ctx.db.user.updateMany({
+        where: { id: { in: ids } },
+        data: { state: 'active', passwordHash: demoHash, updatedBy: actor },
+      });
+      pending.clear();
+    }
     for (const r of rows) {
       if (!pending.has(userId(r.jobId))) continue;
       const issued = await createInvitation(ctx.db, audit, {

@@ -34,18 +34,25 @@ export interface SeedReport {
   tables: Record<string, TableCounts>;
 }
 
-/** The sets to run (base always first) and the staff list of the org set. */
-export function parseSeedArgs(args: string[]): { sets: SeedSet[]; file: string | null } {
+/** The sets to run (base always first), the staff list of the org set and its demo password choice. */
+export function parseSeedArgs(args: string[]): {
+  sets: SeedSet[];
+  file: string | null;
+  demoPassword: boolean;
+} {
   const i = args.indexOf('--set');
   const value = i >= 0 ? args[i + 1] : 'all';
   const f = args.indexOf('--file');
   const file = f >= 0 ? (args[f + 1] ?? null) : null;
+  const demoPassword = args.includes('--demo-password');
   if (value === 'org') {
     if (!file) throw new Error('the org set reads a staff list: add --file <path>');
-    return { sets: ['base', 'org'], file };
+    return { sets: ['base', 'org'], file, demoPassword };
   }
-  if (value === 'all' || value === 'demo') return { sets: ['base', 'demo'], file: null };
-  if (value === 'base') return { sets: ['base'], file: null };
+  if (demoPassword) throw new Error('--demo-password belongs to the org set (--set org)');
+  if (value === 'all' || value === 'demo')
+    return { sets: ['base', 'demo'], file: null, demoPassword: false };
+  if (value === 'base') return { sets: ['base'], file: null, demoPassword: false };
   throw new Error(`unknown seed set "${value}" (use base, demo, all or org)`);
 }
 
@@ -110,7 +117,7 @@ export function staffListOf(file: string): StaffListRow[] {
 }
 
 async function main(): Promise<void> {
-  const { sets, file } = parseSeedArgs(process.argv.slice(2));
+  const { sets, file, demoPassword } = parseSeedArgs(process.argv.slice(2));
   let org: { rows: StaffListRow[]; options: OrgOptions } | undefined;
   let linksPath: string | null = null;
   if (file) {
@@ -121,10 +128,18 @@ async function main(): Promise<void> {
     const appOrigin = appOriginOf(process.env.APP_ORIGIN);
     const now = new Date();
     const path = linksFileName(list, now);
-    linksPath = path;
+    // with the demo password nobody gets a link, so no file of tokens is written
+    linksPath = demoPassword ? null : path;
     org = {
       rows: staffListOf(list),
-      options: { appOrigin, now, writeLinks: (links) => writeLinksFile(path, links) },
+      options: {
+        appOrigin,
+        now,
+        demoPassword,
+        writeLinks: (links) => {
+          if (!demoPassword) writeLinksFile(path, links);
+        },
+      },
     };
   }
   // runSeed refuses a database outside the guard before the client opens a connection
@@ -146,6 +161,10 @@ async function main(): Promise<void> {
     if (org && linksPath)
       console.warn(
         `  ${org.rows.length} officials; set-password links in ${linksPath} (hand each to its person; delete the file afterwards)`,
+      );
+    else if (org)
+      console.warn(
+        `  ${org.rows.length} officials; those without a password of their own sign in with the demo password (docs/testing/DEMO_ACCOUNTS.md)`,
       );
   } finally {
     await prisma.$disconnect();

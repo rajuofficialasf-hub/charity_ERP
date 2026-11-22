@@ -53,13 +53,31 @@ describe('parseSeedArgs', () => {
     expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE])).toEqual({
       sets: ['base', 'org'],
       file: OUTSIDE,
+      demoPassword: false,
     });
     expect(() => parseSeedArgs(['--set', 'org'])).toThrow(/--file/);
   });
 
+  it('reads the demo password choice for the org set only', () => {
+    expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--demo-password'])).toEqual({
+      sets: ['base', 'org'],
+      file: OUTSIDE,
+      demoPassword: true,
+    });
+    expect(() => parseSeedArgs(['--set', 'demo', '--demo-password'])).toThrow(/org set/);
+  });
+
   it('keeps the earlier sets as they were', () => {
-    expect(parseSeedArgs([])).toEqual({ sets: ['base', 'demo'], file: null });
-    expect(parseSeedArgs(['--set', 'base'])).toEqual({ sets: ['base'], file: null });
-    expect(parseSeedArgs(['--set', 'demo'])).toEqual({ sets: ['base', 'demo'], file: null });
+    expect(parseSeedArgs([])).toEqual({ sets: ['base', 'demo'], file: null, demoPassword: false });
+    expect(parseSeedArgs(['--set', 'base'])).toEqual({
+      sets: ['base'],
+      file: null,
+      demoPassword: false,
+    });
+    expect(parseSeedArgs(['--set', 'demo'])).toEqual({
+      sets: ['base', 'demo'],
+      file: null,
+      demoPassword: false,
+    });
   });
 });

@@ -3,9 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext, seedId } from '../../seed/context.js';
 import { runSeed } from '../../seed/run.js';
 import { SYSTEM_ACTOR_ID } from '../../seed/sets/base/index.js';
+import { DEMO_PASSWORD } from '../../seed/sets/demo/index.js';
 import { type OrgLink, seedOrg } from '../../seed/sets/org/index.js';
 import type { StaffListRow } from '../../seed/sets/org/staff-file.js';
-import { type AuthHarness, authHarness, PASSWORD } from './support/auth-app.js';
+import { type AuthHarness, authHarness, login, PASSWORD } from './support/auth-app.js';
 
 // The org seed set: the department's own officials loaded from a checked staff list. Every row
 // here is made up; the real list stays outside the repository.
@@ -38,11 +39,12 @@ const LIST: StaffListRow[] = [
 ];
 const userOf = (jobId: string) => seedId(`org-user:${jobId}`);
 
-async function run(list = LIST, written: OrgLink[][] = []) {
+async function run(list = LIST, written: OrgLink[][] = [], demoPassword = false) {
   const ctx = new SeedContext(h.container.prisma);
   ctx.actorId = SYSTEM_ACTOR_ID;
   return seedOrg(ctx, list, {
     appOrigin: ORIGIN,
+    demoPassword,
     // the links are issued on the app's own clock, so the set-password page reads them as open
     now: h.clock.now(),
     writeLinks: (links) => {
@@ -225,6 +227,41 @@ describe('the org seed set', () => {
     await run([LIST[0]!, row({ jobId: 'ORG-21', roleKey: 'admin', supervisorJobId: 'ORG-1' })]);
     const owner = await h.db.query(`SELECT job_id FROM users WHERE is_system_owner`);
     expect(owner.rows).toEqual([{ job_id: 'ORG-2' }]);
+  });
+
+  it('opens the officials without a password with the demo password, and leaves a password of their own alone', async () => {
+    const list = [
+      ...LIST,
+      row({ jobId: 'ORG-30', supervisorJobId: 'ORG-1' }),
+      row({ jobId: 'ORG-31', supervisorJobId: 'ORG-1' }),
+    ];
+    // ORG-31 sets a password of their own through a link first
+    const links: OrgLink[][] = [];
+    await run(list, links);
+    const own = links[0]!.find((l) => l.jobId === 'ORG-31')!;
+    const accepted = await api()
+      .post('/api/v1/auth/invitations/accept')
+      .send({ token: tokenOf(own.link), password: PASSWORD });
+    expect(accepted.status).toBe(204);
+
+    const handed: OrgLink[][] = [];
+    await run(list, handed, true);
+    expect(handed).toEqual([[]]);
+    const state = await h.db.query(
+      `SELECT state, password_hash IS NOT NULL AS has_password FROM users WHERE id = $1`,
+      [userOf('ORG-30')],
+    );
+    expect(state.rows[0]).toEqual({ state: 'active', has_password: true });
+    await expect(login(h, 'ORG-30', { password: DEMO_PASSWORD })).resolves.toBeTruthy();
+    // a password of one's own stays: the demo password does not open that account
+    await expect(login(h, 'ORG-31', { password: PASSWORD })).resolves.toBeTruthy();
+    await expect(login(h, 'ORG-31', { password: DEMO_PASSWORD })).rejects.toThrow(/login failed/);
+    const open = await h.db.query(
+      `SELECT count(*)::int AS n FROM account_invitations
+       WHERE user_id = $1 AND used_at IS NULL AND revoked_at IS NULL`,
+      [userOf('ORG-30')],
+    );
+    expect(open.rows[0].n).toBe(0);
   });
 
   it('keeps the demo set out of a database that holds the department’s own officials', async () => {
