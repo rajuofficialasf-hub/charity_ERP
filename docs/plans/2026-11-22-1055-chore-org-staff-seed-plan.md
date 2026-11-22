@@ -27,6 +27,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **R6** Each pending official gets a set-password link; the links are written to a new file next to the list (outside the repository; a new name per run, never overwriting), holding only job ID, name, role, link and expiry, never to the console or the repository, and stay valid 72 hours as the app's own links.
 - **R7** The org set runs only on the development database (css_erp_dev on a local host) and refuses a database that already holds the demo set (the `seed.marker.demo` row of `settings`), and a list or links path inside the repository; a second run with the same list changes no account (only new links for the accounts still pending).
 - **R8** The development database is reset and loaded with base, the locations and the owner's list, with the owner's corrections of 2026-11-22.
+- **R9** With `--demo-password`, every official still without a password is made active with the demo set's password, their open links are revoked and no links file is written; an official with a password of their own keeps it (D-190).
 
 ## Scope
 
@@ -112,6 +113,20 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Risk area:** personal data
 - **Status:** done
 
+### U5. The demo password for the loaded officials
+- **Goal:** let the owner sign in as any of the department's officials on the development database with the demo password.
+- **Requirements:** R9
+- **Files:** `docs/DECISION_LOG.md` (D-190), `apps/api/seed/sets/org/index.ts`, `apps/api/seed/run.ts`, `apps/api/seed/sets/org/target.spec.ts`, `apps/api/test/integration/seed-org.test.ts`, `CLAUDE.md`, `README.md`, `docs/testing/DEMO_ACCOUNTS.md`; then css_erp_dev
+- **Approach:** the demo set's password hash (`DEMO_PASSWORD` and its Argon2id settings in `apps/api/seed/sets/demo/index.ts`); the pending accounts updated in the org set's transaction, their open links revoked.
+- **Tests:**
+  - unit: `parseSeedArgs` reads `--demo-password` for the org set only
+  - integration: with the demo password every pending official is active, signs in with the demo password, has no open link and is not in the handed links; an official with a password of their own keeps it
+- **Done when:** the tests pass and an official of the owner's list signs in on css_erp_dev with the demo password.
+- **Depends on:** U2
+- **Size:** S
+- **Risk area:** auth
+- **Status:** todo
+
 ## Checkpoints
 
 - **Mode:** grouped (one by one 3, grouped 9, all at once 3)
@@ -119,6 +134,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **C1** after U1: a personal-data unit, and U2 builds on its rows
 - **C2** after U2: the auth change (the shared link function) and the foundation of U3 and U4
 - **C3** after U4: the last unit, a personal-data step
+- **C4** after U5: added on the owner's request after C3 (auth: passwords of the loaded accounts)
 
 ## Verification
 
@@ -144,7 +160,7 @@ The owner wants to try the app with the department's own people. The demo set is
 
 - **Branch:** `chore/org-staff-seed`
 - **Updated:** 2026-11-22 14:00
-- **Next:** finish (C3 fixes committed), then the report
-- **Reviewed through:** C2 at 4a02836d
+- **Next:** U5, the demo password for the loaded officials (D-190)
+- **Reviewed through:** C3 at ee9dd68a
 - **Uncommitted:** none
 - **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it. C2 review: the demo set refuses an org database (`seed.marker.org`); the links file is restricted to the current user on Windows with icacls, named to the second, and removed when the run fails; `isInside` follows real paths; the betterleaks hits on test database URLs were placeholders, now without credentials; `invitationLink` is covered by the org and staff-account integration tests. The database never lets go of its Main Admin (a trigger), so tests cannot clear the flag. U4: css_erp_dev was reset with the owner's explicit consent in chat (Prisma asks for it), migrated, the locations loaded and the list seeded: 35 pending officials, roles 1/1/1/3/14/15, the Main Admin and the three PMs as the list gives them, 34 supervisors, 35 open links; the links file is readable by the owner's account alone; one link opened the set-password page with the name and job ID (no password set). The seed reads the origin as the API does (`appOriginOf` in `src/config/env.ts`: the named URL, or the developer default).
