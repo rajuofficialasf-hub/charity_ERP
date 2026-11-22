@@ -907,6 +907,7 @@
       "staff_area_hint": "পুরো প্রকল্পের জন্য খালি রাখুন।",
       "staff_districts": "জেলা",
       "staff_districts_hint": "কোনো জেলা না বাছলে পুরো এলাকায় অ্যাক্সেস থাকবে।",
+      "staff_district_count": "{count}টি জেলা",
       "change_districts": "{name}-এর জেলা বদলান",
       "role": {
         "project_executive": "প্রজেক্ট এক্সিকিউটিভ",

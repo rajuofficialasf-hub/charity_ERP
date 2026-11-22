@@ -200,6 +200,7 @@
       "extra_areas": "বাড়তি এলাকা",
       "extra_areas_hint": "এই এলাকার স্বেচ্ছাসেবকদের আপনি দেখতে পান, সেখানে আপনার কোনো প্রকল্প চালু না থাকলেও।",
       "extra_area_given": "{name} দিয়েছেন, {date}",
+      "extra_area_reason": "কারণ: {reason}",
       "whole_country": "পুরো দেশ"
     },
     "work": {

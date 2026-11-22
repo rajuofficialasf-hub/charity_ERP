@@ -30,6 +30,9 @@ import {
   canSeeStaff,
   holdsGlobalRole,
   mayGiveRole,
+  canGiveWholeCountry,
+  canManageExtraAreas,
+  seesPeopleByArea,
 } from './roles';
 
 // What the admin area shows per role (permissions.yaml role defaults; the server decides anyway).
@@ -193,6 +196,45 @@ describe('admin role lists', () => {
       expect(canPlaceForms(as(role)), role).toBe(true);
     for (const role of ['regional_program_manager', 'project_executive', 'volunteer_general'])
       expect(canPlaceForms(as(role)), role).toBe(false);
+  });
+
+  it('lets an Admin, the Head, a PM and an RPM manage extra areas, and only the first two give the whole country', () => {
+    for (const role of ['admin', 'department_head', 'program_manager', 'regional_program_manager'])
+      expect(canManageExtraAreas(as(role)), role).toBe(true);
+    // the Monitoring Team oversees and gives no reach; a field role holds none to give
+    for (const role of [
+      'monitoring_team',
+      'project_executive',
+      'official_daee',
+      'volunteer_general',
+    ])
+      expect(canManageExtraAreas(as(role)), role).toBe(false);
+    for (const role of ['admin', 'department_head'])
+      expect(canGiveWholeCountry(as(role)), role).toBe(true);
+    for (const role of ['program_manager', 'regional_program_manager', 'monitoring_team'])
+      expect(canGiveWholeCountry(as(role)), role).toBe(false);
+  });
+
+  it('says who sees the people of the own areas alone, so an empty tab can say why', () => {
+    for (const role of [
+      'program_manager',
+      'regional_program_manager',
+      'project_executive',
+      'official_daee',
+    ])
+      expect(seesPeopleByArea(as(role)), role).toBe(true);
+    // the whole country, the Media roles' limited view of everyone, and Procurement's own projects
+    for (const role of [
+      'admin',
+      'department_head',
+      'monitoring_team',
+      'media_team',
+      'media_director',
+      'media_assistant_director',
+      'procurement_team',
+      'finance_team',
+    ])
+      expect(seesPeopleByArea(as(role)), role).toBe(false);
   });
 
   it('lets the PM and the two global roles manage the public link, and no RPM or field role', () => {

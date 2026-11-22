@@ -90,16 +90,24 @@ export function AddressFields({
 }
 
 /**
+ * The read of a location's children from the public list, kept for an hour: the divisions for
+ * `undefined`, and no read for `null` (a parent that is not chosen yet). A screen that must not
+ * go on without the list reads its state from here.
+ */
+export function useLocationList(parentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['locations', parentId ?? 'divisions'],
+    queryFn: () => locations(parentId ?? undefined),
+    enabled: parentId !== null,
+    staleTime: 60 * 60_000,
+  });
+}
+
+/**
  * The children of a level: the divisions for `undefined`, nothing for a level whose parent is not
  * chosen yet (`null`; not the cached divisions).
  */
 function useLevel(parentId: string | null | undefined) {
-  const enabled = parentId !== null;
-  const data = useQuery({
-    queryKey: ['locations', parentId ?? 'divisions'],
-    queryFn: () => locations(parentId ?? undefined),
-    enabled,
-    staleTime: 60 * 60_000,
-  }).data;
-  return enabled ? data : undefined;
+  const { data } = useLocationList(parentId);
+  return parentId !== null ? data : undefined;
 }

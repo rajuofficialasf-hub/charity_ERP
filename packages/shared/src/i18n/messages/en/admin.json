@@ -907,6 +907,7 @@
       "staff_area_hint": "Leave empty for the whole project.",
       "staff_districts": "Districts",
       "staff_districts_hint": "With no district chosen, the access covers the whole area.",
+      "staff_district_count": "Districts: {count}",
       "change_districts": "Change the districts of {name}",
       "role": {
         "project_executive": "Project Executive",

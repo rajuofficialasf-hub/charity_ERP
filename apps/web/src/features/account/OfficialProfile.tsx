@@ -303,6 +303,8 @@ function OwnProjects({ extraAreas }: { extraAreas: OwnStaffProfile['extraAreas']
                     name: a.grantedBy.displayName,
                     date: formatDate(a.grantedAt),
                   })}
+                  {' · '}
+                  {t('extra_area_reason', { reason: a.reason })}
                 </span>
               </li>
             ))}

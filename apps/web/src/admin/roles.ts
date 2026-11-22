@@ -349,17 +349,19 @@ export const canManageExtraAreas = (me: Pick<Me, 'roles'>) => holds(me, EXTRA_AR
 export const canGiveWholeCountry = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
 
 /**
- * Who sees every volunteer or beneficiary of the country in the two tabs; everyone else sees the
- * people of the own projects' areas, so an empty tab says so.
+ * Who sees the volunteers and beneficiaries of the own projects' areas alone, so an empty tab
+ * says so: the four roles that work by area. The roles that see the whole country, the Media
+ * roles with their limited view of everyone and the Procurement Team with its own projects read
+ * the plain empty state.
  */
-const WHOLE_COUNTRY_VIEW_ROLES: readonly string[] = [
-  'admin',
-  'department_head',
-  'monitoring_team',
-  'media_team',
-  'media_director',
+const BY_AREA_ROLES: readonly string[] = [
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
 ];
-export const seesPeopleByArea = (me: Pick<Me, 'roles'>) => !holds(me, WHOLE_COUNTRY_VIEW_ROLES);
+export const seesPeopleByArea = (me: Pick<Me, 'roles'>) =>
+  holds(me, BY_AREA_ROLES) && !holdsGlobalRole(me);
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
 
 /**

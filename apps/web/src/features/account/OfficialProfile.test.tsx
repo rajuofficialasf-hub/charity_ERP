@@ -236,7 +236,12 @@ describe("an official's own profile", () => {
     const extra = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
     expect(within(extra).getByText('বরিশাল')).toBeInTheDocument();
     expect(within(extra).getByText('পুরো দেশ')).toBeInTheDocument();
-    expect(within(extra).getAllByText(/^ডিপার্টমেন্ট প্রধান দিয়েছেন, /)).toHaveLength(2);
+    // each with who gave it, when and why
+    expect(
+      within(extra).getAllByText(
+        /^ডিপার্টমেন্ট প্রধান দিয়েছেন, .+ · কারণ: বন্যার ত্রাণের প্রস্তুতি$/,
+      ),
+    ).toHaveLength(2);
     await expectNoAxeViolations(first.container);
     first.unmount();
 

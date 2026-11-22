@@ -1,3 +1,4 @@
+import { formatCount } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
 import { editableIn, STAFF_ACCESS_ROLES } from '@css/shared/projects';
 import {
@@ -10,13 +11,15 @@ import {
   FormTextField,
   IconButton,
   SelectField,
+  Skeleton,
 } from '@/ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
-import { locations } from '../../../features/registration/registration-api';
+import { LoadError } from '../../../components/LoadError';
+import { useLocationList } from '../../../features/registration/AddressFields';
 import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { type PanelUser, UserSearch } from '../../UserSearch';
 import {
@@ -64,29 +67,28 @@ const NO_ACCESS: AccessFields = {
 const END_SCHEMA = z.object({ reason: z.string().trim().min(3) });
 type EndFields = z.infer<typeof END_SCHEMA>;
 
-/** The districts of a division, from the public location list the address fields use. */
-function useDistricts(divisionId: string | null) {
-  return useQuery({
-    queryKey: ['locations', divisionId],
-    queryFn: () => locations(divisionId!),
-    enabled: divisionId !== null,
-    staleTime: 60 * 60_000,
-  });
-}
+/** The read of a division's districts, from the public location list the address fields use. */
+type DistrictList = ReturnType<typeof useLocationList>;
 
-/** The districts of an area to tick; none ticked leaves the place its whole area. */
+/**
+ * The districts of an area to tick; none ticked leaves the place its whole area. A list that did
+ * not come is said, with a retry: an empty choice would read as the whole area, so the screen
+ * saves nothing until the list is there.
+ */
 function DistrictChoice({
-  divisionId,
+  districts,
   value,
   onChange,
 }: {
-  divisionId: string;
+  districts: DistrictList;
   value: readonly string[];
   onChange: (ids: string[]) => void;
 }) {
   const t = useTranslations('admin.projects.setup');
   const locale = useLocale() as Locale;
-  const districts = useDistricts(divisionId);
+  if (districts.isError)
+    return <LoadError error={districts.error} onRetry={() => void districts.refetch()} />;
+  if (!districts.data) return <Skeleton count={2} />;
   return (
     <CheckboxGroup
       label={t('staff_districts')}
@@ -94,7 +96,7 @@ function DistrictChoice({
       columns={2}
       value={value}
       onChange={onChange}
-      options={(districts.data ?? []).map((d) => ({
+      options={districts.data.map((d) => ({
         value: d.id,
         label: localized(d.name, locale),
       }))}
@@ -104,17 +106,19 @@ function DistrictChoice({
 
 /**
  * The part of its area a place holds: its districts by name, in the order of the area's own
- * list, or the whole area.
+ * list, or the whole area. Until the names are read, how many districts it holds.
  */
 function PlacePart({ access }: { access: StaffAccess }) {
   const t = useTranslations('admin.projects.setup');
   const locale = useLocale() as Locale;
   const held = access.districtIds.length > 0;
-  const districts = useDistricts(held ? access.areaLocationId : null);
+  const districts = useLocationList(held ? access.areaLocationId : null);
   if (!held) return <>{t('whole_area')}</>;
   const names = (districts.data ?? [])
     .filter((d) => access.districtIds.includes(d.id))
     .map((d) => localized(d.name, locale));
+  if (names.length === 0)
+    return <>{t('staff_district_count', { count: formatCount(access.districtIds.length, locale) })}</>;
   return <>{names.join(', ')}</>;
 }
 
@@ -157,6 +161,9 @@ export function StaffSection({
   // districts are chosen inside a division; an area that is itself a district has none
   const isDivision = (locationId: string | null) =>
     places.some((a) => a.locationId === locationId && a.level === 'division');
+  const areaDistricts = useLocationList(isDivision(areaId) ? areaId : null);
+  // no district ticked means the whole area, so nothing is given before the list has come
+  const districtsReady = !isDivision(areaId) || areaDistricts.isSuccess;
 
   const add = useMutation({
     mutationFn: (v: AccessFields) =>
@@ -183,7 +190,10 @@ export function StaffSection({
   // an access filled in but not given yet is given when the wizard moves on; half of one stays
   const problem = useStepSave({
     changed: can && Boolean(person || roleKey || areaId),
-    invalid: person && roleKey && (configure || areaId) ? undefined : tz('staff_incomplete'),
+    invalid:
+      person && roleKey && (configure || areaId) && districtsReady
+        ? undefined
+        : tz('staff_incomplete'),
     save: () => add.mutateAsync(form.getValues()),
   });
 
@@ -302,7 +312,7 @@ export function StaffSection({
                 name="districtIds"
                 render={({ field }) => (
                   <DistrictChoice
-                    divisionId={areaId}
+                    districts={areaDistricts}
                     value={field.value}
                     onChange={field.onChange}
                   />
@@ -340,7 +350,7 @@ export function StaffSection({
             <SaveRow
               mutation={add}
               onSave={() => void form.handleSubmit(submit)()}
-              disabled={!person || !roleKey || (!configure && !areaId)}
+              disabled={!person || !roleKey || (!configure && !areaId) || !districtsReady}
               label={t('add_staff')}
             />
           </Form>
@@ -384,6 +394,7 @@ function DistrictsDialog({
   const tc = useTranslations('common.action');
   const ts = useTranslations('common.state.error');
   const [chosen, setChosen] = useState<string[]>(access.districtIds);
+  const districts = useLocationList(access.areaLocationId);
   const save = useMutation({
     mutationFn: () => setStaffDistricts(access.id, chosen),
     onSuccess: onDone,
@@ -401,14 +412,18 @@ function DistrictsDialog({
           <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
             {tc('cancel')}
           </Button>
-          <Button onClick={() => save.mutate()} loading={save.isPending}>
+          <Button
+            onClick={() => save.mutate()}
+            loading={save.isPending}
+            disabled={!districts.isSuccess}
+          >
             {tc('save')}
           </Button>
         </>
       }
     >
       {save.isError && <Alert tone="error">{ts('text')}</Alert>}
-      <DistrictChoice divisionId={access.areaLocationId!} value={chosen} onChange={setChosen} />
+      <DistrictChoice districts={districts} value={chosen} onChange={setChosen} />
     </Dialog>
   );
 }

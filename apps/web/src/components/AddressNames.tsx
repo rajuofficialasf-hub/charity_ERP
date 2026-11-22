@@ -1,7 +1,6 @@
 import type { Locale } from '@css/shared/i18n';
 import { useLocale } from 'use-intl';
-import { useQuery } from '@tanstack/react-query';
-import { locations } from '../features/registration/registration-api';
+import { useLocationList } from '../features/registration/AddressFields';
 
 export interface AddressIds {
   divisionId: string | null;
@@ -35,11 +34,6 @@ export function AddressNames({ address }: { address: AddressIds }) {
  */
 export function useLocationName(parentId: string | null | undefined, id: string | null) {
   const enabled = parentId !== null && id !== null;
-  const list = useQuery({
-    queryKey: ['locations', parentId ?? 'divisions'],
-    queryFn: () => locations(parentId ?? undefined),
-    enabled,
-    staleTime: 60 * 60_000,
-  });
+  const list = useLocationList(enabled ? parentId : null);
   return enabled ? list.data?.find((l) => l.id === id)?.name : undefined;
 }

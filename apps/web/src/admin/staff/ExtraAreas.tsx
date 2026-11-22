@@ -89,7 +89,12 @@ export function ExtraAreas({
     a.location ? localized(a.location.name, locale) : t('whole_country');
   const live = (areas.data ?? []).filter((a) => a.endedAt === null);
   const past = (areas.data ?? []).filter((a) => a.endedAt !== null);
-  const failure = end.error instanceof ApiFailure ? end.error : null;
+  // the server's refusal in its own words; anything else is a request that got no answer
+  const failure = !end.isError
+    ? null
+    : end.error instanceof ApiFailure
+      ? (end.error.details[0]?.message ?? end.error.message)
+      : t('offline');
 
   return (
     <ProfileSection title={t('title')} icon="map-pin">
@@ -192,9 +197,7 @@ export function ExtraAreas({
         message={
           <>
             <p>{t('end_message')}</p>
-            {failure && (
-              <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
-            )}
+            {failure && <p className="admin-error">{failure}</p>}
           </>
         }
         tone="danger"

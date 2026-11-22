@@ -33,6 +33,8 @@ let patchStatus: number;
 let componentAnswer: { status: number; body: Record<string, unknown> } | null;
 let staffRows: Record<string, unknown>[];
 let areaRows: Record<string, unknown>[];
+/** The district list fails while this is set. */
+let districtsDown: boolean;
 
 const DHAKA = '01900000-0000-7000-8000-0000000000a1';
 const GAZIPUR = '01900000-0000-7000-8000-0000000000a2';
@@ -100,6 +102,7 @@ function serve(status = 'draft') {
   componentAnswer = null;
   staffRows = [];
   areaRows = [];
+  districtsDown = false;
   server.use(
     http.get(`*/api/v1/projects/${ID}`, () =>
       HttpResponse.json({ data: project, meta: { etag: '"p1"' } }),
@@ -230,6 +233,14 @@ function serve(status = 'draft') {
     ),
     http.get('*/api/v1/locations', ({ request }) => {
       const parent = new URL(request.url).searchParams.get('parentId') ?? '';
+      if (districtsDown && parent)
+        return HttpResponse.json(
+          {
+            error: { code: 'rate.limited', message: 'অনেকবার চেষ্টা হয়েছে।', requestId: 'req_x' },
+          },
+          // a refusal is not asked again by itself, so the retry is the person's
+          { status: 429 },
+        );
       const rows = DISTRICTS[parent] ?? [];
       return HttpResponse.json({ data: rows.map((d) => ({ ...d, postCode: null })), meta: {} });
     }),
@@ -662,6 +673,47 @@ describe('the setup wizard', () => {
       }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  }, 20_000);
+
+  it('gives nothing while the district list has not come, and counts the districts it cannot name', async () => {
+    serve();
+    districtsDown = true;
+    areaRows = [division(DHAKA, 'ঢাকা', 'Dhaka')];
+    staffRows = [
+      {
+        id: '01900000-0000-7000-8000-0000000000f2',
+        userId: '01900000-0000-7000-8000-0000000000d2',
+        displayName: 'দুই জেলার কর্মী',
+        roleKey: 'project_executive',
+        areaLocationId: DHAKA,
+        districtIds: [GAZIPUR, NARSINGDI],
+        canView: true,
+        canEdit: false,
+        canDelete: false,
+        extraPermissions: [],
+      },
+    ];
+    const user = userEvent.setup();
+    open('staff');
+    const staff = await section('স্টাফের অ্যাক্সেস');
+    // the place keeps its districts in words, never as the whole area
+    expect(await within(staff).findByText(/ঢাকা \(2টি জেলা\)/)).toBeInTheDocument();
+    await user.click(within(staff).getByRole('combobox', { name: /ভূমিকা/ }));
+    await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
+    await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
+    await user.click(within(staff).getByRole('combobox', { name: /এলাকা/ }));
+    await user.click(await screen.findByRole('option', { name: 'ঢাকা' }));
+    // no list, no choice: an empty choice would give the whole division
+    const retry = await within(staff).findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    expect(within(staff).queryByRole('group', { name: /জেলা/ })).not.toBeInTheDocument();
+    expect(within(staff).getByRole('button', { name: 'অ্যাক্সেস দিন' })).toBeDisabled();
+    expect(writes.filter((w) => w.path === 'staff')).toEqual([]);
+    districtsDown = false;
+    await user.click(retry);
+    expect(await within(staff).findByRole('checkbox', { name: 'গাজীপুর' })).toBeInTheDocument();
+    expect(within(staff).getByRole('button', { name: 'অ্যাক্সেস দিন' })).toBeEnabled();
+    expect(await within(staff).findByText(/ঢাকা \(গাজীপুর, নরসিংদী\)/)).toBeInTheDocument();
   }, 20_000);
 
   it('reviews what is missing, opens its step, and activates a draft', async () => {

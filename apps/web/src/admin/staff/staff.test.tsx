@@ -852,6 +852,27 @@ describe('the official profile', () => {
     expect(within(areas).getByText(/^আমি শেষ করেছেন, /)).toBeInTheDocument();
   }, 20_000);
 
+  it('says so when the end of an area got no answer, and keeps the area', async () => {
+    refreshAs(HEAD);
+    serve();
+    extraRows = [extraArea()];
+    server.use(
+      http.post('*/api/v1/users/:userId/extra-areas/:areaId/end', () => HttpResponse.error()),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    await user.click(await within(areas).findByRole('button', { name: 'শেষ করুন' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.type(within(confirm).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(within(confirm).getByRole('button', { name: 'শেষ করুন' }));
+    expect(
+      await within(confirm).findByText('সার্ভারে পৌঁছানো যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    expect(within(areas).getByText('বরিশাল')).toBeInTheDocument();
+    expect(within(areas).queryByText('বাড়তি এলাকা শেষ করা হয়েছে।')).not.toBeInTheDocument();
+  }, 20_000);
+
   it('gives the whole country as an Admin or the Department Head alone', async () => {
     refreshAs(HEAD);
     serve();
