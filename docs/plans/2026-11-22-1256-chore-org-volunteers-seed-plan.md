@@ -1,7 +1,7 @@
 ---
 title: The department's own volunteers in the development database
 type: chore
-status: in-progress
+status: done
 source: plan
 date: 2026-11-22
 doc_review: 2026-11-22
@@ -99,11 +99,3 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
-
-## Progress
-- **Branch:** `chore/org-volunteers-seed`
-- **Updated:** 2026-11-22 13:10
-- **Next:** checkpoint C1 (test and review), then finish
-- **Reviewed through:** none
-- **Uncommitted:** none
-- **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH. U2: a new volunteer takes the next free sample NID and keeps it on reruns (an index by list order would collide when the list grows); the placeholders are insert-only so details edited in the app stay. U3: css_erp_dev holds the owner's 20 volunteers (active, approved, general, fake-range NIDs, one home) beside the 35 officials; one volunteer signed in by mobile with the demo password in the browser.
