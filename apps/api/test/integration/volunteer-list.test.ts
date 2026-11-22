@@ -338,6 +338,45 @@ describe('whom the volunteer tab reaches', () => {
     expect(ids(await list(rangpur, { unionId: world.dhaka.union }))).toEqual([]);
   });
 
+  it('names every project of a volunteer in reach and counts all their applications, also on a project the reader cannot open', async () => {
+    const name = `দুই প্রকল্পের স্বেচ্ছাসেবক ${randomUUID().slice(0, 8)}`;
+    const near = await someone(world.dhaka, { name });
+    // a project of another program, worked in Rangpur: the Dhaka RPM holds nothing on it
+    const elsewhere = await f.project(h.db, { status: 'active' });
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
+      [
+        randomUUID(),
+        elsewhere.id,
+        near.volunteerId,
+        world.rangpur.division,
+        world.users.rpmRangpur,
+      ],
+    );
+    await f.application(
+      h.db,
+      { project: elsewhere, loc: world.rangpur },
+      {
+        status: 'submitted',
+        owner_volunteer_id: near.volunteerId,
+        beneficiary_id: await f.beneficiary(h.db, world.rangpur),
+      },
+    );
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await api().get(`/api/v1/projects/${elsewhere.id}`).set(bearer(rpm))).status).toBe(404);
+    // how busy the volunteer is shows whole: the project by its code and name, and its application
+    const rows = (await list(rpm, { q: name })).body.data as {
+      id: string;
+      projects: { id: string }[];
+    }[];
+    expect(rows.map((r) => r.id)).toEqual([near.volunteerId]);
+    expect(rows[0]!.projects.map((p) => p.id)).toContain(elsewhere.id);
+    const counts = (await statistics(rpm, { q: name })).body.data;
+    expect(counts.volunteers.total).toBe(1);
+    expect(counts.applications.total).toBe(1);
+  });
+
   it('shows an Executive and an Official দায়ী with two districts the volunteers of those districts alone', async () => {
     const first = await f.locationTree(h.db);
     /** Another district of the same division. */
