@@ -131,8 +131,8 @@ test.describe('the beneficiary tab', () => {
 });
 
 // The lookup cases of the demo seed (docs/testing/DEMO_ACCOUNTS.md): beneficiary 11 of Dhaka is
-// found, beneficiary 3 is blocked, and an unused NID finds nothing; all inside project WNT, which
-// the Dhaka RPM works on. Beneficiary 11 applied to the RPM's project at work, so the RPM also
+// found, beneficiary 3 is blocked, and an unused NID finds nothing; all inside the 2026 session of
+// project WNT, which the Dhaka RPM works on. Beneficiary 11 applied to the RPM's project at work, so the RPM also
 // finds the profile in the tab; a person who never applied to an own project is filled in by the
 // lookup and not listed there. Nothing here changes data, so both projects share the account.
 const FOUND_NID = '1000001010';
@@ -151,7 +151,8 @@ test.describe('the lookup by NID or birth registration', () => {
     await select(page, 'প্রকল্প').click();
     await page
       .getByRole('listbox')
-      .getByRole('option', { name: /\(WNT\)$/ })
+      // the session of this year: the RPM also holds the closed session of 2025
+      .getByRole('option', { name: /2026 \(WNT\)$/ })
       .click();
 
     const number = dialog.getByRole('textbox', { name: /^NID নম্বর/ }).first();

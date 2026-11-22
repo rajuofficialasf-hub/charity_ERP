@@ -695,6 +695,23 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       // a district taken away in a dev database stays ended
       { insertOnly: ['location_id'] },
     );
+    // an extra area for volunteers: the Official দায়ী, whose project place is in Dhaka, also sees
+    // the volunteers of the first Rangpur district, given by the Department Head
+    await ctx.upsert(
+      'user_extra_areas',
+      {
+        id: seedId('extra-area:official_daee:rangpur'),
+        user_id: userId('official_daee'),
+        location_id: rangpur[0]!.district,
+        whole_country: false,
+        reason: demoName('রংপুরের দাওয়াহ ক্লাসের খোঁজখবর'),
+        granted_by: userId('department_head'),
+        granted_at: SEED_AT,
+        ...ctx.audit(),
+      },
+      // an area ended in a dev database stays ended
+      { insertOnly: ['location_id', 'whole_country', 'reason', 'granted_by', 'granted_at'] },
+    );
     // the applicants of the project at work: a person is reached through an application of an
     // own project, so twenty of the demo people applied to it where they live (ten in each
     // division, still under review), and the regional accounts meet them in the beneficiary tab
@@ -854,6 +871,15 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       per_volunteer_limit: 50,
       cost_per_beneficiary: '1500.00',
       target_beneficiaries: 2000,
+      ...ctx.audit(),
+    });
+    // the closed session keeps its area: the Dhaka RPM worked on it, so the person it helped
+    // stays in the RPM's beneficiary tab after the close, while its volunteers do not
+    await ctx.upsert('project_areas', {
+      id: seedId('project-area:WNT:2025:rpm_dhaka'),
+      project_id: pastId,
+      location_id: place.division,
+      rpm_user_id: userId('rpm_dhaka'),
       ...ctx.audit(),
     });
     const pastFormId = seedId('form:WNT:2025');

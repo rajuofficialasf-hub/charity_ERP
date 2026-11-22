@@ -546,6 +546,41 @@ describe('demo set', () => {
     ]);
   });
 
+  it('gives the Official দায়ী one live extra area, a Rangpur district from the Head, and the closed session its Dhaka RPM', async () => {
+    const extra = (
+      await db.query(
+        `SELECT u.email::text AS holder, g.email::text AS giver, l.level, d.name_en AS division,
+                x.whole_country, x.ended_at
+           FROM user_extra_areas x
+           JOIN users u ON u.id = x.user_id
+           JOIN users g ON g.id = x.granted_by
+           JOIN locations l ON l.id = x.location_id
+           JOIN locations d ON d.id = l.parent_id`,
+      )
+    ).rows;
+    expect(extra).toEqual([
+      {
+        holder: 'daee@example.org',
+        giver: 'head@example.org',
+        level: 'district',
+        division: 'Rangpur',
+        whole_country: false,
+        ended_at: null,
+      },
+    ]);
+    // the person the closed session helped stays with the RPM who worked on it
+    const past = (
+      await db.query(
+        `SELECT u.email::text AS rpm, l.name_en AS area FROM project_areas a
+           JOIN projects p ON p.id = a.project_id
+           JOIN users u ON u.id = a.rpm_user_id
+           JOIN locations l ON l.id = a.location_id
+          WHERE p.code = 'WNT' AND p.year = 2025`,
+      )
+    ).rows;
+    expect(past).toEqual([{ rpm: 'rpm.dhaka@example.org', area: 'Dhaka' }]);
+  });
+
   it('keeps one person helped once, by the closed session of 2025, with the times helped kept', async () => {
     const { rows } = await db.query(
       `SELECT b.nid, b.help_count, a.status, a.closed_from_status, p.year
