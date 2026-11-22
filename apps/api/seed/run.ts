@@ -17,6 +17,7 @@ import { DEMO_PROGRAMS, seedDemo } from './sets/demo/index.js';
 import { type OrgOptions, seedOrg } from './sets/org/index.js';
 import { linksDestination, removeLinksFile } from './sets/org/links-file.js';
 import { readStaffList, type StaffListRow } from './sets/org/staff-file.js';
+import { readVolunteerList, type VolunteerListRow } from './sets/org/volunteer-file.js';
 import { checkOrgTarget } from './sets/org/target.js';
 import { REPO_ROOT } from './sets/util.js';
 
@@ -38,21 +39,30 @@ export interface SeedReport {
 export function parseSeedArgs(args: string[]): {
   sets: SeedSet[];
   file: string | null;
+  volunteers: string | null;
   demoPassword: boolean;
 } {
   const i = args.indexOf('--set');
   const value = i >= 0 ? args[i + 1] : 'all';
-  const f = args.indexOf('--file');
-  const file = f >= 0 ? (args[f + 1] ?? null) : null;
+  const valueOf = (flag: string) => {
+    const at = args.indexOf(flag);
+    if (at < 0) return null;
+    const value = args[at + 1];
+    if (!value || value.startsWith('--')) throw new Error(`${flag} needs a path`);
+    return value;
+  };
+  const file = valueOf('--file');
+  const volunteers = valueOf('--volunteers');
   const demoPassword = args.includes('--demo-password');
   if (value === 'org') {
     if (!file) throw new Error('the org set reads a staff list: add --file <path>');
-    return { sets: ['base', 'org'], file, demoPassword };
+    return { sets: ['base', 'org'], file, volunteers, demoPassword };
   }
   if (demoPassword) throw new Error('--demo-password belongs to the org set (--set org)');
-  if (value === 'all' || value === 'demo')
-    return { sets: ['base', 'demo'], file: null, demoPassword: false };
-  if (value === 'base') return { sets: ['base'], file: null, demoPassword: false };
+  if (volunteers) throw new Error('--volunteers belongs to the org set (--set org)');
+  const none = { file: null, volunteers: null, demoPassword: false };
+  if (value === 'all' || value === 'demo') return { sets: ['base', 'demo'], ...none };
+  if (value === 'base') return { sets: ['base'], ...none };
   throw new Error(`unknown seed set "${value}" (use base, demo, all or org)`);
 }
 
@@ -99,6 +109,27 @@ export async function runSeed(
   };
 }
 
+/**
+ * The volunteers of a list kept outside the repository, or the run stopped: by the org set's guards,
+ * or with every problem of the list by line and column.
+ */
+export function volunteerListOf(
+  file: string,
+  officialMobiles: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): VolunteerListRow[] {
+  const refusal = checkOrgTarget(env, REPO_ROOT, file, 'volunteer list');
+  if (refusal) throw new Error(`db:seed refused: ${refusal}`);
+  const { rows, problems } = readVolunteerList(readFileSync(file, 'utf8'), officialMobiles);
+  if (problems.length) {
+    // line, column and reason only: a cell's value never reaches the terminal
+    for (const p of problems)
+      console.error(`  volunteer list line ${p.line}, ${p.field}: ${p.reason}`);
+    throw new Error(`the volunteer list has ${problems.length} problem(s); nothing was written`);
+  }
+  return rows;
+}
+
 /** The officials of the staff list, or the run stopped with every problem by line and column. */
 export function staffListOf(file: string): StaffListRow[] {
   const permissions = readPermissionsFile();
@@ -117,7 +148,7 @@ export function staffListOf(file: string): StaffListRow[] {
 }
 
 async function main(): Promise<void> {
-  const { sets, file, demoPassword } = parseSeedArgs(process.argv.slice(2));
+  const { sets, file, volunteers, demoPassword } = parseSeedArgs(process.argv.slice(2));
   let org: { rows: StaffListRow[]; options: OrgOptions } | undefined;
   let linksPath: string | null = null;
   if (file) {
@@ -129,9 +160,23 @@ async function main(): Promise<void> {
     const now = new Date();
     const destination = linksDestination(list, now, demoPassword);
     linksPath = destination.linksPath;
+    const rows = staffListOf(list);
+    let volunteerRows: VolunteerListRow[] = [];
+    if (volunteers) {
+      volunteerRows = volunteerListOf(
+        resolve(volunteers),
+        rows.flatMap((r) => (r.mobile ? [r.mobile] : [])),
+      );
+    }
     org = {
-      rows: staffListOf(list),
-      options: { appOrigin, now, demoPassword, writeLinks: destination.writeLinks },
+      rows,
+      options: {
+        appOrigin,
+        now,
+        demoPassword,
+        volunteers: volunteerRows,
+        writeLinks: destination.writeLinks,
+      },
     };
     if (demoPassword)
       console.warn(
@@ -154,6 +199,8 @@ async function main(): Promise<void> {
     );
     for (const [table, c] of Object.entries(report.tables))
       console.warn(`  ${table}: ${JSON.stringify(c)}`);
+    if (org?.options.volunteers?.length)
+      console.warn(`  ${org.options.volunteers.length} volunteers; they sign in by mobile`);
     if (org && linksPath)
       console.warn(
         `  ${org.rows.length} officials; set-password links in ${linksPath} (hand each to its person; delete the file afterwards)`,

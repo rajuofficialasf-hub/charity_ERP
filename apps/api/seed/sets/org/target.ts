@@ -29,6 +29,7 @@ export function checkOrgTarget(
   env: { NODE_ENV?: string | undefined; DATABASE_URL?: string | undefined },
   repoRoot: string,
   listPath: string,
+  listLabel = 'staff list',
 ): string | null {
   const guard = checkDestructiveDbAccess(env);
   if (!guard.allowed) return guard.reason;
@@ -36,7 +37,7 @@ export function checkOrgTarget(
     return `the department's own data goes only into css_erp_dev, not "${guard.database}"`;
   const host = new URL(env.DATABASE_URL!).hostname;
   if (!LOCAL_HOSTS.has(host)) return 'the database is not on this computer';
-  if (isInside(repoRoot, listPath)) return 'the staff list must be kept outside the repository';
+  if (isInside(repoRoot, listPath)) return `the ${listLabel} must be kept outside the repository`;
   return null;
 }
 

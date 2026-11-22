@@ -7,6 +7,7 @@ import { checkOrgTarget, linksFileName } from './target.js';
 // outside the repository.
 const REPO = join('D:', 'repo');
 const OUTSIDE = join('D:', 'own-data', 'staff.tsv');
+const VOLUNTEERS = join('D:', 'own-data', 'volunteers.tsv');
 const env = (url: string) => ({ DATABASE_URL: url });
 const DEV = 'postgresql://localhost:5433/css_erp_dev';
 
@@ -35,6 +36,9 @@ describe('checkOrgTarget', () => {
       /outside the repository/,
     );
     expect(checkOrgTarget(env(DEV), REPO, REPO)).toMatch(/outside the repository/);
+    expect(checkOrgTarget(env(DEV), REPO, join(REPO, 'v.tsv'), 'volunteer list')).toBe(
+      'the volunteer list must be kept outside the repository',
+    );
     // a folder whose name starts with two dots is still inside
     expect(checkOrgTarget(env(DEV), REPO, join(REPO, '..data', 'staff.tsv'))).toMatch(
       /outside the repository/,
@@ -53,6 +57,7 @@ describe('parseSeedArgs', () => {
     expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE])).toEqual({
       sets: ['base', 'org'],
       file: OUTSIDE,
+      volunteers: null,
       demoPassword: false,
     });
     expect(() => parseSeedArgs(['--set', 'org'])).toThrow(/--file/);
@@ -62,21 +67,43 @@ describe('parseSeedArgs', () => {
     expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--demo-password'])).toEqual({
       sets: ['base', 'org'],
       file: OUTSIDE,
+      volunteers: null,
       demoPassword: true,
     });
     expect(() => parseSeedArgs(['--set', 'demo', '--demo-password'])).toThrow(/org set/);
   });
 
+  it('reads the volunteer list for the org set only', () => {
+    expect(
+      parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers', VOLUNTEERS]).volunteers,
+    ).toBe(VOLUNTEERS);
+    expect(() => parseSeedArgs(['--set', 'base', '--volunteers', VOLUNTEERS])).toThrow(/org set/);
+    // a flag without its path stops the run instead of loading the officials alone
+    expect(() => parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers'])).toThrow(
+      /--volunteers needs a path/,
+    );
+    expect(() =>
+      parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers', '--demo-password']),
+    ).toThrow(/--volunteers needs a path/);
+  });
+
   it('keeps the earlier sets as they were', () => {
-    expect(parseSeedArgs([])).toEqual({ sets: ['base', 'demo'], file: null, demoPassword: false });
+    expect(parseSeedArgs([])).toEqual({
+      sets: ['base', 'demo'],
+      file: null,
+      volunteers: null,
+      demoPassword: false,
+    });
     expect(parseSeedArgs(['--set', 'base'])).toEqual({
       sets: ['base'],
       file: null,
+      volunteers: null,
       demoPassword: false,
     });
     expect(parseSeedArgs(['--set', 'demo'])).toEqual({
       sets: ['base', 'demo'],
       file: null,
+      volunteers: null,
       demoPassword: false,
     });
   });
