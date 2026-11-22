@@ -46,7 +46,18 @@
       "expires": "Expiry date",
       "expires_hint": "Leave empty for no expiry.",
       "submit_grant": "Grant",
-      "submit_revoke": "Remove"
+      "submit_revoke": "Remove",
+      "add": "Add a permission",
+      "add_hint": "Search by the name or the code; up to 20 at once.",
+      "chosen": "Chosen permissions",
+      "none_chosen": "Choose at least one permission.",
+      "remove": "Remove {permission}",
+      "program": "Program",
+      "project": "Project",
+      "place_required": "Choose the area.",
+      "ref_required": "Choose which one.",
+      "limit": "No more than {max} at once. Give these first, then the rest.",
+      "project_cap": "The newest {count} sessions are shown."
     },
     "granted": "Permission granted",
     "removed": "Permission removed",
@@ -63,7 +74,24 @@
     "rule": {
       "title": "Only what is needed",
       "body": "Grant only what the work needs. Keep the permission to see NIDs and personal documents separate and narrow."
-    }
+    },
+    "overrides": {
+      "title": "Set apart in the panel",
+      "given": "Given",
+      "taken": "Taken away",
+      "given_none": "Nothing is given apart in the panel.",
+      "taken_none": "Nothing is taken away in the panel.",
+      "by": "By {name}, {date}",
+      "reason": "Reason: {reason}",
+      "until": "Until {date}",
+      "where": "{scope}: {name}"
+    },
+    "lift": "Give back",
+    "lift_label": "Give back {permission}",
+    "lift_title": "Give a permission back",
+    "lift_body": "This permission taken away takes effect again: {permission}",
+    "lift_confirm": "Give back",
+    "lifted": "The permission has been given back"
   },
   "registrations": {
     "title": "Registrations",
@@ -1630,6 +1658,27 @@
       "past": "Earlier extra areas",
       "ended_by": "Ended by {name}, {date}",
       "offline": "The server could not be reached. Check the connection and try again."
+    },
+    "role_change": {
+      "open": "Change role",
+      "title": "Change the role of {name}",
+      "current": "Current role: {roles}",
+      "new_role": "New role",
+      "global_hint": "This role sees everything. At the next sign-in the person chooses a new password of 12 characters.",
+      "reason": "Reason",
+      "confirm": "Change role",
+      "done": "The role has been changed.",
+      "handover": "Some of this official's work has not been handed over yet. Hand it over first, then change the role.",
+      "handover_link": "Handover page",
+      "stale": "Someone changed this profile meanwhile. The current details have been read again; check them and try again.",
+      "offline": "The server could not be reached. Check the connection and try again."
+    },
+    "role_history": {
+      "title": "Role history",
+      "now": "Now",
+      "given_by": "Given by {name}, {date}",
+      "ended_by": "Ended by {name}, {date}",
+      "none": "No role has been given."
     }
   },
   "settings": {

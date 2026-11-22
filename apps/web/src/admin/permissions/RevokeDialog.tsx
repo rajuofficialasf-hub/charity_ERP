@@ -1,48 +1,66 @@
 import { ConfirmDialog } from '@/ui';
-import type { EffectivePermission } from '@css/shared/access';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { api, ApiFailure } from '../../api/client';
 
-/** Ends a permission given in the panel, with a reason (POST /permission-grants/{id}/revoke). */
+/** A live panel override to end: a permission given in the panel, or one taken away there. */
+export interface EndingOverride {
+  id: string;
+  /** The permission by name, as the list shows it. */
+  label: string;
+  effect: 'grant' | 'revoke';
+}
+
+/**
+ * Ends a panel override with a reason (POST /permission-grants/{id}/revoke): a permission given in
+ * the panel is withdrawn, and one taken away there is given back. A refusal of the server (the
+ * hard rules) is said inside the dialog.
+ */
 export function RevokeDialog({
-  grant,
+  override,
   onClose,
   onDone,
 }: {
-  grant: EffectivePermission | null;
+  override: EndingOverride | null;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (effect: EndingOverride['effect']) => void;
 }) {
   const t = useTranslations('admin.permissions');
+  const ts = useTranslations('common.state.error');
   const end = useMutation({
     mutationFn: (reason: string) =>
-      api<void>(`/permission-grants/${grant!.grantId}/revoke`, {
+      api<void>(`/permission-grants/${override!.id}/revoke`, {
         method: 'POST',
         body: { reason: reason.trim() },
       }),
     onSuccess: () => {
+      const effect = override!.effect;
       end.reset();
-      onDone();
+      onDone(effect);
     },
   });
-  const failure = end.error instanceof ApiFailure ? end.error : null;
+  const failure = !end.isError
+    ? null
+    : end.error instanceof ApiFailure
+      ? (end.error.details[0]?.message ?? end.error.message)
+      : ts('text');
+  const lifting = override?.effect === 'revoke';
   return (
     <ConfirmDialog
-      open={grant !== null}
-      title={t('end_title')}
+      open={override !== null}
+      title={lifting ? t('lift_title') : t('end_title')}
       message={
         <>
-          {t('end_body', { permission: grant?.permission ?? '' })}
-          {failure && (
-            <p className="admin-error">{failure.details[0]?.message ?? failure.message}</p>
-          )}
+          {lifting
+            ? t('lift_body', { permission: override?.label ?? '' })
+            : t('end_body', { permission: override?.label ?? '' })}
+          {failure && <p className="admin-error">{failure}</p>}
         </>
       }
-      tone="danger"
+      tone={lifting ? 'default' : 'danger'}
       reasonRequired
       reasonLabel={t('dialog.reason')}
-      confirmLabel={t('end_confirm')}
+      confirmLabel={lifting ? t('lift_confirm') : t('end_confirm')}
       pending={end.isPending}
       onConfirm={(reason) => end.mutate(reason)}
       onCancel={() => {

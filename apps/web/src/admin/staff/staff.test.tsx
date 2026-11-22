@@ -37,6 +37,14 @@ const extraArea = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 let extraRows: Record<string, unknown>[];
+/** The roles of the official as the history answers them, and the role changes sent. */
+let roleRows: Record<string, unknown>[];
+let roleAnswer: number;
+let roleChanges: { body: unknown; ifMatch: string | null }[];
+const HEAD_USER = {
+  id: '01900000-0000-7000-8000-0000000000a3',
+  displayName: 'ডিপার্টমেন্ট প্রধান',
+};
 let extraAnswer: number;
 let extraReads: number;
 let extraWrites: { path: string; body: unknown }[];
@@ -107,9 +115,46 @@ function serve() {
   workReads = 0;
   extraRows = [];
   extraAnswer = 200;
+  roleRows = [
+    {
+      id: '01900000-0000-7000-8000-0000000000b8',
+      roleKey: 'regional_program_manager',
+      name: { bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার', en: 'Regional Program Manager' },
+      grantedAt: '2026-11-01T04:00:00.000Z',
+      grantedBy: HEAD_USER,
+      revokedAt: null,
+      revokedBy: null,
+    },
+    {
+      id: '01900000-0000-7000-8000-0000000000b9',
+      roleKey: 'project_executive',
+      name: { bn: 'প্রজেক্ট এক্সিকিউটিভ', en: 'Project Executive' },
+      grantedAt: '2026-10-01T04:00:00.000Z',
+      grantedBy: HEAD_USER,
+      revokedAt: '2026-11-01T04:00:00.000Z',
+      revokedBy: HEAD_USER,
+    },
+  ];
+  roleAnswer = 200;
+  roleChanges = [];
   extraReads = 0;
   extraWrites = [];
   server.use(
+    http.get('*/api/v1/users/:userId/roles', () =>
+      roleAnswer === 200
+        ? HttpResponse.json({ data: roleRows, meta: {} })
+        : HttpResponse.json(
+            { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+            { status: roleAnswer },
+          ),
+    ),
+    http.post('*/api/v1/users/:userId/role', async ({ request }) => {
+      roleChanges.push({ body: await request.json(), ifMatch: request.headers.get('if-match') });
+      return HttpResponse.json(
+        { data: { ...official({ roles: ['project_executive'] }), isSystemOwner: false }, meta: {} },
+        { headers: { ETag: '"u2"' } },
+      );
+    }),
     http.get('*/api/v1/users/:userId/extra-areas', () => {
       extraReads += 1;
       if (extraAnswer !== 200)
@@ -957,6 +1002,180 @@ describe('the official profile', () => {
     expect(await within(areas).findByText('বরিশাল')).toBeInTheDocument();
     expect(within(areas).queryByRole('button', { name: 'এলাকা যোগ করুন' })).not.toBeInTheDocument();
     expect(within(areas).queryByRole('button', { name: 'শেষ করুন' })).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('changes the role with a reason and the version read on opening, and lists the roles held', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    const { container } = openProfile(official().id);
+    const history = await screen.findByRole('region', { name: 'রোলের ইতিহাস' });
+    const now = (await within(history).findByText('রিজিওনাল প্রোগ্রাম ম্যানেজার')).closest('li')!;
+    expect(within(now).getByText('এখন')).toBeInTheDocument();
+    expect(within(now).getByText(/^ডিপার্টমেন্ট প্রধান দিয়েছেন, /)).toBeInTheDocument();
+    const before = within(history).getByText('প্রজেক্ট এক্সিকিউটিভ').closest('li')!;
+    expect(within(before).getByText(/^ডিপার্টমেন্ট প্রধান শেষ করেছেন, /)).toBeInTheDocument();
+    expect(within(before).queryByText('এখন')).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    await user.click(screen.getByRole('button', { name: 'রোল বদলান' }));
+    const dialog = await screen.findByRole('dialog', { name: 'আরপিএম ঢাকা-এর রোল বদলান' });
+    expect(
+      within(dialog).getByText('এখনকার রোল: রিজিওনাল প্রোগ্রাম ম্যানেজার'),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /নতুন রোল/ }));
+    // the present role is no change, and the two roles at the top are an Admin's to give
+    expect(screen.queryByRole('option', { name: 'রিজিওনাল প্রোগ্রাম ম্যানেজার' })).toBeNull();
+    expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).toBeNull();
+    await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'নতুন দায়িত্ব');
+    await user.click(within(dialog).getByRole('button', { name: 'রোল বদলান' }));
+    await waitFor(() =>
+      expect(roleChanges).toEqual([
+        { body: { roleKey: 'project_executive', reason: 'নতুন দায়িত্ব' }, ifMatch: '"u1"' },
+      ]),
+    );
+    expect(await screen.findByText('রোল বদলানো হয়েছে।')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('leads to the handover page while work of the old role waits, and keeps the dialog', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.post('*/api/v1/users/:userId/role', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'handover.items_outstanding',
+              messageKey: 'errors.handover.items_outstanding',
+              message: 'কিছু অপেক্ষমাণ কাজ এখনও হস্তান্তর করা হয়নি।',
+              requestId: 'req_x',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: 'রোল বদলান' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: /নতুন রোল/ }));
+    await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'নতুন দায়িত্ব');
+    await user.click(within(dialog).getByRole('button', { name: 'রোল বদলান' }));
+    expect(
+      await within(dialog).findByText(/এই কর্মকর্তার কিছু কাজ এখনো অন্য কাউকে দেওয়া হয়নি।/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'হ্যান্ডওভারের পাতা' })).toHaveAttribute(
+      'href',
+      '/admin/handover',
+    );
+    expect(screen.queryByText('রোল বদলানো হয়েছে।')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('says so with a retry when the roles do not load, and sends nothing until they do', async () => {
+    refreshAs(HEAD);
+    serve();
+    let rolesDown = true;
+    server.use(
+      http.get('*/api/v1/roles', () =>
+        rolesDown
+          ? // a refusal is not asked again by itself, so the retry is the person's
+            HttpResponse.json(
+              {
+                error: { code: 'rate.limited', message: 'অনেকবার চেষ্টা হয়েছে।', requestId: 'r' },
+              },
+              { status: 429 },
+            )
+          : HttpResponse.json({
+              data: [
+                {
+                  key: 'project_executive',
+                  name: { bn: 'প্রজেক্ট এক্সিকিউটিভ', en: 'Project Executive' },
+                  kind: 'official',
+                  globalScope: false,
+                },
+              ],
+              meta: {},
+            }),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: 'রোল বদলান' }));
+    const dialog = await screen.findByRole('dialog');
+    const retry = await within(dialog).findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    expect(within(dialog).getByRole('button', { name: 'রোল বদলান' })).toBeDisabled();
+    expect(within(dialog).queryByRole('combobox', { name: /নতুন রোল/ })).not.toBeInTheDocument();
+    rolesDown = false;
+    await user.click(retry);
+    expect(await within(dialog).findByRole('combobox', { name: /নতুন রোল/ })).toBeInTheDocument();
+    expect(roleChanges).toEqual([]);
+  }, 20_000);
+
+  it('offers an Admin the Department Head, and says the role asks for the longer password', async () => {
+    refreshAs({ ...HEAD, roles: ['admin'] });
+    serve();
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: 'রোল বদলান' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: /নতুন রোল/ }));
+    await user.click(await screen.findByRole('option', { name: 'ডিপার্টমেন্ট হেড' }));
+    expect(
+      within(dialog).getByText(/পরের লগইনে তাঁকে 12 অক্ষরের নতুন পাসওয়ার্ড বেছে নিতে হবে।/),
+    ).toBeInTheDocument();
+  }, 20_000);
+
+  it('offers no role change to the Monitoring Team, on the own profile or for the Main Admin, and leaves out a history it may not read', async () => {
+    refreshAs(MONITORING);
+    serve();
+    const first = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('button', { name: 'রোল বদলান' })).not.toBeInTheDocument();
+    first.unmount();
+
+    resetClientForTests();
+    refreshAs({ ...HEAD, id: official().id });
+    serve();
+    const second = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('button', { name: 'রোল বদলান' })).not.toBeInTheDocument();
+    second.unmount();
+
+    resetClientForTests();
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/users/:id', () =>
+        HttpResponse.json({
+          data: {
+            ...official(),
+            mobile: null,
+            email: null,
+            lastLoginAt: null,
+            isSystemOwner: true,
+          },
+          meta: { etag: '"u1"' },
+        }),
+      ),
+    );
+    const third = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('button', { name: 'রোল বদলান' })).not.toBeInTheDocument();
+    third.unmount();
+
+    // a PM outside the person's program is answered "not found" for the history
+    resetClientForTests();
+    refreshAs(PM);
+    serve();
+    roleAnswer = 404;
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    await waitFor(() => expect(screen.queryByText('রোলের ইতিহাস')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'রোল বদলান' })).not.toBeInTheDocument();
   }, 20_000);
 
   it("shows no devices to an RPM, who reaches volunteers' devices only", async () => {

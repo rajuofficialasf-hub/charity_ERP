@@ -30,14 +30,14 @@ async function asHead(request: APIRequestContext) {
         headers,
         data: {
           userId,
-          permission: 'permission.view',
+          permissions: ['permission.view'],
           effect: 'grant',
           scopeType: 'GLOBAL',
           reason: 'E2E: notification check',
         },
       });
       expect(res.status()).toBe(201);
-      return ((await res.json()) as { data: { id: string } }).data.id;
+      return ((await res.json()) as { data: { id: string }[] }).data[0]!.id;
     },
     async end(grantId: string) {
       await request.post(`/api/v1/permission-grants/${grantId}/revoke`, {
@@ -67,7 +67,9 @@ test.describe('notifications', () => {
       await expect(
         page.getByRole('heading', { name: 'আপনার অনুমতি পরিবর্তিত হয়েছে' }).first(),
       ).toBeVisible();
-      await expect(page.getByText(/permission\.view অনুমতি দেওয়া হয়েছে/).first()).toBeVisible();
+      await expect(
+        page.getByText('অনুমতি দেওয়া হয়েছে: কার কী পারমিশন আছে দেখা').first(),
+      ).toBeVisible();
       expect((await scan(page)).violations).toEqual([]);
       await page.getByRole('button', { name: 'সবগুলো পড়া হয়েছে' }).click();
       await expect(page.getByRole('button', { name: 'সবগুলো পড়া হয়েছে' })).toHaveCount(0);

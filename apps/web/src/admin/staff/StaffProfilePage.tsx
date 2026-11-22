@@ -27,6 +27,7 @@ import { mailLink, telLink } from '../contact-links';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
 import {
+  canChangeRoles,
   canEndStaffSessions,
   canGiveWholeCountry,
   canManageExtraAreas,
@@ -38,6 +39,8 @@ import {
 import { VolunteerSessions } from '../volunteers/VolunteerSessions';
 import { ExtraAreas } from './ExtraAreas';
 import { LinkDialog } from './LinkDialog';
+import { RoleChangeDialog } from './RoleChangeDialog';
+import { RoleHistory } from './RoleHistory';
 import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffDetail, staffDetail, staffDetailKey } from './staff-api';
@@ -95,6 +98,8 @@ export function StaffProfilePage() {
       official={official.data}
       manage={canManageOfficials(me)}
       sessions={canEndStaffSessions(me)}
+      // nobody changes their own role
+      changeRole={canChangeRoles(me) && me.id !== userId}
       work={canSeeStaffWork(me)}
       projectLinks={canSeeProjects(me)}
       extraAreas={
@@ -114,6 +119,7 @@ function Profile({
   work,
   projectLinks,
   extraAreas,
+  changeRole,
 }: {
   official: StaffDetail;
   manage: boolean;
@@ -123,13 +129,15 @@ function Profile({
   projectLinks: boolean;
   /** The viewer reads the official's extra areas, and whether they may change them here. */
   extraAreas: { manage: boolean; wholeCountry: boolean } | null;
+  /** The viewer gives the official another role: an Admin or the Head, for someone else. */
+  changeRole: boolean;
 }) {
   const t = useTranslations('admin.staff.profile');
   const ts = useTranslations('admin.staff');
   const td = useTranslations('admin.staff.dialog');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<'edit' | 'renew' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'renew' | 'role' | null>(null);
   const [link, setLink] = useState<InvitationIssued | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const programList = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
@@ -149,6 +157,9 @@ function Profile({
     ? programList.data?.find((p) => p.id === u.homeProgramId)
     : undefined;
   const refresh = () => void queryClient.invalidateQueries({ queryKey: STAFF_KEY });
+  const tr = useTranslations('admin.staff.role_change');
+  // the Main Admin keeps the role, and an account that waits or is closed takes no new one
+  const roleChange = changeRole && !u.isSystemOwner && u.state === 'active';
 
   const facts: ProfileFact[] = [
     ...(u.jobId
@@ -233,12 +244,23 @@ function Profile({
         }
         facts={facts}
         actions={
-          manage ? (
+          manage || roleChange ? (
             <>
-              <Button startIcon="edit" onClick={() => setDialog('edit')}>
-                {t('edit')}
-              </Button>
-              {u.awaitingPassword && (
+              {manage && (
+                <Button startIcon="edit" onClick={() => setDialog('edit')}>
+                  {t('edit')}
+                </Button>
+              )}
+              {roleChange && (
+                <Button
+                  variant="secondary"
+                  startIcon="user-check"
+                  onClick={() => setDialog('role')}
+                >
+                  {tr('open')}
+                </Button>
+              )}
+              {manage && u.awaitingPassword && (
                 <Button variant="secondary" startIcon="link" onClick={() => setDialog('renew')}>
                   {t('renew')}
                 </Button>
@@ -311,6 +333,7 @@ function Profile({
           </ProfileSection>
           {extraAreas && <ExtraAreas userId={u.id} name={u.displayName} {...extraAreas} />}
           {work && <WorkSection userId={u.id} projectLinks={projectLinks} />}
+          <RoleHistory userId={u.id} />
           <ProfileSection title={t('sections.account')} icon="key">
             <DescriptionList
               items={[
@@ -353,6 +376,17 @@ function Profile({
           onDone={(issued) => {
             setDialog(null);
             setLink(issued);
+            refresh();
+          }}
+        />
+      )}
+      {dialog === 'role' && (
+        <RoleChangeDialog
+          official={u}
+          onClose={() => setDialog(null)}
+          onChanged={() => {
+            setDialog(null);
+            setNotice(tr('done'));
             refresh();
           }}
         />

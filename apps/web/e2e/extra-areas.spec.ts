@@ -1,10 +1,10 @@
-import { expect, type Page, request as apiRequest, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import {
-  apiAs,
   choose,
   isPhone,
+  newOfficial,
+  noSideways,
   openTab,
-  PASSWORD,
   rows as listRows,
   scan,
   signIn,
@@ -22,43 +22,6 @@ const TAB = 'স্বেচ্ছাসেবক';
 /** Volunteer 2 of the demo seed lives in the Rangpur division. */
 const OF_RANGPUR = 'স্বেচ্ছাসেবক 2 (নমুনা)';
 const WHY_EMPTY = /আপনি শুধু নিজের চলমান প্রকল্পের এলাকার স্বেচ্ছাসেবকদের দেখতে পান।/;
-
-const noSideways = (page: Page) =>
-  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
-
-/** An active RPM without a program or a project, made by `admin`; signs in with the job ID. */
-async function newRpm(page: Page, admin: string, jobId: string, name: string): Promise<string> {
-  const origin = new URL(page.url()).origin;
-  const context = await apiRequest.newContext({
-    baseURL: origin,
-    extraHTTPHeaders: { Origin: origin },
-  });
-  try {
-    const api = await apiAs(context, admin);
-    const made = await api.post('/users', {
-      jobId,
-      displayName: name,
-      designation: 'Regional Program Manager',
-      affiliation: 'department',
-      affiliationUnit: null,
-      homeProgramId: null,
-      supervisorUserId: null,
-      email: `${jobId.toLowerCase()}@example.org`,
-      mobile: null,
-      roleKey: 'regional_program_manager',
-    });
-    expect(made.ok(), await made.text()).toBe(true);
-    const { userId, link } = ((await made.json()) as { data: { userId: string; link: string } })
-      .data;
-    const accepted = await context.post('/api/v1/auth/invitations/accept', {
-      data: { token: new URL(link).hash.slice(1), password: PASSWORD },
-    });
-    expect(accepted.ok(), await accepted.text()).toBe(true);
-    return userId;
-  } finally {
-    await context.dispose();
-  }
-}
 
 /** Searches the volunteer tab for a name, waiting for the list read of that search. */
 async function find(page: Page, name: string) {
@@ -85,7 +48,12 @@ test.describe('an extra area for volunteers', () => {
     const jobId = `XA-${suffix}`.toUpperCase();
     const name = `এলাকা পরীক্ষা ${suffix}`;
     await signIn(page, admin);
-    const userId = await newRpm(page, admin, jobId, name);
+    const userId = await newOfficial(page, admin, {
+      jobId,
+      name,
+      roleKey: 'regional_program_manager',
+      designation: 'Regional Program Manager',
+    });
 
     // the RPM in a browser of their own: no project, so nobody in the tab, and the reason why
     const other = await browser.newContext({

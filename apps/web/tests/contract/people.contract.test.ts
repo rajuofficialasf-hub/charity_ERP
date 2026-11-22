@@ -11,9 +11,11 @@ import {
   invitationIssuedSchema,
   organogramSchema,
   panelUserSchema,
+  permissionOverrideSchema,
   pendingRegistrationSchema,
   permissionSchema,
   registrationDetailSchema,
+  roleHistoryRowSchema,
   roleInfoSchema,
   staffDetailSchema,
   staffEditRequestRowSchema,
@@ -307,6 +309,37 @@ describe.skipIf(!contractBase())('the officials', () => {
     );
   });
 
+  it('changes the role of an official with the version read, and lists the roles held', async () => {
+    const head = await signIn(HEAD);
+    const official = await newOfficial('project_executive');
+    const record = expectEnvelope(
+      await call(head, 'GET', `/users/${official.userId}`),
+      200,
+      staffRecordSchema,
+    );
+    const changed = expectContract(
+      await call(
+        head,
+        'POST',
+        `/users/${official.userId}/role`,
+        { roleKey: 'regional_program_manager', reason: REASON },
+        { 'If-Match': record.meta.etag },
+      ),
+      200,
+      staffDetailSchema,
+    );
+    expect(changed.roles).toEqual(['regional_program_manager']);
+    const history = expectContract(
+      await call(head, 'GET', `/users/${official.userId}/roles`),
+      200,
+      z.array(roleHistoryRowSchema),
+    );
+    expect(history.map((r) => [r.roleKey, r.revokedAt === null])).toEqual([
+      ['regional_program_manager', true],
+      ['project_executive', false],
+    ]);
+  });
+
   it('gives an official an extra area for volunteers, lists it and ends it', async () => {
     const head = await signIn(HEAD);
     const official = await newOfficial('regional_program_manager');
@@ -376,17 +409,19 @@ describe.skipIf(!contractBase())('the permission panel and the handover', () => 
     expect(catalogue.map((p) => p.name)).toContain(GRANTED_PERMISSION);
     expectContract(await call(head, 'GET', '/roles'), 200, z.array(roleInfoSchema));
     const { division } = await savar(head);
-    expectStatus(
+    const given = expectContract(
       await call(head, 'POST', '/permission-grants', {
         userId,
-        permission: GRANTED_PERMISSION,
+        permissions: [GRANTED_PERMISSION],
         effect: 'grant',
         scopeType: 'REGION',
         scopeRef: division,
         reason: REASON,
       }),
       201,
+      z.array(z.object({ id: z.uuid(), permission: z.string() })),
     );
+    expect(given.map((g) => g.permission)).toEqual([GRANTED_PERMISSION]);
     const effective = expectContract(
       await call(head, 'GET', `/users/${userId}/effective-permissions`),
       200,
@@ -396,6 +431,17 @@ describe.skipIf(!contractBase())('the permission panel and the handover', () => 
       (p) => p.permission === GRANTED_PERMISSION && p.source === 'panel_grant',
     );
     expect(grant?.grantId).toBeDefined();
+    // the region of the grant by name, and the override with who, when and why
+    expect(grant?.scopeName?.bn).toBeTruthy();
+    const overrides = expectContract(
+      await call(head, 'GET', `/users/${userId}/permission-overrides`),
+      200,
+      z.array(permissionOverrideSchema),
+    );
+    expect(overrides.find((o) => o.id === grant!.grantId)).toMatchObject({
+      effect: 'grant',
+      reason: REASON,
+    });
     expectStatus(
       await call(head, 'POST', `/permission-grants/${grant!.grantId}/revoke`, { reason: REASON }),
       204,

@@ -5,6 +5,7 @@ import {
   expect,
   type Locator,
   type Page,
+  request as apiRequest,
   type TestInfo,
 } from '@playwright/test';
 import { pickFrom } from './select';
@@ -84,6 +85,52 @@ export async function apiAs(
       request.patch(`/api/v1${path}`, { headers: { ...headers, ...extraHeaders }, data }),
   };
 }
+
+/**
+ * An active official of the department made by `admin` through the API, without a program, with
+ * the password of the demo accounts set through the link; signs in with the job ID. A spec that
+ * changes what an official holds makes its own, so no demo account moves under the other specs.
+ */
+export async function newOfficial(
+  page: Page,
+  admin: string,
+  official: { jobId: string; name: string; roleKey: string; designation: string },
+): Promise<string> {
+  const origin = new URL(page.url()).origin;
+  const context = await apiRequest.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  try {
+    const api = await apiAs(context, admin);
+    const made = await api.post('/users', {
+      jobId: official.jobId,
+      displayName: official.name,
+      designation: official.designation,
+      affiliation: 'department',
+      affiliationUnit: null,
+      homeProgramId: null,
+      supervisorUserId: null,
+      email: `${official.jobId.toLowerCase()}@example.org`,
+      mobile: null,
+      roleKey: official.roleKey,
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    const { userId, link } = ((await made.json()) as { data: { userId: string; link: string } })
+      .data;
+    const accepted = await context.post('/api/v1/auth/invitations/accept', {
+      data: { token: new URL(link).hash.slice(1), password: PASSWORD },
+    });
+    expect(accepted.ok(), await accepted.text()).toBe(true);
+    return userId;
+  } finally {
+    await context.dispose();
+  }
+}
+
+/** The page never scrolls sideways, on a phone neither. */
+export const noSideways = (page: Page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */
 export const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });

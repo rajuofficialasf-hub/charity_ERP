@@ -44,6 +44,8 @@ export interface DefaultGrant {
 
 export interface PermissionDef {
   name: string;
+  nameEn: string;
+  nameBn: string;
   description: string;
   module: string;
   sensitive: boolean;
@@ -148,6 +150,8 @@ export function parsePermissionsFile(raw: unknown): AccessRegistry {
       p.name,
       {
         name: p.name,
+        nameEn: p.name_en,
+        nameBn: p.name_bn,
         description: p.description,
         module: p.module,
         sensitive: p.sensitive,

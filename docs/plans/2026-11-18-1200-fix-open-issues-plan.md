@@ -240,7 +240,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** permissions
-- **Status:** todo
+- **Status:** done (moved to `docs/plans/2026-11-19-1000-feat-admin-role-and-permissions-plan.md`, U8 and U9: the scope chosen by name and the revoke given back from the panel's override list)
 
 ### U12. The sizes of older photos filled in
 - **Goal:** every stored image without a width and height gets them once, read from the file.

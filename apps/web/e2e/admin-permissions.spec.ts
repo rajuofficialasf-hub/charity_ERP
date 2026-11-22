@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { openDestination, rows, scan } from './support/admin';
+import { newOfficial, openDestination, rows, scan } from './support/admin';
 
 // The permission panel against the API on its E2E database (docs/ui/SCREENS.md "Permission panel";
 // docs/security/RBAC.md, "Permission panel"; the panel unit), and the audit entry the change leaves
@@ -62,14 +62,18 @@ test.describe('permission panel', () => {
     await page.getByRole('button', { name: 'পারমিশন দিন' }).click();
     const dialog = page.getByRole('dialog', { name: 'পারমিশন দিন' });
     await settle(page);
-    await dialog.getByRole('combobox', { name: /পারমিশন/ }).fill('permission.view');
+    // the permission by its Bengali name; chosen with the keyboard: on phones a pointer has to
+    // scroll the sheet, which moves it under the floating list
+    await dialog.getByRole('combobox', { name: /পারমিশন যোগ করুন/ }).fill('কার কী পারমিশন');
     await settle(page);
-    // options are chosen with the keyboard: on phones a pointer has to scroll the sheet, which
-    // moves it under the floating list
-    await expect(page.getByRole('option', { name: 'permission.view', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('option', { name: 'কার কী পারমিশন আছে দেখা · permission.view' }),
+    ).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await expect(dialog.getByRole('combobox', { name: /পারমিশন/ })).toHaveValue('permission.view');
+    await expect(
+      dialog.getByRole('list', { name: 'বাছাই করা পারমিশন' }).getByText('কার কী পারমিশন আছে দেখা'),
+    ).toBeVisible();
     await dialog.getByRole('combobox', { name: /স্কোপ/ }).press('Enter');
     await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -82,16 +86,17 @@ test.describe('permission panel', () => {
     await expect(page.getByText('পারমিশন দেওয়া হয়েছে')).toBeVisible();
     await expect(effective.getByText('প্যানেল').filter({ visible: true }).first()).toBeVisible();
 
-    await effective
-      .getByRole('button', { name: 'permission.view প্রত্যাহার' })
-      .filter({ visible: true })
-      .first()
-      .click();
+    // what is given, with its reason; withdrawn there
+    const given = page.getByRole('region', { name: 'যা দেওয়া আছে' });
+    const row = given.getByRole('listitem').filter({ hasText: 'কার কী পারমিশন আছে দেখা' });
+    await expect(row).toContainText(`কারণ: ${reason}`);
+    await row.getByRole('button', { name: 'কার কী পারমিশন আছে দেখা প্রত্যাহার' }).click();
     const confirm = page.getByRole('alertdialog', { name: 'পারমিশন প্রত্যাহার' });
     await settle(page);
     await confirm.getByRole('textbox', { name: /কারণ/ }).fill('E2E: no longer needed');
     await confirm.getByRole('button', { name: 'প্রত্যাহার করুন' }).click();
     await expect(page.getByText('পারমিশন প্রত্যাহার করা হয়েছে')).toBeVisible();
+    await expect(row).toHaveCount(0);
 
     const notice = page.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।');
     if (info.project.name === 'mobile') await expect(notice).toBeVisible();
@@ -120,6 +125,51 @@ test.describe('permission panel', () => {
       await expect(drawer).toHaveCount(0);
     }
     expect(found, 'the grant with its reason in the audit log').toBe(true);
+  });
+
+  test('the Admin takes a permission away on one project chosen by name, and gives it back', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one account, one project');
+    await signIn(page, 'admin@example.org');
+    // an RPM made for the run, so no demo account's access moves under the other specs
+    const suffix = Date.now().toString(36).slice(-5);
+    const jobId = `PP-${suffix}`.toUpperCase();
+    const name = `প্যানেল পরীক্ষা ${suffix}`;
+    await newOfficial(page, 'admin@example.org', {
+      jobId,
+      name,
+      roleKey: 'regional_program_manager',
+      designation: 'Regional Program Manager',
+    });
+    await openDestination(page, 'পারমিশন');
+    await page.getByRole('combobox', { name: /ব্যবহারকারী খুঁজুন/ }).fill(jobId.toLowerCase());
+    await page.getByRole('option', { name: new RegExp(name) }).click();
+    await page.getByRole('button', { name: 'পারমিশন দিন' }).click();
+    const dialog = page.getByRole('dialog', { name: 'পারমিশন দিন' });
+    await dialog.getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' }).check();
+    await dialog.getByRole('combobox', { name: /পারমিশন যোগ করুন/ }).fill('বাজেট');
+    await page.getByRole('option', { name: 'প্রকল্পের বাজেট দেখা · budget.view' }).click();
+    await dialog.getByRole('combobox', { name: /স্কোপ/ }).click();
+    await page.getByRole('option', { name: 'প্রজেক্ট (PROJECT)' }).click();
+    await dialog.getByRole('combobox', { name: /প্রকল্প/ }).click();
+    await page.getByRole('option', { name: /^ইফতার বিতরণ 2026 · .+ \(IFT\)$/ }).click();
+    const reason = `E2E: not on this project (${Date.now() % 100000})`;
+    await dialog.getByRole('textbox', { name: /কারণ/ }).fill(reason);
+    await dialog.getByRole('button', { name: 'সরিয়ে নিন', exact: true }).click();
+    await expect(page.getByText('পারমিশন সরিয়ে নেওয়া হয়েছে')).toBeVisible();
+
+    const taken = page.getByRole('region', { name: 'যা সরিয়ে নেওয়া আছে' });
+    const row = taken.getByRole('listitem').filter({ hasText: reason });
+    await expect(row).toContainText('প্রকল্পের বাজেট দেখা');
+    await expect(row).toContainText('প্রজেক্ট (PROJECT): ইফতার বিতরণ 2026');
+    expect((await scan(page)).violations).toEqual([]);
+    await row.getByRole('button', { name: 'প্রকল্পের বাজেট দেখা ফিরিয়ে দিন' }).click();
+    const confirm = page.getByRole('alertdialog', { name: 'সরিয়ে নেওয়া পারমিশন ফিরিয়ে দিন' });
+    await confirm.getByRole('textbox', { name: /কারণ/ }).fill('E2E: needed again');
+    await confirm.getByRole('button', { name: 'ফিরিয়ে দিন' }).click();
+    await expect(page.getByText('পারমিশন ফিরিয়ে দেওয়া হয়েছে')).toBeVisible();
+    await expect(row).toHaveCount(0);
   });
 
   test('a Program Manager has no panel item and no access to the panel', async ({ page }) => {

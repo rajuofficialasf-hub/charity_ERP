@@ -3,6 +3,7 @@ import {
   permissionGrantRequestSchema,
   type PermissionGrantRequest,
   permissionGrantSchema,
+  permissionOverrideSchema,
   permissionSchema,
   projectGrantRequestSchema,
   type ProjectGrantRequest,
@@ -13,7 +14,7 @@ import { Router } from 'express';
 import { z, type ZodType } from 'zod';
 import { principalOf, scopeOf } from '../auth/principal.js';
 import type { Container } from '../container.js';
-import { ok, page } from '../http/send.js';
+import { page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 
 const uuid = z.uuid();
@@ -23,7 +24,6 @@ const accessOp = {
   rateLimit: 'default' as const,
 };
 const listOf = (item: ZodType) => z.object({ data: z.array(item), meta: z.object({}) });
-const one = (item: ZodType) => z.object({ data: item, meta: z.object({}) });
 /**
  * A list that is not paginated: the whole list in one page (docs/api/API_STANDARDS.md, "Pagination:
  * keyset cursors").
@@ -45,7 +45,8 @@ export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>)
     operationId: 'access.role.list',
     summary: 'List roles (seeded from permissions.yaml); not paginated',
     permission: 'permission.view',
-    scope: 'global',
+    // the catalogue is the same for every holder, so a PM or an RPM reads it as well
+    scope: 'self',
     audit: 'none',
     responses: { 200: listOf(roleSchema), 403: null },
     handler: () => whole(c.accessPanel.roles()),
@@ -56,9 +57,11 @@ export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>)
     method: 'get',
     path: '/permissions',
     operationId: 'access.permission.list',
-    summary: 'List permission names (seeded from permissions.yaml); not paginated',
+    summary:
+      'List the permissions with their names in both languages (from permissions.yaml); not paginated',
     permission: 'permission.view',
-    scope: 'global',
+    // the catalogue is the same for every holder, so a PM or an RPM reads it as well
+    scope: 'self',
     audit: 'none',
     responses: { 200: listOf(permissionSchema), 403: null },
     handler: () => whole(c.accessPanel.permissions()),
@@ -80,6 +83,22 @@ export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>)
       whole(await c.accessPanel.effective(scopeOf(req), params.userId, query.projectId)),
   });
 
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...accessOp,
+    method: 'get',
+    path: '/users/:userId/permission-overrides',
+    operationId: 'access.override.list',
+    summary:
+      'What the panel gave a user and what it took away, live, with the scope by name and who, when and why',
+    permission: 'permission.view',
+    scope: 'user',
+    audit: 'none',
+    params: { userId: uuid },
+    responses: { 200: listOf(permissionOverrideSchema), 404: null },
+    handler: async ({ params, req }) =>
+      whole(await c.accessPanel.overrides(scopeOf(req), params.userId)),
+  });
+
   defineRoute<PermissionGrantRequest>(router, deps, {
     ...accessOp,
     method: 'post',
@@ -87,13 +106,19 @@ export function accessRouter(deps: RouteDeps, c: Pick<Container, 'accessPanel'>)
     status: 201,
     operationId: 'access.grant.create',
     summary:
-      'Permission panel - grant or revoke a permission at a scope (Department Head, Monitoring Team)',
+      'Permission panel - give or take away one or more permissions at a scope under one reason (an Admin, the Department Head)',
     permission: 'permission.panel.manage',
     scope: 'global',
     audit: 'permission_change',
     body: permissionGrantRequestSchema,
-    responses: { 201: one(permissionGrantSchema), 403: null, 404: null, 409: null, 422: null },
-    handler: async ({ body, req }) => ok(await c.accessPanel.grant(principalOf(req), body)),
+    responses: {
+      201: listOf(permissionGrantSchema),
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ body, req }) => whole(await c.accessPanel.grant(principalOf(req), body)),
   });
 
   defineRoute<ReasonRequest, unknown, { grantId: string }>(router, deps, {

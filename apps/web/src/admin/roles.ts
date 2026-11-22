@@ -260,6 +260,11 @@ export const TOP_ROLES: readonly string[] = ['admin', 'department_head'];
  */
 export const mayGiveRole = (me: Pick<Me, 'roles'>, roleKey: string) =>
   me.roles.includes('admin') || !TOP_ROLES.includes(roleKey);
+/**
+ * Who changes an official's role (`user.role.change`): an Admin and the Department Head, never for
+ * themselves; the server checks the role given and the work to hand over again.
+ */
+export const canChangeRoles = (me: Pick<Me, 'roles'>) => holds(me, TOP_ROLES);
 /** The oversight the Monitoring Team keeps beside them: the audit log and the message deliveries. */
 export const canOversee = (me: Pick<Me, 'roles'>) => holds(me, GLOBAL_ROLES);
 export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);

@@ -48,9 +48,9 @@
     "million": "মিলিয়ন"
   },
   "notification": {
-    "permission_granted": "{permission} অনুমতি দেওয়া হয়েছে",
-    "permission_denied": "{permission} অনুমতি বন্ধ করা হয়েছে",
-    "permission_ended": "{permission}-এর আলাদা সেটিং শেষ হয়েছে",
+    "permission_granted": "অনুমতি দেওয়া হয়েছে: {permission}",
+    "permission_denied": "অনুমতি তুলে নেওয়া হয়েছে: {permission}",
+    "permission_ended": "আলাদা সেটিং শেষ হয়েছে: {permission}",
     "role_changed": "আপনার রোল এখন {role}",
     "extra_area_given": "স্বেচ্ছাসেবক দেখার জন্য বাড়তি এলাকা দেওয়া হয়েছে: {area}",
     "extra_area_ended": "বাড়তি এলাকা তুলে নেওয়া হয়েছে: {area}",

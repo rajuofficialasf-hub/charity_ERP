@@ -11,7 +11,8 @@
 #   permission_sets    the three project-level sets of blueprint A5, assigned to volunteers per project
 #   sensitive_fields   protected field classes (constitution s5, s13; BR-183) and the roles that may see them;
 #                      serializers and exports apply the same list
-#   permissions        list of { name, description, module, sensitive, default: [ { role, scope, condition? } ],
+#   permissions        list of { name, name_en, name_bn (the short names the panel shows), description, module,
+#                      sensitive, default: [ { role, scope, condition? } ],
 #                      global_roles_excluded? }
 # Naming: resource.action[.qualifier], lower-case, dotted. Module ids are those of docs/MODULE_CATALOG.md.
 # Default deny: a permission not granted by role default, permission set, project grant or panel override is denied.
@@ -155,6 +156,8 @@ sensitive_fields:
 permissions:
   # ---- M01 Auth & Sessions -------------------------------------------------------------------------
   - name: session.revoke_own
+    name_en: Sign out of own devices
+    name_bn: "নিজের ডিভাইস থেকে লগআউট করা"
     description: Revoke one of the user's own device sessions
     module: M01
     sensitive: false
@@ -174,6 +177,8 @@ permissions:
       - { role: volunteer_team_member, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
   - name: session.revoke_user
+    name_en: Sign another person out of a device
+    name_bn: "অন্যের ডিভাইস থেকে লগআউট করানো"
     description: List and revoke another user's device sessions (lost phone), with reason
     module: M01
     sensitive: false
@@ -181,30 +186,40 @@ permissions:
       - { role: regional_program_manager, scope: REGION, condition: own_region }   # volunteers in own region (O-25)
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.state.change
+    name_en: Change an account's state
+    name_bn: "অ্যাকাউন্টের অবস্থা বদলানো"
     description: Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block
     module: M01
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.lock.clear
+    name_en: Clear a sign-in lock
+    name_bn: "লগইনের লক খোলা"
     description: Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6)
     module: M01
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.create
+    name_en: Create an official's account
+    name_bn: "অফিসিয়ালের অ্যাকাউন্ট তৈরি করা"
     description: Create an official's account with job ID, role and place, and send or renew its set-password link (D-097)
     module: M01
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.profile.manage
+    name_en: Edit an official's profile
+    name_bn: "অফিসিয়ালের প্রোফাইল সম্পাদনা"
     description: Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097)
     module: M01
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.deactivate_volunteer
+    name_en: Deactivate a volunteer
+    name_bn: "স্বেচ্ছাসেবককে নিষ্ক্রিয় করা"
     description: Deactivate a volunteer who has no open applications
     module: M03
     sensitive: false
@@ -212,12 +227,16 @@ permissions:
       - { role: program_manager, scope: PROGRAM, condition: no_open_applications }
       - { role: regional_program_manager, scope: REGION, condition: no_open_applications }
   - name: user.handover
+    name_en: Hand over work and deactivate an account
+    name_bn: "কাজ হস্তান্তর ও অ্যাকাউন্ট নিষ্ক্রিয় করা"
     description: Run the staff handover and deactivate an official's account
     module: M03
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: system.owner.transfer
+    name_en: Hand over the Main Admin
+    name_bn: "মূল অ্যাডমিনের দায়িত্ব হস্তান্তর"
     description: Hand the Main Admin (system owner) flag to another Admin; the Main Admin's own act (D-188)
     module: M01
     sensitive: false
@@ -227,18 +246,24 @@ permissions:
 
   # ---- M02 Users, Roles & Permissions --------------------------------------------------------------
   - name: permission.panel.manage
+    name_en: Give and take away permissions
+    name_bn: "পারমিশন দেওয়া ও তুলে নেওয়া"
     description: Grant or revoke any permission for any user at a chosen scope (permission panel)
     module: M02
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.role.change
+    name_en: Change an official's role
+    name_bn: "অফিসিয়ালের রোল বদলানো"
     description: Change an official's role with a reason, after the handover of the old role's work (D-188)
     module: M02
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: user.extra_area.manage
+    name_en: Give and end extra areas
+    name_bn: "বাড়তি এলাকা দেওয়া ও শেষ করা"
     description: Give an official an extra area for volunteers (a division, a district or the whole country) and take it away, inside the giver's own reach (D-193)
     module: M02
     sensitive: false
@@ -247,6 +272,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: permission.view
+    name_en: View who holds which permissions
+    name_bn: "কার কী পারমিশন আছে দেখা"
     description: View a user's effective permissions
     module: M02
     sensitive: false
@@ -254,6 +281,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: project.staff_access.manage
+    name_en: Give staff access on a project
+    name_bn: "প্রকল্পে স্টাফের অ্যাক্সেস দেওয়া"
     description: Give staff under the RPM view/edit/delete access on a project
     module: M02
     sensitive: false
@@ -261,6 +290,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: project.volunteer_grant.manage
+    name_en: Give extra permissions on a project
+    name_bn: "প্রকল্পে বাড়তি পারমিশন দেওয়া"
     description: Grant 'if RPM grants' extras (approve, add volunteers, transfer, exam, site decision) to own team members and volunteers per project
     module: M02
     sensitive: false
@@ -269,6 +300,8 @@ permissions:
 
   # ---- M03 Registration & Approval -----------------------------------------------------------------
   - name: registration.approve
+    name_en: Approve a volunteer's registration
+    name_bn: "স্বেচ্ছাসেবকের নিবন্ধন অনুমোদন"
     description: Approve a volunteer registration
     module: M03
     sensitive: false
@@ -277,6 +310,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: registration.request_correction
+    name_en: Ask for a correction to a registration
+    name_bn: "নিবন্ধনে সংশোধন চাওয়া"
     description: Send a field-level correction request on a pending registration
     module: M03
     sensitive: false
@@ -285,12 +320,16 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: staff.registration.approve
+    name_en: Approve an official's registration
+    name_bn: "অফিসিয়ালের নিবন্ধন অনুমোদন"
     description: Approve a staff registration and assign the role
     module: M03
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: edit_request.approve
+    name_en: Approve a volunteer's edit request
+    name_bn: "স্বেচ্ছাসেবকের তথ্য বদলের অনুরোধ অনুমোদন"
     description: Approve a volunteer's profile edit request and open the field
     module: M03
     sensitive: false
@@ -298,6 +337,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: edit_request.submit
+    name_en: Ask to edit own details
+    name_bn: "নিজের তথ্য বদলের অনুরোধ পাঠানো"
     description: Submit an edit request on own profile
     module: M03
     sensitive: false
@@ -308,6 +349,8 @@ permissions:
       - { role: volunteer_team_member, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
   - name: staff_edit_request.submit
+    name_en: Ask to change own official details
+    name_bn: "অফিসিয়াল হিসেবে নিজের তথ্য বদলের অনুরোধ"
     description: Ask for a change of one's own official details (name, designation, contact, photo, workplace)
     module: M03
     sensitive: false
@@ -322,6 +365,8 @@ permissions:
       - { role: media_assistant_director, scope: SELF }
       - { role: finance_team, scope: SELF }
   - name: staff_edit_request.approve
+    name_en: Decide an official's change request
+    name_bn: "অফিসিয়ালের তথ্য বদলের অনুরোধে সিদ্ধান্ত"
     description: Decide an official's request to change their own details (never one's own request)
     module: M03
     sensitive: false
@@ -330,6 +375,8 @@ permissions:
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
+    name_en: View the volunteer tab
+    name_bn: "স্বেচ্ছাসেবকের তালিকা দেখা"
     description: Volunteer tab with filters and statistics, in the areas the holder has on projects at work (sensitive fields masked per sensitive_fields)
     module: M04
     sensitive: false
@@ -339,6 +386,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: official_daee, scope: REGION }
   - name: volunteer.view_sensitive
+    name_en: See a volunteer's NID and bank details
+    name_bn: "স্বেচ্ছাসেবকের NID ও ব্যাংকের তথ্য দেখা"
     description: See volunteer NID, NID photo and bank details
     module: M04
     sensitive: true
@@ -347,6 +396,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: volunteer.assign_project
+    name_en: Add volunteers to a project
+    name_bn: "প্রকল্পে স্বেচ্ছাসেবক যোগ করা"
     description: Add volunteers, Local দায়ীs and paid volunteers to a project with a permission set
     module: M04
     sensitive: false
@@ -354,12 +405,16 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
   - name: volunteer.mark_paid
+    name_en: Mark a volunteer as paid
+    name_bn: "স্বেচ্ছাসেবককে বেতনভুক্ত চিহ্নিত করা"
     description: Mark a volunteer as paid on a project
     module: M04
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
   - name: volunteer.team.manage
+    name_en: Manage own team members
+    name_bn: "নিজের দলের সদস্য যোগ ও বাদ দেওয়া"
     description: Add or remove own team members on a project (volunteers registered with the user's NID as reference)
     module: M04
     sensitive: false
@@ -368,12 +423,16 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_local_daee, scope: SELF, condition: type_both_only }
   - name: volunteer.team.transfer
+    name_en: Move a team to a new volunteer
+    name_bn: "দল নতুন স্বেচ্ছাসেবকের কাছে সরানো"
     description: Decide whether a replaced volunteer's team moves to the new volunteer
     module: M04
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
   - name: volunteer.rating.view
+    name_en: View volunteer ratings
+    name_bn: "স্বেচ্ছাসেবকের রেটিং দেখা"
     description: View volunteer ratings and categories with comments
     module: M04
     sensitive: true
@@ -382,6 +441,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: volunteer.rating.set
+    name_en: Finalize volunteer ratings
+    name_bn: "স্বেচ্ছাসেবকের রেটিং চূড়ান্ত করা"
     description: Finalize ratings proposed at project close
     module: M04
     sensitive: true
@@ -390,6 +451,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: volunteer.category.set
+    name_en: Set a volunteer's category
+    name_bn: "স্বেচ্ছাসেবকের ক্যাটাগরি ঠিক করা"
     description: Set or change a volunteer category (comment mandatory) and the inactive flag
     module: M04
     sensitive: true
@@ -398,6 +461,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: volunteer.block
+    name_en: Block a volunteer
+    name_bn: "স্বেচ্ছাসেবককে ব্লক করা"
     description: Put a volunteer on the blocklist with reason
     module: M04
     sensitive: false
@@ -405,6 +470,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: volunteer.unblock
+    name_en: Lift a volunteer's block
+    name_bn: "স্বেচ্ছাসেবকের ব্লক তোলা"
     description: Lift a volunteer block with reason
     module: M04
     sensitive: false
@@ -412,6 +479,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: application.transfer
+    name_en: Transfer applications to another volunteer
+    name_bn: "আবেদন অন্য স্বেচ্ছাসেবকের কাছে হস্তান্তর"
     description: Transfer all or selected applications from one volunteer to another
     module: M04
     sensitive: false
@@ -419,6 +488,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
   - name: volunteer.consent.accept
+    name_en: Accept a project's rules
+    name_bn: "প্রকল্পের নিয়মে সম্মতি দেওয়া"
     description: Accept the project rules and consent texts for own assignment or team membership, and read own projects (every assigned volunteer consents, BR-039)
     module: M04
     sensitive: false
@@ -432,6 +503,8 @@ permissions:
 
   # ---- M05 Beneficiary Master ----------------------------------------------------------------------
   - name: beneficiary.view_all
+    name_en: View beneficiaries and their profiles
+    name_bn: "উপকারভোগীর তালিকা ও প্রোফাইল দেখা"
     description: Beneficiary tab and 360 profiles of the people with an application in the holder's projects, inside the holder's part of each (sensitive fields masked per sensitive_fields)
     module: M05
     sensitive: false
@@ -445,6 +518,8 @@ permissions:
       - { role: media_assistant_director, scope: GLOBAL }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
   - name: beneficiary.view_nid
+    name_en: See a beneficiary's NID
+    name_bn: "উপকারভোগীর NID দেখা"
     description: See beneficiary NID / birth-registration number and NID photo
     module: M05
     sensitive: true
@@ -454,6 +529,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: official_daee, scope: REGION }
   - name: beneficiary.lookup
+    name_en: Look up a beneficiary by NID
+    name_bn: "NID দিয়ে উপকারভোগী খোঁজা"
     description: Look up a beneficiary by NID or birth-registration number for auto-fill (returns only the auto-fill fields)
     module: M05
     sensitive: false
@@ -465,6 +542,8 @@ permissions:
       - { role: volunteer_both, scope: PROJECT }
       - { role: volunteer_team_member, scope: PROJECT }
   - name: beneficiary.match
+    name_en: Find a beneficiary by name
+    name_bn: "নাম দিয়ে আগের উপকারভোগী খোঁজা"
     description: Find the people already here by name, father's or husband's name and village for an application without a document, on a project that asks the document 'if they have one' (exact keys inside a union of an area of a project the caller works on; at most five; name, father's or husband's name, village, years of help, the names of the caller's own projects, whether the person may be picked here and a pick token; never a number, a contact, a document flag or why a person may not be picked; every call audited and counted per day)
     module: M05
     sensitive: false
@@ -475,6 +554,8 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
   - name: beneficiary.correction.request
+    name_en: Ask to correct a beneficiary's locked details
+    name_bn: "উপকারভোগীর লক করা তথ্যে সংশোধন চাওয়া"
     description: Request correction of a locked beneficiary field (name, father/husband name, identity number)
     module: M05
     sensitive: false
@@ -482,6 +563,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: beneficiary.correction.approve
+    name_en: Approve a beneficiary correction
+    name_bn: "উপকারভোগীর তথ্য সংশোধন অনুমোদন"
     description: Approve a profile correction request and change the locked field; add the identity document to a profile without one (D-172)
     module: M05
     sensitive: false
@@ -489,6 +572,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: beneficiary.contact.edit
+    name_en: Edit a beneficiary's mobile and address
+    name_bn: "উপকারভোগীর মোবাইল ও ঠিকানা বদলানো"
     description: Edit a beneficiary's mobile and address outside an application; every change is logged with old and new value (D-115)
     module: M05
     sensitive: false
@@ -497,23 +582,31 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: beneficiary.merge.propose
+    name_en: Propose merging two profiles
+    name_bn: "দুটি প্রোফাইল এক করার প্রস্তাব"
     description: Propose a merge of two beneficiary profiles
     module: M05
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
   - name: beneficiary.merge
+    name_en: Merge two profiles
+    name_bn: "দুটি প্রোফাইল এক করা"
     description: Merge two beneficiary profiles
     module: M05
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: beneficiary.merge.revert
+    name_en: Undo a profile merge
+    name_bn: "এক করা প্রোফাইল আলাদা করা"
     description: Revert a profile merge
     module: M05
     sensitive: false
     default: []
   - name: beneficiary.merge.dismiss
+    name_en: Review suggested duplicates
+    name_bn: "সম্ভাব্য ডুপ্লিকেট দেখা ও বাদ দেওয়া"
     description: See the suggested duplicate pairs and the merge proposals, and mark a pair as not the same person (or lift the mark) with reason (D-113)
     module: M05
     sensitive: false
@@ -521,6 +614,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: program_manager, scope: PROGRAM }
   - name: beneficiary.block
+    name_en: Block a beneficiary
+    name_bn: "উপকারভোগীকে ব্লক করা"
     description: Put a beneficiary on the blocklist with reason
     module: M05
     sensitive: false
@@ -528,6 +623,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: beneficiary.unblock
+    name_en: Lift a beneficiary's block
+    name_bn: "উপকারভোগীর ব্লক তোলা"
     description: Lift a beneficiary block with reason
     module: M05
     sensitive: false
@@ -535,6 +632,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: beneficiary.consent.record
+    name_en: Record media consent
+    name_bn: "মিডিয়ার সম্মতি লেখা"
     description: Record or change media consent on a beneficiary profile
     module: M05
     sensitive: false
@@ -543,6 +642,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: beneficiary.consent.view
+    name_en: View media consent
+    name_bn: "মিডিয়ার সম্মতি দেখা"
     description: View media-consent status
     module: M05
     sensitive: false
@@ -554,6 +655,8 @@ permissions:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
   - name: beneficiary.status.change
+    name_en: Change a beneficiary's status
+    name_bn: "উপকারভোগীর অবস্থা বদলানো"
     description: Change a beneficiary profile status (active, deceased, relocated) with reason
     module: M05
     sensitive: false
@@ -564,21 +667,29 @@ permissions:
 
   # ---- M06 Programs & Projects ---------------------------------------------------------------------
   - name: program.create
+    name_en: Create a program
+    name_bn: "প্রোগ্রাম তৈরি করা"
     description: Create a program
     module: M06
     sensitive: false
     default: []
   - name: program.assign_pm
+    name_en: Assign a program's PM
+    name_bn: "প্রোগ্রামে PM ঠিক করা"
     description: Assign the Program Manager of a program
     module: M06
     sensitive: false
     default: []
   - name: program.update
+    name_en: Edit a program
+    name_bn: "প্রোগ্রাম সম্পাদনা"
     description: Rename a program, describe it, set its cover photo, deactivate it and activate it again
     module: M06
     sensitive: false
     default: []
   - name: program.view
+    name_en: View programs
+    name_bn: "প্রোগ্রাম দেখা"
     description: View the program list and program details
     module: M06
     sensitive: false
@@ -592,66 +703,88 @@ permissions:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
   - name: project.create
+    name_en: Create a project
+    name_bn: "প্রকল্প তৈরি করা"
     description: Create a project in own program (from a workflow, a template or a copy); also rename a permanent project of that program, set its cover photo and start its new session
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.configure
+    name_en: Set up a project
+    name_bn: "প্রকল্পের সেটআপ করা"
     description: Configure components, form, budget, deadlines, rules, syllabus, rating criteria, photo rule, limits, stages, settings
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.activate
+    name_en: Activate a project
+    name_bn: "প্রকল্প সক্রিয় করা"
     description: Move a project from Draft to Active
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.deadline.extend
+    name_en: Extend the application deadline
+    name_bn: "আবেদনের শেষ তারিখ বাড়ানো"
     description: Extend the application deadline with reason
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.close
+    name_en: Close a project
+    name_bn: "প্রকল্প বন্ধ করা"
     description: Move a project to Closing and to Closed
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.reopen
+    name_en: Reopen a project
+    name_bn: "প্রকল্প আবার খোলা"
     description: Reopen a closing or closed project with reason
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.cancel
+    name_en: Cancel a draft project
+    name_bn: "খসড়া প্রকল্প বাতিল করা"
     description: Cancel a draft project that was never activated, with reason
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.area.assign
+    name_en: Assign a project's areas and RPMs
+    name_bn: "প্রকল্পে এলাকা ও RPM ঠিক করা"
     description: Assign areas and RPMs; split districts among RPMs
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.template.manage
+    name_en: Manage project templates
+    name_bn: "প্রকল্পের টেমপ্লেট রাখা"
     description: Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: GLOBAL }
   - name: project.quota.manage
+    name_en: Set quotas and scoring
+    name_bn: "কোটা ও স্কোরের নিয়ম ঠিক করা"
     description: Set district and union quotas and scoring criteria
     module: M06
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.view
+    name_en: View projects
+    name_bn: "প্রকল্প দেখা"
     description: View project configuration and status
     module: M06
     sensitive: false
@@ -671,6 +804,8 @@ permissions:
       - { role: volunteer_team_member, scope: PROJECT }
       - { role: volunteer_paid, scope: PROJECT }
   - name: project.overview.view
+    name_en: View the overview of all projects
+    name_bn: "সব প্রোগ্রাম ও প্রকল্পের সারসংক্ষেপ দেখা"
     description: See every program and every project as cards with counts only (no person but the PM and the RPMs by name, no identity number, no budget) and their cover photos, and the whole counts of any session on its page; every other detail of a session stays with project.view
     module: M06
     sensitive: false
@@ -681,33 +816,45 @@ permissions:
 
   # ---- M07 Form Platform ---------------------------------------------------------------------------
   - name: form.build
+    name_en: Build forms
+    name_bn: "ফর্ম তৈরি করা"
     description: Build a form draft (sections, questions, logic) — the ready forms and the question library; held by the two global roles only
     module: M07
     sensitive: false
     default: []
   - name: form.publish
+    name_en: Publish forms
+    name_bn: "ফর্ম প্রকাশ করা"
     description: Publish a form version; held by the two global roles only
     module: M07
     sensitive: false
     default: []
   - name: form.place
+    name_en: Place a ready form on a project
+    name_bn: "প্রকল্পে তৈরি ফর্ম বসানো"
     description: Place a published ready form on a project and take its newer versions, changing nothing in it
     module: M07
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: form.public_link.manage
+    name_en: Manage the public link
+    name_bn: "পাবলিক লিংক চালু ও বন্ধ করা"
     description: Enable, disable and configure the public application link
     module: M07
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: form.library.view
+    name_en: View the question library
+    name_bn: "প্রশ্নের লাইব্রেরি দেখা"
     description: Read the question library the form builder picks from; held by the two global roles only
     module: M07
     sensitive: false
     default: []
   - name: form.library.manage
+    name_en: Edit the question library
+    name_bn: "প্রশ্নের লাইব্রেরি সম্পাদনা"
     description: Edit and publish the question library; held by the two global roles only
     module: M07
     sensitive: false
@@ -715,6 +862,8 @@ permissions:
 
   # ---- M08 Application Workflow --------------------------------------------------------------------
   - name: application.create
+    name_en: Create applications
+    name_bn: "আবেদন তৈরি করা"
     description: Create an application (draft)
     module: M08
     sensitive: false
@@ -725,6 +874,8 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
   - name: application.submit
+    name_en: Send applications to the office
+    name_bn: "আবেদন অফিসে পাঠানো"
     description: Submit a draft to the office
     module: M08
     sensitive: false
@@ -734,6 +885,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: application.edit_draft
+    name_en: Edit draft applications
+    name_bn: "খসড়া আবেদন সম্পাদনা"
     description: Edit a draft before submission
     module: M08
     sensitive: false
@@ -744,6 +897,8 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF, condition: own_created }
   - name: application.edit_pending
+    name_en: Edit sent applications before review
+    name_bn: "পাঠানো আবেদন রিভিউর আগে সম্পাদনা"
     description: Edit a submitted (pending) application before review starts
     module: M08
     sensitive: false
@@ -751,6 +906,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: application.delete_pending
+    name_en: Delete draft or waiting applications
+    name_bn: "খসড়া বা অপেক্ষমাণ আবেদন মোছা"
     description: Delete a draft or pending application (soft delete)
     module: M08
     sensitive: false
@@ -758,6 +915,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: application.view
+    name_en: View applications
+    name_bn: "আবেদন দেখা"
     description: View applications (basic data for volunteers; official section needs application.view_official_section)
     module: M08
     sensitive: false
@@ -773,6 +932,8 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED }
       - { role: volunteer_paid, scope: PROJECT }
   - name: application.view_official_section
+    name_en: See the official section of applications
+    name_bn: "আবেদনের অফিসিয়াল অংশ দেখা"
     description: See official-only form sections, scores and reviewer comments
     module: M08
     sensitive: true
@@ -783,6 +944,8 @@ permissions:
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
   - name: application.review
+    name_en: Review applications
+    name_bn: "আবেদন রিভিউ করা"
     description: Take an application under review and edit the whole form
     module: M08
     sensitive: false
@@ -790,6 +953,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: application.approve
+    name_en: Approve applications
+    name_bn: "আবেদন অনুমোদন"
     description: Approve a reviewed application
     module: M08
     sensitive: false
@@ -799,6 +964,8 @@ permissions:
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
       - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.reject
+    name_en: Reject applications
+    name_bn: "আবেদন প্রত্যাখ্যান"
     description: Reject a reviewed application with reason
     module: M08
     sensitive: false
@@ -808,6 +975,8 @@ permissions:
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
       - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.waitlist
+    name_en: Waitlist applications
+    name_bn: "আবেদন অপেক্ষমাণ তালিকায় রাখা"
     description: Put a reviewed application on the waitlist or pull it from the waitlist (the pull is an approval and also needs application.approve)
     module: M08
     sensitive: false
@@ -817,6 +986,8 @@ permissions:
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
       - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.unlock_field
+    name_en: Unlock an answer of an approved application
+    name_bn: "অনুমোদিত আবেদনের উত্তর খোলা"
     description: Unlock one field of an approved application and approve the update
     module: M08
     sensitive: false
@@ -824,6 +995,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: application.update_unlocked_field
+    name_en: Fill an unlocked answer
+    name_bn: "খোলা উত্তর পূরণ করা"
     description: Update a field the official unlocked
     module: M08
     sensitive: false
@@ -831,6 +1004,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: application.verify_needs_verification
+    name_en: Resolve applications that need verification
+    name_bn: "যাচাইয়ের অপেক্ষায় থাকা আবেদন মেলানো"
     description: Resolve a 'needs verification' record (NID collision at sync, public form) by linking or rejecting
     module: M08
     sensitive: false
@@ -838,6 +1013,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: site_verification.record
+    name_en: Record a site visit
+    name_bn: "সরেজমিন পরিদর্শন লেখা"
     description: Record a site visit with comment, photos and recommendation
     module: M09
     sensitive: false
@@ -847,6 +1024,8 @@ permissions:
       - { role: volunteer_general, scope: ASSIGNED }
       - { role: volunteer_both, scope: ASSIGNED }
   - name: site_verification.decide
+    name_en: Decide from a site visit
+    name_bn: "সরেজমিন পরিদর্শন থেকে সিদ্ধান্ত"
     description: Decide approve/reject directly from a site verification (tree planting)
     module: M09
     sensitive: false
@@ -858,6 +1037,8 @@ permissions:
 
   # ---- M09 Project Activities ----------------------------------------------------------------------
   - name: stock.dispatch
+    name_en: Record goods sent
+    name_bn: "মাল পাঠানো লেখা"
     description: Record goods sent to a volunteer
     module: M09
     sensitive: false
@@ -865,6 +1046,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: stock.receive
+    name_en: Confirm goods received
+    name_bn: "মাল পাওয়া নিশ্চিত করা"
     description: Confirm receipt of goods and set the distribution date
     module: M09
     sensitive: false
@@ -872,6 +1055,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: stock.reconcile
+    name_en: Reconcile stock
+    name_bn: "মালের হিসাব মেলানো"
     description: Enter remaining and damaged quantities and verify the reconciliation
     module: M09
     sensitive: false
@@ -881,6 +1066,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: distribution.update
+    name_en: Record today's distribution
+    name_bn: "আজকের বিতরণ লেখা"
     description: Today's distribution bulk update with photos and edge states
     module: M09
     sensitive: false
@@ -890,6 +1077,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: progress.update
+    name_en: Record work progress
+    name_bn: "কাজের অগ্রগতি লেখা"
     description: Stage-based construction or work progress update with photos
     module: M09
     sensitive: false
@@ -900,6 +1089,8 @@ permissions:
       - { role: volunteer_both, scope: SELF, condition: safe_water_only }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: issue.raise
+    name_en: Raise an issue
+    name_bn: "সমস্যা জানানো"
     description: Raise an issue in the issue log with photos
     module: M09
     sensitive: false
@@ -912,6 +1103,8 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: issue.assign
+    name_en: Assign an issue
+    name_bn: "সমস্যা কাউকে দেওয়া"
     description: Assign an issue to a person
     module: M09
     sensitive: false
@@ -920,6 +1113,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: issue.resolve
+    name_en: Resolve an issue
+    name_bn: "সমস্যার সমাধান লেখা"
     description: Resolve an issue and post the resolution
     module: M09
     sensitive: false
@@ -929,6 +1124,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: procurement_team, scope: PROJECT, condition: own_or_paid_volunteer_issues }
   - name: voucher.submit
+    name_en: Submit vouchers
+    name_bn: "ভাউচার জমা দেওয়া"
     description: Submit vouchers and evidence photos (self-reliance, safe water, Qurbani)
     module: M09
     sensitive: false
@@ -938,6 +1135,8 @@ permissions:
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
   - name: voucher.verify
+    name_en: Verify vouchers
+    name_bn: "ভাউচার যাচাই করা"
     description: Verify vouchers and evidence; locks them
     module: M09
     sensitive: false
@@ -946,6 +1145,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: payment.record
+    name_en: Record payments
+    name_bn: "পেমেন্ট লেখা"
     description: Record a payment (beneficiary support, advance, volunteer reimbursement) with date, amount, method, transaction id and optional copy
     module: M09
     sensitive: false
@@ -954,6 +1155,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: expense.claim.submit
+    name_en: Submit own expense claims
+    name_bn: "নিজের খরচের দাবি জমা"
     description: Submit own operational expense claim with vouchers
     module: M09
     sensitive: false
@@ -963,6 +1166,8 @@ permissions:
       - { role: volunteer_local_daee, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
   - name: expense.claim.verify
+    name_en: Verify expense claims
+    name_bn: "খরচের দাবি যাচাই করা"
     description: Verify an expense claim
     module: M09
     sensitive: false
@@ -971,6 +1176,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: followup.record
+    name_en: Record follow-ups
+    name_bn: "ফলো-আপ লেখা"
     description: Add a follow-up evaluation, also after project close
     module: M14
     sensitive: false
@@ -981,6 +1188,8 @@ permissions:
 
   # ---- M10 Budget & Ledger -------------------------------------------------------------------------
   - name: budget.view
+    name_en: View project budgets
+    name_bn: "প্রকল্পের বাজেট দেখা"
     description: View project budget cards and buckets
     module: M10
     sensitive: false
@@ -990,6 +1199,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: finance_team, scope: GLOBAL }
   - name: ledger.view
+    name_en: View the ledger
+    name_bn: "হিসাবের খাতা দেখা"
     description: View ledger rows, payments, vouchers and expense accounts
     module: M10
     sensitive: false
@@ -999,6 +1210,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: finance_team, scope: GLOBAL }
   - name: fund_source.manage
+    name_en: Set fund sources
+    name_bn: "তহবিলের উৎস ঠিক করা"
     description: Set fund-source tags and amounts on a project budget
     module: M10
     sensitive: false
@@ -1007,6 +1220,8 @@ permissions:
 
   # ---- M11 Qurbani ---------------------------------------------------------------------------------
   - name: donor.import
+    name_en: Import the donor sheet
+    name_bn: "দাতার তালিকা আনা"
     description: Import the SSL donor sheet
     module: M11
     sensitive: true
@@ -1014,6 +1229,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: donor.manage
+    name_en: Enter and approve cash donors
+    name_bn: "নগদ দাতার তথ্য লেখা ও অনুমোদন"
     description: Enter and approve cash donors on the system form
     module: M11
     sensitive: true
@@ -1022,6 +1239,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: donor.view
+    name_en: View donors
+    name_bn: "দাতার তথ্য দেখা"
     description: View donor data and shares
     module: M11
     sensitive: true
@@ -1030,6 +1249,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: animal.allocate
+    name_en: Allocate an animal to a volunteer
+    name_bn: "স্বেচ্ছাসেবককে পশু দেওয়া"
     description: Allocate an animal to a volunteer on the volunteer profile
     module: M11
     sensitive: false
@@ -1038,6 +1259,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: animal.deallocate
+    name_en: Cancel an animal allocation
+    name_bn: "পশুর বরাদ্দ বাতিল করা"
     description: Cancel an animal allocation
     module: M11
     sensitive: false
@@ -1045,6 +1268,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: animal.photo.upload
+    name_en: Upload animal photos
+    name_bn: "পশুর ছবি তোলা"
     description: Upload the three photos of an animal (animal, meat, packet)
     module: M11
     sensitive: false
@@ -1054,6 +1279,8 @@ permissions:
       - { role: volunteer_general, scope: ASSIGNED }
       - { role: volunteer_both, scope: ASSIGNED }
   - name: donor.message.send
+    name_en: Send donor messages
+    name_bn: "দাতাদের বার্তা পাঠানো"
     description: Send pre-notification and photo emails/SMS to donors
     module: M11
     sensitive: false
@@ -1063,6 +1290,8 @@ permissions:
 
   # ---- M12 Dawah -----------------------------------------------------------------------------------
   - name: daee.assign
+    name_en: "Assign Local দায়ীs to beneficiaries"
+    name_bn: "উপকারভোগীদের লোকাল দায়ী ঠিক করা"
     description: Assign Local দায়ীs to beneficiaries (gender split)
     module: M12
     sensitive: false
@@ -1070,6 +1299,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: official_daee, scope: REGION }
   - name: class.record
+    name_en: Record today's class
+    name_bn: "আজকের ক্লাস লেখা"
     description: "Today's class: attendance, absence reasons, topics taught"
     module: M12
     sensitive: false
@@ -1077,6 +1308,8 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED }
       - { role: volunteer_both, scope: ASSIGNED }
   - name: exam.record
+    name_en: Record exam results
+    name_bn: "পরীক্ষার ফল লেখা"
     description: Record initial and final exam results
     module: M12
     sensitive: false
@@ -1086,24 +1319,32 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED, condition: if_rpm_grants }
       - { role: volunteer_both, scope: ASSIGNED, condition: if_rpm_grants }
   - name: exam.delegate
+    name_en: "Delegate exams to Local দায়ীs"
+    name_bn: "পরীক্ষার দায়িত্ব লোকাল দায়ীকে দেওয়া"
     description: Delegate exam duty to Local দায়ীs
     module: M12
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
   - name: zakat.decide
+    name_en: Decide zakat eligibility
+    name_bn: "যাকাতের যোগ্যতা চূড়ান্ত করা"
     description: Finalize zakat eligibility as the approving alem
     module: M12
     sensitive: false
     default:
       - { role: official_daee, scope: REGION }
   - name: call_log.record
+    name_en: Record follow-up calls
+    name_bn: "ফোন কলের হিসাব লেখা"
     description: Record a follow-up call to a beneficiary
     module: M12
     sensitive: false
     default:
       - { role: official_daee, scope: REGION }
   - name: dawah.tracking.view
+    name_en: View dawah tracking
+    name_bn: "দাওয়াহর খোঁজখবর দেখা"
     description: Official দায়ী tracking view of Local দায়ীs and classes
     module: M12
     sensitive: false
@@ -1114,6 +1355,8 @@ permissions:
 
   # ---- M13 Documents (SOP) -------------------------------------------------------------------------
   - name: document.register.view
+    name_en: View the document register
+    name_bn: "ডকুমেন্ট রেজিস্টার দেখা"
     description: View the document register and checklists
     module: M13
     sensitive: false
@@ -1122,6 +1365,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: document.submit
+    name_en: Submit and verify documents
+    name_bn: "ডকুমেন্ট জমা ও যাচাই"
     description: Submit, verify, approve or archive a document in the register
     module: M13
     sensitive: false
@@ -1130,12 +1375,16 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: document.deadline.extend
+    name_en: Extend a document deadline
+    name_bn: "ডকুমেন্টের সময় বাড়ানো"
     description: Extend a document deadline with reason
     module: M13
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: deficiency.report
+    name_en: File a deficiency report
+    name_bn: "ঘাটতির রিপোর্ট দেওয়া"
     description: File a deficiency report
     module: M13
     sensitive: false
@@ -1144,6 +1393,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: document.audit.run
+    name_en: Run the quarterly audit report
+    name_bn: "ত্রৈমাসিক অডিট রিপোর্ট তৈরি"
     description: Produce the quarterly audit report
     module: M13
     sensitive: false
@@ -1152,6 +1403,8 @@ permissions:
 
   # ---- M14 Monitoring & Follow-up ------------------------------------------------------------------
   - name: monitoring.view
+    name_en: View the monitoring centre
+    name_bn: "মনিটরিং সেন্টার দেখা"
     description: Monitoring control centre and alerts
     module: M14
     sensitive: false
@@ -1159,11 +1412,15 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: alert.settings.manage
+    name_en: Change alert thresholds
+    name_bn: "সতর্কতার সীমা বদলানো"
     description: Change alert thresholds
     module: M14
     sensitive: false
     default: []
   - name: work_summary.view
+    name_en: View work summaries
+    name_bn: "কাজের সারসংক্ষেপ দেখা"
     description: Work summaries of staff and volunteers with CSV/PDF export
     module: M14
     sensitive: false
@@ -1171,6 +1428,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION, condition: own_region }
   - name: staff.work.view
+    name_en: View an official's work
+    name_bn: "অফিসিয়ালের কাজের হিসাব দেখা"
     description: An official's projects and the figures of their work there (the person's own figures need no grant)
     module: M14
     sensitive: false
@@ -1179,6 +1438,8 @@ permissions:
 
   # ---- M15 Audit Log -------------------------------------------------------------------------------
   - name: audit.view
+    name_en: View the audit log
+    name_bn: "অডিট লগ দেখা"
     description: View the audit log by project, beneficiary or person
     module: M15
     sensitive: true
@@ -1186,6 +1447,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: audit.export
+    name_en: Export the audit log
+    name_bn: "অডিট লগ এক্সপোর্ট"
     description: Export audit log entries
     module: M15
     sensitive: true
@@ -1193,6 +1456,8 @@ permissions:
 
   # ---- M16 Dashboards, Reports & Exports -----------------------------------------------------------
   - name: dashboard.project.view
+    name_en: View the project dashboard
+    name_bn: "প্রকল্পের ড্যাশবোর্ড দেখা"
     description: Project dashboard
     module: M16
     sensitive: false
@@ -1202,6 +1467,8 @@ permissions:
       - { role: project_executive, scope: REGION }
       - { role: finance_team, scope: GLOBAL }
   - name: dashboard.program.view
+    name_en: View the program dashboard
+    name_bn: "প্রোগ্রামের ড্যাশবোর্ড দেখা"
     description: Program dashboard
     module: M16
     sensitive: false
@@ -1209,11 +1476,15 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: finance_team, scope: GLOBAL }
   - name: dashboard.central.view
+    name_en: View the central dashboard
+    name_bn: "কেন্দ্রীয় ড্যাশবোর্ড দেখা"
     description: Central dashboard
     module: M16
     sensitive: false
     default: []
   - name: dashboard.dawah.view
+    name_en: View the dawah dashboard
+    name_bn: "দাওয়াহর ড্যাশবোর্ড দেখা"
     description: Dawah dashboard
     module: M16
     sensitive: false
@@ -1222,6 +1493,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: official_daee, scope: REGION }
   - name: export.list
+    name_en: Export lists
+    name_bn: "তালিকা এক্সপোর্ট"
     description: Export any filtered list the user may view (masks applied)
     module: M16
     sensitive: false
@@ -1236,6 +1509,8 @@ permissions:
       - { role: media_assistant_director, scope: GLOBAL, condition: own_part }
       - { role: procurement_team, scope: PROJECT, condition: own_part }
   - name: export.beneficiaries
+    name_en: Export beneficiaries with identity
+    name_bn: "উপকারভোগীর পরিচয়সহ এক্সপোর্ট"
     description: Export beneficiary data including identity fields (audited as a sensitive export)
     module: M16
     sensitive: true
@@ -1243,6 +1518,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: export.volunteers
+    name_en: Export volunteers with identity and bank
+    name_bn: "স্বেচ্ছাসেবকের পরিচয় ও ব্যাংকসহ এক্সপোর্ট"
     description: Export volunteer data including identity and bank fields (audited as a sensitive export)
     module: M16
     sensitive: true
@@ -1250,6 +1527,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: export.finance
+    name_en: Export finance
+    name_bn: "আর্থিক হিসাব এক্সপোর্ট"
     description: Export budgets, payments, vouchers and expense accounts
     module: M16
     sensitive: false
@@ -1257,6 +1536,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: finance_team, scope: GLOBAL }
   - name: export.forms
+    name_en: Export a project's form data
+    name_bn: "প্রকল্পের সব ফর্মের তথ্য এক্সপোর্ট"
     description: Export all form data of a project (volunteer and official sections)
     module: M16
     sensitive: true
@@ -1264,6 +1545,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: report.beneficiary_journey
+    name_en: Beneficiary journey report
+    name_bn: "উপকারভোগীর পূর্ণ রিপোর্ট"
     description: Beneficiary 360 / journey report as PDF
     module: M16
     sensitive: false
@@ -1275,6 +1558,8 @@ permissions:
 
   # ---- M17 Notifications ---------------------------------------------------------------------------
   - name: notification.read_own
+    name_en: Read own notifications
+    name_bn: "নিজের নোটিফিকেশন পড়া"
     description: Read own in-app notifications
     module: M17
     sensitive: false
@@ -1294,6 +1579,8 @@ permissions:
       - { role: volunteer_team_member, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
   - name: notification.template.manage
+    name_en: Edit notification texts
+    name_bn: "নোটিফিকেশনের লেখা বদলানো"
     description: Edit notification templates
     module: M17
     sensitive: false
@@ -1301,12 +1588,16 @@ permissions:
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
 
   - name: notification.delivery.view
+    name_en: View email and SMS deliveries
+    name_bn: "ইমেইল ও SMS পৌঁছানোর অবস্থা দেখা"
     description: See the delivery state of outbound emails and SMS (addresses partly hidden; never an OTP)
     module: M17
     sensitive: false
     default: []
   # ---- M18 Files & Media ---------------------------------------------------------------------------
   - name: file.upload
+    name_en: Upload photos and files
+    name_bn: "ছবি ও ফাইল আপলোড"
     description: Upload photos, vouchers and documents within the user's permitted actions
     module: M18
     sensitive: false
@@ -1324,6 +1615,8 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: media.referral.create
+    name_en: Refer an application to the Media Team
+    name_bn: "আবেদন মিডিয়ায় পাঠানো"
     description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority, a note and an optional story; no consent is asked (D-101, D-137)
     module: M18
     sensitive: false
@@ -1331,6 +1624,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: media.referral.decide
+    name_en: Decide a media referral
+    name_bn: "মিডিয়ার প্রস্তাবে সিদ্ধান্ত"
     description: Accept a media referral, send it back for review with a comment, or reject it with a reason (D-101)
     module: M18
     sensitive: false
@@ -1338,6 +1633,8 @@ permissions:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
   - name: media.work.view
+    name_en: View media works
+    name_bn: "মিডিয়ার কাজ দেখা"
     description: See media works with their stage, team, publications, comments and history; a referrer sees the media status of own referrals (D-101)
     module: M18
     sensitive: false
@@ -1348,6 +1645,8 @@ permissions:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: media.work.manage
+    name_en: Run media works
+    name_bn: "মিডিয়ার কাজ চালানো"
     description: "Run a media work: stage, members and their production roles, content type, publications on the platforms and notes; members on the works assigned to them (D-101)"
     module: M18
     sensitive: false
@@ -1356,12 +1655,16 @@ permissions:
       - { role: media_assistant_director, scope: GLOBAL }
       - { role: media_team, scope: ASSIGNED }
   - name: media.publication.review
+    name_en: Review before publishing
+    name_bn: "প্রকাশের আগে শেষ রিভিউ"
     description: Final review of a media work before it may be published (D-101)
     module: M18
     sensitive: false
     default:
       - { role: media_director, scope: GLOBAL }
   - name: story.manage
+    name_en: Write and edit scripts
+    name_bn: "স্ক্রিপ্ট লেখা ও সম্পাদনা"
     description: Write and edit the script or story of a media work (summary, interview questions, scenes, voice-over, notes) with its state draft, in review or final; members on the works assigned to them (D-101)
     module: M18
     sensitive: false
@@ -1370,6 +1673,8 @@ permissions:
       - { role: media_assistant_director, scope: GLOBAL }
       - { role: media_team, scope: ASSIGNED }
   - name: story.view
+    name_en: Read scripts
+    name_bn: "স্ক্রিপ্ট পড়া"
     description: Read the script or story of a media work
     module: M18
     sensitive: false
@@ -1382,6 +1687,8 @@ permissions:
 
   # ---- M19 Locations -------------------------------------------------------------------------------
   - name: location.manage
+    name_en: Edit the locations
+    name_bn: "এলাকার তালিকা সম্পাদনা"
     description: Add, rename and deactivate divisions, districts, upazilas and unions
     module: M19
     sensitive: false
@@ -1390,36 +1697,48 @@ permissions:
 
   # ---- M21 Admin & Settings ------------------------------------------------------------------------
   - name: settings.manage
+    name_en: Change system settings
+    name_bn: "সিস্টেমের সেটিংস বদলানো"
     description: Edit system settings (thresholds, photo defaults, payment methods, expense categories)
     module: M21
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: nisab.set
+    name_en: Add a nisab
+    name_bn: "নিসাব যোগ করা"
     description: Add a nisab version
     module: M21
     sensitive: false
     default:
       - { role: program_manager, scope: GLOBAL }
   - name: holiday.manage
+    name_en: Manage the holiday calendar
+    name_bn: "ছুটির ক্যালেন্ডার রাখা"
     description: Maintain the holiday calendar
     module: M21
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: provider.settings.manage
+    name_en: Email and SMS settings
+    name_bn: "ইমেইল ও SMS সেটিংস"
     description: See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment)
     module: M21
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: system.health.view
+    name_en: View system health
+    name_bn: "সিস্টেমের অবস্থা দেখা"
     description: See the system health page (database, storage, queue, dummy OTP, audit partitions, storage growth)
     module: M21
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: template.checklist.manage
+    name_en: Edit checklist templates
+    name_bn: "ডকুমেন্ট চেকলিস্টের টেমপ্লেট সম্পাদনা"
     description: Edit document checklist templates
     module: M21
     sensitive: false
@@ -1428,6 +1747,8 @@ permissions:
 
   # ---- M20 i18n ------------------------------------------------------------------------------------
   - name: i18n.manage
+    name_en: Edit translations
+    name_bn: "অনুবাদ সম্পাদনা"
     description: Edit translations of bilingual data (no runtime message overrides, O-43)
     module: M20
     sensitive: false
@@ -1436,6 +1757,8 @@ permissions:
 
   # ---- M22 Offline Sync ----------------------------------------------------------------------------
   - name: sync.batch
+    name_en: Send offline work
+    name_bn: "অফলাইনের কাজ পাঠানো"
     description: Submit offline records and photos for own assignments
     module: M22
     sensitive: false

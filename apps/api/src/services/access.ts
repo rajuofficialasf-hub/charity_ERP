@@ -1,6 +1,8 @@
 import type {
   EffectivePermission,
+  PermissionGrant,
   PermissionGrantRequest,
+  PermissionOverride,
   ProjectGrantRequest,
   ScopeTypeName,
 } from '@css/shared/access';
@@ -57,7 +59,19 @@ const toRow = (g: EffectiveGrant): EffectivePermission => ({
   condition: g.condition,
   source: g.source,
   ...(g.grantId ? { grantId: g.grantId } : {}),
+  projectId: g.projectId,
 });
+
+type Bilingual = { bn: string; en: string };
+
+/** What the audit keeps of a live panel override: enough to see a revoke of one instance. */
+const OVERRIDE_TRAIL = {
+  id: true,
+  permissionName: true,
+  effect: true,
+  scopeType: true,
+  scopeRef: true,
+} as const;
 
 const byName = (a: EffectivePermission, b: EffectivePermission) =>
   a.permission.localeCompare(b.permission) || a.scopeType.localeCompare(b.scopeType);
@@ -98,6 +112,7 @@ export class AccessPanelService {
   permissions() {
     return [...this.registry.permissions.values()].map((p) => ({
       name: p.name,
+      title: { bn: p.nameBn, en: p.nameEn },
       module: p.module,
       sensitive: p.sensitive,
       description: p.description,
@@ -117,10 +132,115 @@ export class AccessPanelService {
       .sort(byName);
   }
 
-  /** A user inside the caller's scope and the user's effective permissions. */
+  /** The name of a permission in both languages, the code where the catalogue has none. */
+  private titleOf(permission: string): Bilingual {
+    const def = this.registry.permissions.get(permission);
+    return def ? { bn: def.nameBn, en: def.nameEn } : { bn: permission, en: permission };
+  }
+
+  /**
+   * The names of the programs, projects and places a list of scopes names, by id, so the panel
+   * shows no id (docs/ui/SCREENS.md "Permission panel").
+   */
+  private async scopeNames(
+    rows: readonly { scopeType: string; scopeRef?: string | null }[],
+  ): Promise<Map<string, Bilingual>> {
+    const refs = (types: readonly string[]) => [
+      ...new Set(
+        rows
+          .filter((r) => types.includes(r.scopeType) && r.scopeRef)
+          .map((r) => r.scopeRef as string),
+      ),
+    ];
+    const pick = { id: true, nameBn: true, nameEn: true } as const;
+    const [programs, projects, places] = await Promise.all([
+      this.prisma.program.findMany({ where: { id: { in: refs(['PROGRAM']) } }, select: pick }),
+      this.prisma.project.findMany({ where: { id: { in: refs(['PROJECT']) } }, select: pick }),
+      this.prisma.location.findMany({
+        where: { id: { in: refs(Object.keys(AREA_LEVEL)) } },
+        select: pick,
+      }),
+    ]);
+    return new Map(
+      [...programs, ...projects, ...places].map((r) => [r.id, { bn: r.nameBn, en: r.nameEn }]),
+    );
+  }
+
+  /**
+   * A user inside the caller's scope and the user's effective permissions, scopes by name: the
+   * instance the scope names, or else the project a grant is bound to (a permission set or a
+   * project extra names no instance of its own).
+   */
   async effective(scope: Scope, userId: string, projectId?: string) {
     await this.access.findUser(scope, userId, { id: true });
-    return this.grantsOf(userId, this.prisma, projectId);
+    const rows = await this.grantsOf(userId, this.prisma, projectId);
+    const names = await this.scopeNames([
+      ...rows,
+      ...rows.flatMap((r) =>
+        r.projectId ? [{ scopeType: 'PROJECT', scopeRef: r.projectId }] : [],
+      ),
+    ]);
+    return rows.map((r) => ({
+      ...r,
+      scopeName:
+        (r.scopeRef && names.get(r.scopeRef)) || (r.projectId && names.get(r.projectId)) || null,
+    }));
+  }
+
+  /** The live panel overrides of a user, compact, for the audit's before and after. */
+  private liveOverrides(db: Tx, userId: string) {
+    const now = this.clock.now();
+    return db.userPermission.findMany({
+      where: { userId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      orderBy: { createdAt: 'asc' },
+      select: OVERRIDE_TRAIL,
+    });
+  }
+
+  /**
+   * What the panel gave a user and what it took away, live, the newest first, each with its scope
+   * by name, who did it, when and why (docs/ui/SCREENS.md "Permission panel"): a revoke of one
+   * project, program or area from a broader grant shows here, as the effective list cannot show it.
+   */
+  async overrides(scope: Scope, userId: string): Promise<PermissionOverride[]> {
+    await this.access.findUser(scope, userId, { id: true });
+    const now = this.clock.now();
+    const rows = await this.prisma.userPermission.findMany({
+      where: { userId, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        permissionName: true,
+        effect: true,
+        scopeType: true,
+        scopeRef: true,
+        condition: true,
+        reason: true,
+        expiresAt: true,
+        createdAt: true,
+        grantedByRef: { select: { id: true, displayName: true } },
+      },
+    });
+    const names = await this.scopeNames(rows);
+    // the reason and the person who wrote an override are for the readers at GLOBAL (an Admin,
+    // the Department Head, the Monitoring Team): a reason may concern the person's conduct. The
+    // names of programs, projects and places are no secret: a PM and an RPM see every program
+    // and project in the overview, and the locations are public.
+    const whole = scope.instances.global;
+    return rows.map((r) => ({
+      id: r.id,
+      permission: r.permissionName,
+      title: this.titleOf(r.permissionName),
+      effect: r.effect as PermissionOverride['effect'],
+      scopeType: r.scopeType as PermissionOverride['scopeType'],
+      scopeRef: r.scopeRef,
+      scopeName: (r.scopeRef && names.get(r.scopeRef)) || null,
+      condition: r.condition,
+      reason: whole ? r.reason : null,
+      expiresAt: r.expiresAt?.toISOString() ?? null,
+      grantedAt: r.createdAt.toISOString(),
+      grantedBy: whole ? r.grantedByRef : null,
+    }));
   }
 
   private async target(db: Tx, userId: string): Promise<Target | null> {
@@ -187,8 +307,8 @@ export class AccessPanelService {
   /** 422 details for a scope reference, a condition or an expiry that does not fit. */
   private async invalid(db: Tx, body: PermissionGrantRequest): Promise<ApiErrorDetail[]> {
     const details: ApiErrorDetail[] = [];
-    if (!this.registry.permissions.has(body.permission))
-      details.push({ path: 'permission', code: 'validation.option_unknown' });
+    if (body.permissions.some((p) => !this.registry.permissions.has(p)))
+      details.push({ path: 'permissions', code: 'validation.option_unknown' });
     // a revoke takes the permission away as it stands: a condition would leave part of it
     if (body.condition !== undefined && body.effect === 'revoke')
       details.push({ path: 'condition', code: 'validation.unknown_parameter' });
@@ -219,15 +339,18 @@ export class AccessPanelService {
     return details;
   }
 
-  /** Creates a panel override (grant or revoke) for a user (an Admin, the Department Head). */
-  async grant(actor: Principal, body: PermissionGrantRequest) {
+  /**
+   * Creates panel overrides for a user (an Admin, the Department Head): each permission of the
+   * request given or taken away at one scope, under one reason. The request is refused whole when
+   * one of them is refused; it is written in one transaction with one audit entry and one notice.
+   */
+  async grant(actor: Principal, body: PermissionGrantRequest): Promise<PermissionGrant[]> {
     const attempted = {
-      permission: body.permission,
+      permissions: body.permissions,
       effect: body.effect,
       scopeType: body.scopeType,
       scopeRef: body.scopeRef ?? null,
     };
-    const id = uuidv7();
     const outcome = await this.prisma.$transaction(async (tx) => {
       await this.lockUser(tx, body.userId);
       const target = await this.target(tx, body.userId);
@@ -236,49 +359,66 @@ export class AccessPanelService {
       if (target.isSystemOwner) return { refused: 'system_owner_protected' as const };
       const details = await this.invalid(tx, body);
       if (details.length) throw new ApiError('validation.failed', 422, undefined, details);
-      const rule = this.refusal(await this.actorOf(tx, actor), target, body);
-      if (rule) return { refused: rule };
-      const old = await this.grantsOf(target.id, tx);
-      const created = await tx.userPermission.create({
-        data: {
-          id,
-          userId: target.id,
-          permissionName: body.permission,
+      const granter = await this.actorOf(tx, actor);
+      for (const permission of body.permissions) {
+        const rule = this.refusal(granter, target, {
+          permission,
           effect: body.effect,
           scopeType: body.scopeType,
-          scopeRef: body.scopeRef ?? null,
-          condition: body.condition ?? null,
-          reason: body.reason,
-          grantedBy: actor.userId,
-          expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
-          createdBy: actor.userId,
-          updatedBy: actor.userId,
-        },
-      });
+        });
+        if (rule) return { refused: rule };
+      }
+      const old = {
+        grants: await this.grantsOf(target.id, tx),
+        overrides: await this.liveOverrides(tx, target.id),
+      };
+      const created = [];
+      for (const permission of body.permissions)
+        created.push(
+          await tx.userPermission.create({
+            data: {
+              id: uuidv7(),
+              userId: target.id,
+              permissionName: permission,
+              effect: body.effect,
+              scopeType: body.scopeType,
+              scopeRef: body.scopeRef ?? null,
+              condition: body.condition ?? null,
+              reason: body.reason,
+              grantedBy: actor.userId,
+              expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+              createdBy: actor.userId,
+              updatedBy: actor.userId,
+            },
+          }),
+        );
       await this.versions.bump(tx, target.id, {
         action: 'permission_change',
-        old: { grants: old },
-        new: { grants: await this.grantsOf(target.id, tx), override: id },
+        old,
+        new: {
+          grants: await this.grantsOf(target.id, tx),
+          overrides: await this.liveOverrides(tx, target.id),
+          created: created.map((row) => row.id),
+        },
         reason: body.reason,
       });
       await this.accountEvents.permissionChanged(
         tx,
         target.id,
         body.effect === 'revoke' ? 'denied' : 'granted',
-        body.permission,
+        body.permissions.map((p) => this.titleOf(p)),
         actor.userId,
       );
       return { refused: null, created };
     });
     if (outcome.refused) return this.refuse(body.userId, outcome.refused, attempted, body.reason);
     this.versions.settled(body.userId);
-    const row = outcome.created;
-    return {
+    return outcome.created.map((row) => ({
       id: row.id,
       userId: row.userId,
       permission: row.permissionName,
-      effect: row.effect,
-      scopeType: row.scopeType,
+      effect: row.effect as PermissionGrant['effect'],
+      scopeType: row.scopeType as PermissionGrant['scopeType'],
       scopeRef: row.scopeRef,
       condition: row.condition,
       reason: row.reason,
@@ -286,7 +426,7 @@ export class AccessPanelService {
       grantedBy: row.grantedBy,
       createdAt: row.createdAt.toISOString(),
       revokedAt: null,
-    };
+    }));
   }
 
   /** Ends a live panel override with a reason; an ended or unknown one answers 404. */
@@ -307,7 +447,11 @@ export class AccessPanelService {
         { permission: grant.permissionName, effect: grant.effect },
       );
       if (rule) return { refused: rule, userId: grant.userId };
-      const old = await this.grantsOf(grant.userId, tx);
+      const old = {
+        grants: await this.grantsOf(grant.userId, tx),
+        overrides: await this.liveOverrides(tx, grant.userId),
+        override: grant.id,
+      };
       // conditional: of two concurrent requests only the first ends the override
       const ended = await tx.userPermission.updateMany({
         where: { id: grant.id, revokedAt: null },
@@ -316,15 +460,18 @@ export class AccessPanelService {
       if (ended.count === 0) throw new ApiError('permission.not_found', 404);
       await this.versions.bump(tx, grant.userId, {
         action: 'permission_change',
-        old: { grants: old, override: grant.id },
-        new: { grants: await this.grantsOf(grant.userId, tx) },
+        old,
+        new: {
+          grants: await this.grantsOf(grant.userId, tx),
+          overrides: await this.liveOverrides(tx, grant.userId),
+        },
         reason,
       });
       await this.accountEvents.permissionChanged(
         tx,
         grant.userId,
         'ended',
-        grant.permissionName,
+        [this.titleOf(grant.permissionName)],
         actor.userId,
       );
       return { refused: null, userId: grant.userId };

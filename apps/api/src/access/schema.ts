@@ -51,6 +51,9 @@ export const permissionsFileSchema = z.object({
   permissions: z.array(
     z.strictObject({
       name: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/),
+      /** The short names the permission panel shows; the Bengali one in Bengali letters. */
+      name_en: z.string().trim().min(3),
+      name_bn: z.string().regex(/[\u0980-\u09FF]/, 'a Bengali name in Bengali letters'),
       description: z.string(),
       module: z.string().regex(/^M\d{2}$/),
       sensitive: z.boolean(),

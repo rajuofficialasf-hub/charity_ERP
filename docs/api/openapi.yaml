@@ -1299,9 +1299,10 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     Permission:
       type: object
-      required: [name, module, sensitive, description]
+      required: [name, title, module, sensitive, description]
       properties:
         name: { type: string }
+        title: { $ref: '#/components/schemas/Bilingual', description: 'The short name the panel shows, in both languages (D-188)' }
         module: { type: string }
         sensitive: { type: boolean }
         description: { type: string }
@@ -1321,6 +1322,12 @@ components:
         condition: { type: [string, 'null'] }
         source: { type: string, enum: [global_role, role_default, permission_set, project_grant, panel_grant] }
         grantId: { $ref: '#/components/schemas/Uuid', description: 'The panel override behind a panel_grant row (D-079)' }
+        projectId: { type: [string, 'null'], format: uuid, description: 'The project the grant is bound to' }
+        scopeName:
+          description: The name of the program, project or place the scope names
+          oneOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
     EffectivePermissionList:
       type: object
       required: [data, meta]
@@ -1329,10 +1336,11 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     PermissionGrantRequest:
       type: object
-      required: [userId, permission, effect, scopeType, reason]
+      description: One or more permissions given or taken away at one scope under one reason; refused whole when one of them is refused (D-188)
+      required: [userId, permissions, effect, scopeType, reason]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
-        permission: { type: string }
+        permissions: { type: array, minItems: 1, maxItems: 20, items: { type: string, minLength: 1 }, description: 'Each permission once; a repeat is refused (422)' }
         effect: { type: string, enum: [grant, revoke] }
         scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
         scopeRef: { $ref: '#/components/schemas/Uuid' }
@@ -1356,12 +1364,41 @@ components:
         grantedBy: { $ref: '#/components/schemas/Uuid' }
         createdAt: { type: string, format: date-time }
         revokedAt: { type: [string, 'null'], format: date-time }
-    PermissionGrantResponse:
+    PermissionGrantList:
       type: object
       required: [data, meta]
       properties:
-        data: { $ref: '#/components/schemas/PermissionGrant' }
-        meta: { $ref: '#/components/schemas/Meta' }
+        data: { type: array, items: { $ref: '#/components/schemas/PermissionGrant' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    PermissionOverride:
+      type: object
+      description: A live panel override, a grant or a revoke, with its scope by name and who gave it, when and why (D-188); the reason and who gave it are null to a reader below GLOBAL
+      required: [id, permission, title, effect, scopeType, scopeRef, scopeName, condition, reason, expiresAt, grantedAt, grantedBy]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        permission: { type: string }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        effect: { type: string, enum: [grant, revoke] }
+        scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
+        scopeRef: { type: [string, 'null'], format: uuid }
+        scopeName:
+          oneOf:
+            - { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        condition: { type: [string, 'null'] }
+        reason: { type: [string, 'null'] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        grantedAt: { type: string, format: date-time }
+        grantedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
+    PermissionOverrideList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/PermissionOverride' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
     ProjectGrantRequest:
       type: object
       required: [userId, permissions, reason]
@@ -6614,8 +6651,9 @@ paths:
       tags: [access]
       operationId: access.role.list
       summary: List roles (seeded from permissions.yaml); not paginated
+      description: Any holder of permission.view reads it, at whatever scope it is held (D-188).
       x-permission: permission.view
-      x-scope: global
+      x-scope: self
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
@@ -6630,9 +6668,10 @@ paths:
     get:
       tags: [access]
       operationId: access.permission.list
-      summary: List permission names (seeded from permissions.yaml); not paginated
+      summary: List the permissions with their names in both languages (from permissions.yaml); not paginated
+      description: Any holder of permission.view reads it, at whatever scope it is held (D-188).
       x-permission: permission.view
-      x-scope: global
+      x-scope: self
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
@@ -6666,11 +6705,33 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/EffectivePermissionList' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /users/{userId}/permission-overrides:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [access]
+      operationId: access.override.list
+      summary: What the panel gave a user and what it took away, live, with the scope by name and who, when and why
+      description: >-
+        The live panel overrides of the user, the newest first: a revoke of one project, program or
+        area from a broader grant shows here, as the effective list cannot show it (D-188).
+      x-permission: permission.view
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Live overrides
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionOverrideList' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /permission-grants:
     post:
       tags: [access]
       operationId: access.grant.create
-      summary: Permission panel - grant or revoke a permission at a scope (Department Head, Monitoring Team)
+      summary: Permission panel - give or take away one or more permissions at a scope under one reason (an Admin, the Department Head)
       x-permission: permission.panel.manage
       x-scope: global
       x-audit: permission_change
@@ -6683,10 +6744,10 @@ paths:
             schema: { $ref: '#/components/schemas/PermissionGrantRequest' }
       responses:
         '201':
-          description: Override created; the user's permission version is bumped
+          description: One override per permission, in the order asked; the user's permission version is bumped once
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/PermissionGrantResponse' }
+              schema: { $ref: '#/components/schemas/PermissionGrantList' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }

@@ -55,8 +55,12 @@ export const projectCounts = (filters: FilterValues): Promise<{ key: CountKey; t
     ),
   );
 
-/** The projects a picker offers: the newest 100 the caller reaches, cancelled drafts left out. */
-export const pickerProjects = () => api<Project[]>(`/projects${listQuery({ limit: '100' })}`);
+/** How many projects a picker offers. */
+export const PICKER_LIMIT = 100;
+
+/** The projects a picker offers: the newest the caller reaches, cancelled drafts left out. */
+export const pickerProjects = () =>
+  api<Project[]>(`/projects${listQuery({ limit: String(PICKER_LIMIT) })}`);
 
 export const project = (projectId: string) => api<Project>(`/projects/${projectId}`);
 
