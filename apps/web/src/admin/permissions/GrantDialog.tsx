@@ -97,7 +97,7 @@ export function GrantDialog({
         method: 'POST',
         body: {
           userId: user.id,
-          permission: v.permission,
+          permissions: [v.permission],
           effect: v.effect,
           scopeType: v.scopeType,
           ...(UNBOUND.includes(v.scopeType) ? {} : { scopeRef: v.scopeRef.trim() }),

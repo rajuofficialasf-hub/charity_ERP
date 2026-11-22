@@ -220,14 +220,21 @@ export class AccountEvents {
     tx: Tx,
     userId: string,
     change: keyof typeof PERMISSION_CHANGE,
-    permission: string,
+    /** The permissions changed together, by name in both languages. */
+    permissions: readonly { bn: string; en: string }[],
     actorId: string,
   ): Promise<void> {
+    // eslint-disable-next-line security/detect-object-injection -- a typed key
+    const key = PERMISSION_CHANGE[change];
+    const text = (locale: 'bn' | 'en') =>
+      translate(locale, key, {
+        // eslint-disable-next-line security/detect-object-injection -- a fixed pair of languages
+        permission: permissions.map((p) => p[locale]).join(', '),
+      });
     await this.notifications.publish(tx, {
       key: 'permission_changed',
       recipients: [{ user: userId }],
-      // eslint-disable-next-line security/detect-object-injection -- a typed key
-      params: { summary: bilingualText(PERMISSION_CHANGE[change], { permission }) },
+      params: { summary: { bn: text('bn'), en: text('en') } },
       about: userId,
       actorId,
     });

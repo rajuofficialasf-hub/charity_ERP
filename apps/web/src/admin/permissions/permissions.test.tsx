@@ -51,8 +51,20 @@ function catalogue() {
     http.get('*/api/v1/permissions', () =>
       HttpResponse.json({
         data: [
-          { name: 'application.review', module: 'M08', sensitive: false, description: 'Review' },
-          { name: 'permission.view', module: 'M02', sensitive: false, description: 'View' },
+          {
+            name: 'application.review',
+            title: { bn: 'আবেদন রিভিউ করা', en: 'Review applications' },
+            module: 'M08',
+            sensitive: false,
+            description: 'Review',
+          },
+          {
+            name: 'permission.view',
+            title: { bn: 'কার কী পারমিশন আছে দেখা', en: 'View who holds which permissions' },
+            module: 'M02',
+            sensitive: false,
+            description: 'View',
+          },
         ],
         meta,
       }),
@@ -137,7 +149,7 @@ describe('permission panel', () => {
             grantId: GRANT_ID,
           },
         ];
-        return HttpResponse.json({ data: { id: GRANT_ID }, meta }, { status: 201 });
+        return HttpResponse.json({ data: [{ id: GRANT_ID }], meta }, { status: 201 });
       }),
     );
     renderPanel(HEAD);
@@ -153,7 +165,7 @@ describe('permission panel', () => {
     expect(await screen.findByText('পারমিশন দেওয়া হয়েছে')).toBeInTheDocument();
     expect(lastGrant).toEqual({
       userId: EXECUTIVE.id,
-      permission: 'permission.view',
+      permissions: ['permission.view'],
       effect: 'grant',
       scopeType: 'GLOBAL',
       reason: 'Monitoring help',
@@ -167,7 +179,7 @@ describe('permission panel', () => {
     server.use(
       http.post('*/api/v1/permission-grants', async ({ request }) => {
         lastGrant = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({ data: { id: GRANT_ID }, meta }, { status: 201 });
+        return HttpResponse.json({ data: [{ id: GRANT_ID }], meta }, { status: 201 });
       }),
     );
     renderPanel(HEAD);
@@ -192,7 +204,7 @@ describe('permission panel', () => {
     expect(await screen.findByText('পারমিশন সরিয়ে নেওয়া হয়েছে')).toBeInTheDocument();
     expect(lastGrant).toEqual({
       userId: EXECUTIVE.id,
-      permission: 'application.review',
+      permissions: ['application.review'],
       effect: 'revoke',
       scopeType: 'REGION',
       scopeRef: REGION,

@@ -115,7 +115,10 @@ describe('authorization matrix', () => {
       ['get /users', 'volunteer_general', false],
       ['get /users', ANONYMOUS, false],
       ['get /roles', 'monitoring_team', true],
-      ['get /roles', 'program_manager', false],
+      // the catalogue is read at any scope of the view: a PM and an RPM read it too
+      ['get /roles', 'program_manager', true],
+      ['get /permissions', 'regional_program_manager', true],
+      ['get /permissions', 'project_executive', false],
       ['post /permission-grants', 'admin', true],
       ['post /permission-grants', 'department_head', true],
       // the Monitoring Team reads the catalogue and administers nothing

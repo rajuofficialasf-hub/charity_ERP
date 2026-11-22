@@ -35,8 +35,12 @@ export const roleSchema = z.object({
 });
 export type Role = z.infer<typeof roleSchema>;
 
+const bilingual = z.object({ bn: z.string(), en: z.string() });
+
 export const permissionSchema = z.object({
   name: z.string(),
+  /** The short name the panel shows, in both languages (the code is `name`). */
+  title: bilingual,
   module: z.string(),
   sensitive: z.boolean(),
   description: z.string(),
@@ -51,12 +55,28 @@ export const effectivePermissionSchema = z.object({
   source: z.enum(GRANT_SOURCES),
   /** The panel override behind a `panel_grant` row, so the panel can end it. */
   grantId: z.uuid().optional(),
+  /** The project the grant is bound to (a permission set, a project extra, a project grant). */
+  projectId: z.uuid().nullable().optional(),
+  /** The name of the program, project or place the scope names, so no id is shown. */
+  scopeName: bilingual.nullable().optional(),
 });
 export type EffectivePermission = z.infer<typeof effectivePermissionSchema>;
 
+/** The most permissions one panel request gives or takes away. */
+export const PERMISSIONS_PER_REQUEST = 20;
+
+/**
+ * Several permissions given or taken away in one request, at one scope and under one reason
+ * (docs/security/RBAC.md, "Permission panel"); the server refuses the whole request when one of
+ * them is refused.
+ */
 export const permissionGrantRequestSchema = z.object({
   userId: z.uuid(),
-  permission: z.string(),
+  permissions: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(PERMISSIONS_PER_REQUEST)
+    .refine((names) => new Set(names).size === names.length, 'a permission appears twice'),
   effect: z.enum(['grant', 'revoke']),
   scopeType: z.enum(SCOPE_TYPES),
   scopeRef: z.uuid().optional(),
@@ -66,16 +86,42 @@ export const permissionGrantRequestSchema = z.object({
 });
 export type PermissionGrantRequest = z.infer<typeof permissionGrantRequestSchema>;
 
-export const permissionGrantSchema = permissionGrantRequestSchema.extend({
+/** One panel override as written: a permission given or taken away at one scope. */
+export const permissionGrantSchema = z.object({
   id: z.uuid(),
+  userId: z.uuid(),
+  permission: z.string(),
+  effect: z.enum(['grant', 'revoke']),
+  scopeType: z.enum(SCOPE_TYPES),
+  scopeRef: z.uuid().nullable().optional(),
+  condition: z.string().nullable().optional(),
+  reason: z.string(),
+  expiresAt: z.string().nullable().optional(),
   grantedBy: z.uuid(),
   createdAt: z.string(),
   revokedAt: z.string().nullable().optional(),
-  scopeRef: z.uuid().nullable().optional(),
-  condition: z.string().nullable().optional(),
-  expiresAt: z.string().nullable().optional(),
 });
 export type PermissionGrant = z.infer<typeof permissionGrantSchema>;
+
+/**
+ * A live panel override of a person as the panel lists it (`GET /users/{userId}/permission-overrides`):
+ * what was given and what was taken away, with its scope by name, who did it, when and why.
+ */
+export const permissionOverrideSchema = z.object({
+  id: z.uuid(),
+  permission: z.string(),
+  title: bilingual,
+  effect: z.enum(['grant', 'revoke']),
+  scopeType: z.enum(SCOPE_TYPES),
+  scopeRef: z.uuid().nullable(),
+  scopeName: bilingual.nullable(),
+  condition: z.string().nullable(),
+  reason: z.string(),
+  expiresAt: z.string().nullable(),
+  grantedAt: z.string(),
+  grantedBy: z.object({ id: z.uuid(), displayName: z.string() }),
+});
+export type PermissionOverride = z.infer<typeof permissionOverrideSchema>;
 
 /** A change of an official's role (docs/security/RBAC.md, "Roles"). */
 export const roleChangeRequestSchema = z.strictObject({

@@ -37,6 +37,18 @@ if (permissions) {
     ? permissions.permissions.length
     : Object.keys(permissions.permissions ?? {}).length;
   ok(`permissions.yaml parses (${count} permissions)`);
+  // the permission panel shows each permission by name: a Bengali one in Bengali letters and an
+  // English one (docs/security/RBAC.md, "permissions.yaml schema and loading")
+  const unnamed = (Array.isArray(permissions.permissions) ? permissions.permissions : []).filter(
+    (p) => !/[\u0980-\u09FF]/.test(p.name_bn ?? '') || String(p.name_en ?? '').trim().length < 3,
+  );
+  if (unnamed.length)
+    fail(
+      `permissions.yaml: ${unnamed.length} permission(s) without a Bengali and an English name: ${unnamed
+        .map((p) => p.name)
+        .join(', ')}`,
+    );
+  else ok('permissions.yaml: every permission has a Bengali and an English name');
 }
 
 const openapi = parseYaml('docs/api/openapi.yaml');

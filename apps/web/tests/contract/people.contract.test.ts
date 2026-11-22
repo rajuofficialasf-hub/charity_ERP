@@ -408,17 +408,19 @@ describe.skipIf(!contractBase())('the permission panel and the handover', () => 
     expect(catalogue.map((p) => p.name)).toContain(GRANTED_PERMISSION);
     expectContract(await call(head, 'GET', '/roles'), 200, z.array(roleInfoSchema));
     const { division } = await savar(head);
-    expectStatus(
+    const given = expectContract(
       await call(head, 'POST', '/permission-grants', {
         userId,
-        permission: GRANTED_PERMISSION,
+        permissions: [GRANTED_PERMISSION],
         effect: 'grant',
         scopeType: 'REGION',
         scopeRef: division,
         reason: REASON,
       }),
       201,
+      z.array(z.object({ id: z.uuid(), permission: z.string() })),
     );
+    expect(given.map((g) => g.permission)).toEqual([GRANTED_PERMISSION]);
     const effective = expectContract(
       await call(head, 'GET', `/users/${userId}/effective-permissions`),
       200,

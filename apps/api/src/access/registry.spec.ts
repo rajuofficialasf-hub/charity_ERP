@@ -12,7 +12,12 @@ function variant(change: (file: Record<string, unknown>) => void): unknown {
   return file;
 }
 
-type Perm = { name: string; default: { role: string; scope: string; condition?: string }[] };
+type Perm = {
+  name: string;
+  name_bn?: string;
+  name_en?: string;
+  default: { role: string; scope: string; condition?: string }[];
+};
 const perms = (file: Record<string, unknown>) => file.permissions as Perm[];
 
 // permissions.yaml is the single source of truth of docs/security/RBAC.md, "permissions.yaml schema
@@ -38,6 +43,27 @@ describe('access registry', () => {
     expect(registry.isKnownPermission('session.revoke_own')).toBe(true);
     expect(registry.isKnownPermission('authenticated')).toBe(true);
     expect(registry.isKnownPermission('no.such_permission')).toBe(false);
+  });
+
+  it('names every permission in Bengali and in English, and refuses a permission without either', () => {
+    const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);
+    expect(registry.permissions.get('permission.view')).toMatchObject({
+      nameBn: 'কার কী পারমিশন আছে দেখা',
+      nameEn: 'View who holds which permissions',
+    });
+    for (const def of registry.permissions.values()) {
+      expect(def.nameBn, def.name).toMatch(/[\u0980-\u09FF]/);
+      expect(def.nameEn.trim().length, def.name).toBeGreaterThan(2);
+    }
+    const without = (change: (p: Perm) => void) =>
+      variant((file) => change(perms(file).find((p) => p.name === 'audit.view')!));
+    for (const change of [
+      (p: Perm) => delete p.name_bn,
+      (p: Perm) => delete p.name_en,
+      // a Bengali name in English letters is no Bengali name
+      (p: Perm) => (p.name_bn = 'Audit log dekha'),
+    ])
+      expect(() => parsePermissionsFile(without(change))).toThrow(/permissions\.yaml is invalid/);
   });
 
   it('holds the overview of every program and project for the PM, the RPM and the Executive at GLOBAL, and for no other role', () => {

@@ -31,20 +31,43 @@ describe('access request schemas', () => {
       expect(extraAreaRequestSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
   });
 
-  it('accepts a panel grant and trims the reason', () => {
+  it('accepts a panel grant of several permissions and trims the reason', () => {
     const parsed = permissionGrantRequestSchema.parse({
       userId,
-      permission: 'permission.view',
+      permissions: ['permission.view', 'audit.view'],
       effect: 'grant',
       scopeType: 'GLOBAL',
       reason: '  Monitoring help  ',
       expiresAt: '2027-01-01T00:00:00Z',
     });
     expect(parsed.reason).toBe('Monitoring help');
+    expect(parsed.permissions).toEqual(['permission.view', 'audit.view']);
+  });
+
+  it('asks for one to twenty permissions, each once', () => {
+    const base = { userId, effect: 'grant', scopeType: 'GLOBAL', reason: 'Long enough' };
+    const names = (n: number) => Array.from({ length: n }, (_, i) => `audit.view${i}`);
+    expect(
+      permissionGrantRequestSchema.safeParse({ ...base, permissions: names(20) }).success,
+    ).toBe(true);
+    for (const permissions of [[], names(21), ['audit.view', 'audit.view']])
+      expect(
+        permissionGrantRequestSchema.safeParse({ ...base, permissions }).success,
+        JSON.stringify(permissions),
+      ).toBe(false);
+    // the one-permission field of before is no part of the request
+    expect(
+      permissionGrantRequestSchema.safeParse({ ...base, permission: 'audit.view' }).success,
+    ).toBe(false);
   });
 
   it('refuses an unknown scope, a short reason and a malformed expiry', () => {
-    const base = { userId, permission: 'permission.view', effect: 'grant', reason: 'Long enough' };
+    const base = {
+      userId,
+      permissions: ['permission.view'],
+      effect: 'grant',
+      reason: 'Long enough',
+    };
     expect(permissionGrantRequestSchema.safeParse({ ...base, scopeType: 'COUNTRY' }).success).toBe(
       false,
     );
