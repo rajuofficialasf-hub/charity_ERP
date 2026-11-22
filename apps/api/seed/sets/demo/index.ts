@@ -875,13 +875,18 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     });
     // the closed session keeps its area: the Dhaka RPM worked on it, so the person it helped
     // stays in the RPM's beneficiary tab after the close, while its volunteers do not
-    await ctx.upsert('project_areas', {
-      id: seedId('project-area:WNT:2025:rpm_dhaka'),
-      project_id: pastId,
-      location_id: place.division,
-      rpm_user_id: userId('rpm_dhaka'),
-      ...ctx.audit(),
-    });
+    await ctx.upsert(
+      'project_areas',
+      {
+        id: seedId('project-area:WNT:2025:rpm_dhaka'),
+        project_id: pastId,
+        location_id: place.division,
+        rpm_user_id: userId('rpm_dhaka'),
+        ...ctx.audit(),
+      },
+      // an area handed over in a dev database stays with the person who took it
+      { insertOnly: ['location_id', 'rpm_user_id'] },
+    );
     const pastFormId = seedId('form:WNT:2025');
     await ctx.upsert('forms', {
       id: pastFormId,
