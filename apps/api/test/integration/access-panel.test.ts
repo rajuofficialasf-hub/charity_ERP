@@ -158,9 +158,12 @@ describe('grant and revoke', () => {
     const target = await as(world.users.executive);
     await api().get('/api/v1/users').set(bearer(target)).expect(403);
     const before = await version(world.users.executive);
+    // a region, not the whole country, which would ask for a new password first
     const res = await grant(head, {
       userId: world.users.executive,
       permissions: ['permission.view'],
+      scopeType: 'REGION',
+      scopeRef: world.dhaka.division,
       expiresAt: FUTURE,
     }).expect(201);
     expect(res.body.data).toEqual([
@@ -168,7 +171,7 @@ describe('grant and revoke', () => {
         userId: world.users.executive,
         permission: 'permission.view',
         effect: 'grant',
-        scopeType: 'GLOBAL',
+        scopeType: 'REGION',
         grantedBy: world.users.head,
         reason: REASON,
       }),
@@ -474,9 +477,12 @@ describe('refusals', () => {
       await refused({ permissions: [permission] }, 'key_permission_admin_only', world.users.pm);
     const admin = await as(world.users.admin);
     const head = await as(world.users.head);
+    // the PM's own program, not the whole country, which would ask for a new password first
     const given = await grant(admin, {
       userId: world.users.pm,
       permissions: ['user.create'],
+      scopeType: 'PROGRAM',
+      scopeRef: world.a1.program,
     }).expect(201);
     // taking a key permission away lowers access, so the Head may: a revoke, or the end of a grant
     const taken = await grant(head, {

@@ -23,6 +23,7 @@ import type { Env } from '../config/env.js';
 import type { Clock } from '../core/clock.js';
 import { assertIfMatch } from '../core/etag.js';
 import { type PrismaService, type Tx } from '../core/prisma.service.js';
+import { holdsGlobalScope } from '../auth/global-scope.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import { DeliveryError, type EmailAdapter } from '../notifications/adapters.js';
@@ -407,7 +408,6 @@ export class StaffAccountsService {
             passwordHash: true,
             displayName: true,
             jobId: true,
-            userRolesUser: { where: { revokedAt: null }, select: { role: true } },
           },
         },
       },
@@ -428,7 +428,8 @@ export class StaffAccountsService {
         id: user.id,
         displayName: user.displayName,
         jobId: user.jobId,
-        globalRole: user.userRolesUser.some((r) => r.role.globalScope),
+        // a global role or a whole-country grant of the panel asks the 12 characters
+        globalRole: await holdsGlobalScope(db, user.id, this.clock.now()),
       },
     };
   }

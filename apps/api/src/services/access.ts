@@ -392,6 +392,17 @@ export class AccessPanelService {
             },
           }),
         );
+      // the whole country asks the 12-character password of the global roles: unless a global role
+      // already asked for it, a new password is set at the next request
+      const asksPassword =
+        body.effect === 'grant' &&
+        body.scopeType === 'GLOBAL' &&
+        !target.roles.some((r) => this.registry.roles.get(r)?.globalScope);
+      if (asksPassword)
+        await tx.user.update({
+          where: { id: target.id },
+          data: { passwordChangeRequired: true },
+        });
       await this.versions.bump(tx, target.id, {
         action: 'permission_change',
         old,
@@ -399,6 +410,7 @@ export class AccessPanelService {
           grants: await this.grantsOf(target.id, tx),
           overrides: await this.liveOverrides(tx, target.id),
           created: created.map((row) => row.id),
+          ...(asksPassword ? { passwordChangeRequired: true } : {}),
         },
         reason: body.reason,
       });

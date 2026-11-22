@@ -101,8 +101,9 @@ export const revokesReach = (roles: readonly string[]) => !isTopRole(roles);
 /**
  * The rule that refuses one grant or revoke of the panel or of the project extras, or null. In
  * order: nobody changes their own access; no revoke against an Admin or the Head; a key permission
- * comes from an Admin only; the owner transfer goes to an Admin only; the GLOBAL scope of a global
- * role is not removed; a sensitive permission never goes to a volunteer.
+ * comes from an Admin only; the owner transfer goes to an Admin only; the whole country is given by
+ * an Admin or the Department Head only; the GLOBAL scope of a global role is not removed; a
+ * sensitive permission never goes to a volunteer.
  */
 export function changeRefusal(
   registry: AccessRegistry,
@@ -117,6 +118,8 @@ export function changeRefusal(
     return 'key_permission_admin_only';
   if (grant && change.permission === OWNER_TRANSFER && !target.roles.includes(ADMIN_ROLE))
     return 'owner_transfer_only_admin';
+  if (grant && change.scopeType === 'GLOBAL' && !isTopRole(actor.roles))
+    return 'whole_country_top_roles_only';
   const globalRole = target.roles.some((r) => registry.roles.get(r)?.globalScope);
   if (!grant && change.scopeType === 'GLOBAL' && globalRole) return 'global_scope_protected';
   const sensitive = registry.permissions.get(change.permission)?.sensitive === true;
