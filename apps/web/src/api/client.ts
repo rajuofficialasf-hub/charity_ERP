@@ -512,6 +512,9 @@ export async function login(loginId: string, password: string): Promise<Me> {
  * would survive and the next page load would sign the user in again.
  */
 export async function logout(pendingCount?: number): Promise<void> {
+  // a refresh already on its way belongs to the session this logout ends: its answer, even one
+  // that comes before the logout's own, never signs the person in again
+  state.generation += 1;
   try {
     await api<void>('/auth/logout', {
       method: 'POST',

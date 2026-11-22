@@ -142,7 +142,7 @@ test.describe('devices', () => {
 });
 
 test.describe('passwords', () => {
-  test('changes the password and logs in with the new one', async ({ page }, info) => {
+  test('changes the password and logs in with the new one', async ({ page, request }, info) => {
     passwordsOnWebKit(info);
     const id = account(info.project.name, 'change');
     await signIn(page, id);
@@ -165,6 +165,22 @@ test.describe('passwords', () => {
     await fromProfileMenu(page, 'লগআউট');
     await expect(page).toHaveURL(/\/login/);
     await signIn(page, id, 'Shapla phul 2027');
+
+    // the old password goes back through the API, so a repeat of the spec signs in as before
+    const login = await request.post('/api/v1/auth/login', {
+      data: {
+        loginId: id,
+        password: 'Shapla phul 2027',
+        device: { name: 'E2E', platform: 'desktop', appVersion: 'e2e' },
+      },
+    });
+    expect(login.ok()).toBe(true);
+    const { accessToken } = ((await login.json()) as { data: { accessToken: string } }).data;
+    const back = await request.post('/api/v1/auth/password/change', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: { currentPassword: 'Shapla phul 2027', newPassword: PASSWORD },
+    });
+    expect(back.status()).toBe(204);
   });
 
   test('resets a forgotten password with the OTP', async ({ page }, info) => {

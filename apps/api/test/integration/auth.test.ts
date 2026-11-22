@@ -444,6 +444,30 @@ describe('POST /auth/logout', () => {
       expect.arrayContaining([expect.objectContaining({ actor_user_id: staff.id })]),
     );
   });
+
+  it('leaves no cookie that opens the session again when a refresh crosses it', async () => {
+    const staff = await account(h.db);
+    // a few rounds, so the refresh lands before, during and after the logout's revocation
+    for (let round = 0; round < 5; round += 1) {
+      const s = await login(h, staff);
+      const [refreshed] = await Promise.all([
+        post('/auth/refresh').set('Cookie', s.cookieHeader).set('X-CSRF-Token', s.csrf),
+        post('/auth/logout').set(bearer(s)).expect(204),
+      ]);
+      // whatever the refresh answered, no cookie of this session opens it after the logout
+      const cookies = [s];
+      if (refreshed.status === 200) cookies.push(sessionFrom(refreshed));
+      else expect(refreshed.status).toBe(401);
+      for (const c of cookies) {
+        const again = await post('/auth/refresh')
+          .set('Cookie', c.cookieHeader)
+          .set('X-CSRF-Token', c.csrf)
+          .expect(401);
+        expect(String(again.headers['set-cookie'] ?? '')).not.toMatch(/css_refresh=[^;]/);
+        await get('/auth/me').set(bearer(c)).expect(401);
+      }
+    }
+  });
 });
 
 /** The `sid` claim of an access token: the device session the phone should remember. */
