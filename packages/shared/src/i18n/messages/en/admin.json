@@ -55,7 +55,9 @@
       "program": "Program",
       "project": "Project",
       "place_required": "Choose the area.",
-      "ref_required": "Choose which one."
+      "ref_required": "Choose which one.",
+      "limit": "No more than {max} at once. Give these first, then the rest.",
+      "project_cap": "The newest {count} sessions are shown."
     },
     "granted": "Permission granted",
     "removed": "Permission removed",

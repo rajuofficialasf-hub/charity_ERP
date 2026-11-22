@@ -1,4 +1,4 @@
-import type { EffectivePermission, PermissionInfo, Role } from '@css/shared/access';
+import type { EffectivePermission, Role } from '@css/shared/access';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -17,8 +17,8 @@ import type { PanelUser } from '../UserSearch';
 import { GrantDialog } from './GrantDialog';
 import { OverridesList, overridesKey } from './OverridesList';
 import { LoadError } from '../../components/LoadError';
+import { PERMISSIONS_KEY, permissionCatalogue } from './catalogue';
 
-export const permissionCatalogue = () => api<PermissionInfo[]>('/permissions');
 const roleCatalogue = () => api<Role[]>('/roles');
 const effectiveKey = (userId: string) => ['admin', 'effective', userId] as const;
 
@@ -47,7 +47,7 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
     queryFn: () => api<EffectivePermission[]>(`/users/${user.id}/effective-permissions`),
   });
   const permissions = useQuery({
-    queryKey: ['admin', 'permissions'],
+    queryKey: PERMISSIONS_KEY,
     queryFn: permissionCatalogue,
   });
   const roles = useQuery({ queryKey: ['admin', 'roles'], queryFn: roleCatalogue });

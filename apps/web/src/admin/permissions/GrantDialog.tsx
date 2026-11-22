@@ -13,13 +13,15 @@ import {
   SelectField,
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { api } from '../../api/client';
+import { LoadError } from '../../components/LoadError';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import type { PanelUser } from '../UserSearch';
-import { permissionCatalogue } from './EffectivePermissions';
+import { PERMISSIONS_KEY, permissionCatalogue } from './catalogue';
 import { ScopePicker } from './ScopePicker';
 
 type Effect = 'grant' | 'revoke';
@@ -93,10 +95,21 @@ export function GrantDialog({
   const error = form.formState.errors.root?.server?.message;
 
   const permissions = useQuery({
-    queryKey: ['admin', 'permissions'],
+    queryKey: PERMISSIONS_KEY,
     queryFn: permissionCatalogue,
     enabled: open,
   });
+  // the box is drawn anew after each choice to empty its text; the focus goes back into it, so
+  // the next permission is typed at once
+  const addBox = useRef<HTMLDivElement>(null);
+  const picked = useRef(false);
+  const chosenCount = values.permissions?.length ?? 0;
+  useEffect(() => {
+    if (!picked.current) return;
+    picked.current = false;
+    addBox.current?.querySelector('input')?.focus();
+  }, [chosenCount]);
+  const full = chosenCount >= PERMISSIONS_PER_REQUEST;
   const nameOf = (code: string) => {
     const def = permissions.data?.find((p) => p.name === code);
     return def ? localized(def.title, locale) : code;
@@ -173,31 +186,40 @@ export function GrantDialog({
           control={form.control}
           name="permissions"
           render={({ field, fieldState }) => (
-            <div className="admin-panel-section">
-              <Combobox
-                // a new box after each choice, so its text is empty for the next one
-                key={field.value.join('|')}
-                label={t('dialog.add')}
-                hint={t('dialog.add_hint')}
-                // each choice joins the list below, and the box is free for the next one
-                value={null}
-                onChange={(code) => {
-                  if (
-                    code &&
-                    !field.value.includes(code) &&
-                    field.value.length < PERMISSIONS_PER_REQUEST
-                  )
-                    field.onChange([...field.value, code]);
-                }}
-                onBlur={field.onBlur}
-                options={(permissions.data ?? [])
-                  .filter((p) => !field.value.includes(p.name))
-                  .map((p) => ({
-                    value: p.name,
-                    label: `${localized(p.title, locale)} · ${p.name}`,
-                  }))}
-                error={fieldState.error ? t('dialog.none_chosen') : undefined}
-              />
+            <div className="admin-panel-section" ref={addBox}>
+              {permissions.error ? (
+                <LoadError error={permissions.error} onRetry={() => void permissions.refetch()} />
+              ) : (
+                <Combobox
+                  // a new box after each choice, so its text is empty for the next one
+                  key={field.value.join('|')}
+                  label={t('dialog.add')}
+                  hint={
+                    full
+                      ? t('dialog.limit', { max: PERMISSIONS_PER_REQUEST })
+                      : t('dialog.add_hint')
+                  }
+                  // full, the box takes no more until one is removed
+                  disabled={full}
+                  loading={permissions.isPending}
+                  // each choice joins the list below, and the box is free for the next one
+                  value={null}
+                  onChange={(code) => {
+                    if (code && !field.value.includes(code) && !full) {
+                      picked.current = true;
+                      field.onChange([...field.value, code]);
+                    }
+                  }}
+                  onBlur={field.onBlur}
+                  options={(permissions.data ?? [])
+                    .filter((p) => !field.value.includes(p.name))
+                    .map((p) => ({
+                      value: p.name,
+                      label: `${localized(p.title, locale)} · ${p.name}`,
+                    }))}
+                  error={fieldState.error ? t('dialog.none_chosen') : undefined}
+                />
+              )}
               {field.value.length > 0 && (
                 <ul className="admin-plain-list" aria-label={t('dialog.chosen')}>
                   {field.value.map((code) => (

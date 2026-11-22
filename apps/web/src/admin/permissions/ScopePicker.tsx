@@ -1,6 +1,6 @@
 import type { ScopeTypeName } from '@css/shared/access';
 import { localized, type Locale } from '@css/shared/i18n';
-import { SelectField, Text } from '@/ui';
+import { SelectField, Skeleton, Text } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -9,8 +9,9 @@ import {
   AddressFields,
   EMPTY_ADDRESS,
 } from '../../features/registration/AddressFields';
+import { LoadError } from '../../components/LoadError';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
-import { pickerProjects, PROJECTS_KEY } from '../projects/projects-api';
+import { PICKER_LIMIT, pickerProjects, PROJECTS_KEY } from '../projects/projects-api';
 
 /** The address level a place scope names, and how many levels the address fields offer. */
 const PLACE: Partial<Record<ScopeTypeName, { level: keyof Address; levels: 1 | 2 | 3 | 4 }>> = {
@@ -56,6 +57,9 @@ export function ScopePicker({
   };
 
   if (scopeType === 'PROGRAM' || scopeType === 'PROJECT') {
+    const list = scopeType === 'PROGRAM' ? programList : projectList;
+    if (list.error) return <LoadError error={list.error} onRetry={() => void list.refetch()} />;
+    if (list.isPending) return <Skeleton shape="row" />;
     const options =
       scopeType === 'PROGRAM'
         ? (programList.data ?? []).map((p) => ({
@@ -78,6 +82,12 @@ export function ScopePicker({
         onChange={(id) => pick(id ?? '')}
         options={options}
         error={error}
+        // the picker offers the newest sessions only; that is said when the list is full
+        hint={
+          scopeType === 'PROJECT' && options.length >= PICKER_LIMIT
+            ? t('project_cap', { count: PICKER_LIMIT })
+            : undefined
+        }
       />
     );
   }

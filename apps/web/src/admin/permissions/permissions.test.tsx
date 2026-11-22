@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@/ui/testing';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -299,6 +299,64 @@ describe('permission panel', () => {
       within(again).queryByRole('list', { name: 'বাছাই করা পারমিশন' }),
     ).not.toBeInTheDocument();
   }, 20_000);
+
+  it('keeps the box ready for the next permission, stops at twenty, and says when the project list fails', async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 21 }, (_, i) => ({
+      name: `test.permission_${String(i).padStart(2, '0')}`,
+      title: { bn: `পরীক্ষার পারমিশন ${i}`, en: `Test permission ${i}` },
+      module: 'M02',
+      sensitive: false,
+      description: 'Test',
+    }));
+    let projectReads = 0;
+    server.use(
+      http.get('*/api/v1/permissions', () => HttpResponse.json({ data: many, meta })),
+      // refused quickly, so the read is not tried again in the background
+      http.get('*/api/v1/projects', () => {
+        projectReads += 1;
+        return HttpResponse.json(
+          { error: { code: 'rate_limited', message: 'Too many requests' } },
+          { status: 429 },
+        );
+      }),
+    );
+    renderPanel(HEAD);
+    await chooseExecutive(user);
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    await addPermission(user, dialog, 'পরীক্ষার', /^পরীক্ষার পারমিশন 0 · /);
+    // the box is empty and has the focus again, so the next one is typed at once
+    const box = () => within(dialog).getByRole('combobox', { name: /পারমিশন যোগ করুন/ });
+    await waitFor(() => expect(box()).toHaveFocus());
+    expect(box()).toHaveValue('');
+    for (let i = 1; i < 20; i += 1) {
+      await user.paste('পরীক্ষার');
+      await user.click(
+        await screen.findByRole('option', { name: new RegExp(`^পরীক্ষার পারমিশন ${i} · `) }),
+      );
+      // the twentieth fills the list, and the box is closed then
+      if (i < 19) await waitFor(() => expect(box()).toHaveFocus());
+    }
+    const chosen = within(dialog).getByRole('list', { name: 'বাছাই করা পারমিশন' });
+    expect(within(chosen).getAllByRole('listitem')).toHaveLength(20);
+    // twenty at once: the box takes no more and says why
+    expect(box()).toBeDisabled();
+    expect(
+      within(dialog).getByText('একসঙ্গে 20টির বেশি বাছা যায় না। আগে এগুলো দিন, তারপর বাকিগুলো।'),
+    ).toBeInTheDocument();
+    await user.click(within(chosen).getByRole('button', { name: 'পরীক্ষার পারমিশন 3 বাদ দিন' }));
+    expect(box()).toBeEnabled();
+
+    // a project list that cannot be read is said, with a retry, not shown as an empty list
+    await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
+    await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট (PROJECT)' }));
+    const retry = await within(dialog).findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    expect(within(dialog).queryByRole('combobox', { name: /প্রকল্প/ })).not.toBeInTheDocument();
+    const before = projectReads;
+    await user.click(retry);
+    await waitFor(() => expect(projectReads).toBeGreaterThan(before));
+  }, 30_000);
 
   it('shows the message of a refused change', async () => {
     const user = userEvent.setup();
