@@ -10,12 +10,15 @@ doc_review: 2026-11-22
 # The department's own officials in the development database
 
 ## Goal
+
 The development database holds the department's real officials (35 people with their roles, designations, programs and organogram) instead of the demo accounts, and each official can set a password through a link; the demo set stays for the tests.
 
 ## Problem
+
 The owner wants to try the app with the department's own people. The demo set is the fixture of every test, and the repository goes to GitHub, so the real list can neither replace the demo set nor be committed.
 
 ## Requirements
+
 - **R1** `pnpm db:seed --set org --file <path>` loads the base set and the officials of a staff list file that lives outside the repository; nothing of the list is committed.
 - **R2** Each row becomes one official: job ID, name, designation, role, home program (required for a PM, kept for anyone the list gives one), email, mobile and supervisor (the organogram), as a pending account without a password.
 - **R3** The list is checked as a whole before anything is written: a duplicate job ID, email or mobile, a malformed job ID, email or mobile, an unknown role, program or supervisor, a supervisor that is the row itself, a PM without a program and a second Department Head are all reported at once, by row number, field and reason (never the cell's value), and nothing is written.
@@ -26,10 +29,12 @@ The owner wants to try the app with the department's own people. The demo set is
 - **R8** The development database is reset and loaded with base, the locations and the owner's list, with the owner's corrections of 2026-11-22.
 
 ## Scope
+
 - In: officials; the three programs; the set-password links; the dev database load.
 - Out (not now): volunteers (a second list follows); projects (made in the app); real email delivery (dev mail goes to Mailpit); staging or production loading (T3.0).
 
 ## Key decisions
+
 - **A separate seed set, not a changed demo set**: the demo set is every test's fixture and is committed; the owner chose "dev database, demo removed" on 2026-11-22. Governs R1, R7.
 - **The list stays outside the repository** (`D:\Charity Website\ERP-own-data\`): real names, emails and mobiles never reach GitHub (BD-49; constitution §9, production data never in tests). This plan and the decision log name no person either. Governs R1, R6.
 - **The owner's mapping (chat, 2026-11-22)** is applied to the prepared list, not to code: the designations map to roles ("Department Head" to Department Head; "Assistant Manager (PM)" to Program Manager; "Monitoring" and "Documentation" to Monitoring Team; "Regional Project Manager" to Regional Program Manager; "Executive" to Project Executive); one Monitoring row becomes the Admin; two PMs' programs are swapped from the list; the list's "Emergency Response, Resilience and Accountability Wing" is ERR with the app's name; one duplicate job ID and two mobiles are corrected. The row-level details are kept with the list in the owner's folder. Governs R8.
@@ -37,6 +42,7 @@ The owner wants to try the app with the department's own people. The demo set is
 <!-- ae-plan adds everything below -->
 
 ## Technical decisions
+
 - **The list format is generic**: columns job ID, name, mobile, email, designation, role, program, supervisor's job ID; a role is matched by its key or its English or Bengali name in `docs/security/permissions.yaml`, a program by its code or its English or Bengali name. One-off corrections live in the owner's file, so the code holds no personal data and no one-off mapping (BD-49).
 - **Validation reuses the account schemas** of `@css/shared/auth` (`jobIdSchema`, the email and mobile rules of `staffCreateRequestSchema`) and the role check `isGivableOfficialRole` of `apps/api/src/services/registrations.ts`, so the seed accepts exactly what the admin's dialog accepts.
 - **The link is issued by the service's own code**: `issue` in `apps/api/src/services/staff-accounts.ts` becomes a module function `createInvitation(tx, { userId, createdBy, now })` that the service and the seed share (token hashed, open links revoked, the `user.invited` audit), so there is one way to make a link.
@@ -49,7 +55,9 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Stack profile**: unchanged (CLAUDE.md); no new dependency.
 
 ## Implementation units
+
 ### U1. The decision and the staff list reader
+
 - **Goal:** record the decision, and read and check a staff list file into validated rows or a full error list.
 - **Requirements:** R1, R3
 - **Files:** `docs/DECISION_LOG.md` (D-189), `apps/api/src/locations/csv.ts` (a delimiter for tab-separated files), `apps/api/seed/sets/org/staff-file.ts`, `apps/api/seed/sets/org/staff-file.spec.ts`
@@ -63,6 +71,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Status:** done
 
 ### U2. The org seed set and its links
+
 - **Goal:** write the programs, officials, roles, supervisors and Main Admin of the checked rows, issue the links and write them to a file next to the list.
 - **Requirements:** R2, R4, R5, R6, R7
 - **Files:** `apps/api/seed/sets/org/index.ts`, `apps/api/seed/run.ts` (`--set org --file <path>`, the css_erp_dev and demo refusals, the links file), `apps/api/src/services/staff-accounts.ts` (`createInvitation`), `apps/api/test/integration/seed-org.test.ts`
@@ -78,6 +87,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Status:** done
 
 ### U3. The documents
+
 - **Goal:** the command and the rule of the org set are written where people look for them.
 - **Requirements:** R1, R7
 - **Files:** `CLAUDE.md` (commands), `README.md` (the dev data section), `docs/testing/DEMO_ACCOUNTS.md` (the demo accounts are absent from a database loaded with the org set), `docs/testing/TEST_STRATEGY.md` (test data strategy), `docs/STATUS.md`
@@ -90,6 +100,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Status:** done
 
 ### U4. The department's list in the dev database
+
 - **Goal:** the owner's list, with the corrections of 2026-11-22, loaded into css_erp_dev in place of the demo set.
 - **Requirements:** R8
 - **Files:** none in the repository; `D:\Charity Website\ERP-own-data\staff.tsv` (prepared from `staff-raw.tsv`) and the links file there
@@ -102,6 +113,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Status:** done
 
 ## Checkpoints
+
 - **Mode:** grouped (one by one 3, grouped 9, all at once 3)
 - **Signals:** N 4, L 650, R 3, Fd 1, C 3, P 0
 - **C1** after U1: a personal-data unit, and U2 builds on its rows
@@ -109,26 +121,30 @@ The owner wants to try the app with the department's own people. The demo set is
 - **C3** after U4: the last unit, a personal-data step
 
 ## Verification
+
 - `pnpm typecheck`
 - `npx eslint apps packages scripts`, `pnpm exec prettier --check .`, `pnpm i18n:check`
 - `pnpm --filter @css/api exec vitest run seed/sets/org` and `pnpm --filter @css/api exec vitest run --config vitest.db.config.mts test/integration/seed-org.test.ts test/integration/staff-accounts.test.ts`
 - `pnpm docs:check`
 
 ## Risks and rollback
+
 - **The dev database reset removes the demo data**: `pnpm db:reset`, `pnpm db:migrate`, `pnpm db:load-locations`, `pnpm db:seed` (demo) brings it back; the UAT scripts need the demo set.
 - **The links file holds live tokens**: it stays in the owner's folder outside the repository; a link is closed by its use, by 72 hours, or by a new link from the staff page.
 - **No migration**: nothing to undo in the schema.
 
 ## Definition of done
+
 - All units done and their tests pass
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
 
 ## Progress
+
 - **Branch:** `chore/org-staff-seed`
 - **Updated:** 2026-11-22 14:00
-- **Next:** checkpoint C3 (test and review since C2), then finish
+- **Next:** finish (C3 fixes committed), then the report
 - **Reviewed through:** C2 at 4a02836d
 - **Uncommitted:** none
-- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it. C2 review: the demo set refuses an org database (`seed.marker.org`); the links file is restricted to the current user on Windows with icacls, named to the second, and removed when the run fails; `isInside` follows real paths; the betterleaks hits on test database URLs were placeholders, now without credentials; `invitationLink` is covered by the org and staff-account integration tests. The database never lets go of its Main Admin (a trigger), so tests cannot clear the flag. U4: css_erp_dev was reset with the owner's explicit consent in chat (Prisma asks for it), migrated, the locations loaded and the list seeded: 35 pending officials, roles 1/1/1/3/14/15, Main Admin 10102, PMs ERR 10048, HUM 10050, UCD 10051, 34 supervisors, 35 open links; the links file is readable by the owner's account alone; one link opened the set-password page with the name and job ID (no password set). The seed now falls back to the API's own default origin (`DEV_APP_ORIGIN` in `src/config/env.ts`) when `.env` names none.
+- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it. C2 review: the demo set refuses an org database (`seed.marker.org`); the links file is restricted to the current user on Windows with icacls, named to the second, and removed when the run fails; `isInside` follows real paths; the betterleaks hits on test database URLs were placeholders, now without credentials; `invitationLink` is covered by the org and staff-account integration tests. The database never lets go of its Main Admin (a trigger), so tests cannot clear the flag. U4: css_erp_dev was reset with the owner's explicit consent in chat (Prisma asks for it), migrated, the locations loaded and the list seeded: 35 pending officials, roles 1/1/1/3/14/15, the Main Admin and the three PMs as the list gives them, 34 supervisors, 35 open links; the links file is readable by the owner's account alone; one link opened the set-password page with the name and job ID (no password set). The seed reads the origin as the API does (`appOriginOf` in `src/config/env.ts`: the named URL, or the developer default).

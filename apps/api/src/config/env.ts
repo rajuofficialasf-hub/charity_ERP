@@ -6,14 +6,24 @@ const flag = z
   .default('false')
   .transform((v) => v === 'true' || v === '1');
 
+/** The PWA's origin on a developer's computer, when the environment names none. */
+export const DEV_APP_ORIGIN = 'http://127.0.0.1:3000';
+const appOriginSchema = z.url().default(DEV_APP_ORIGIN);
+
+/**
+ * The PWA's origin as the API reads it: the named one, checked as a URL, or the developer default
+ * when none is named. The seed of the department's own officials writes its links with it, so
+ * they open the same page as the links the API sends.
+ */
+export function appOriginOf(value: string | undefined): string {
+  return appOriginSchema.parse(value === '' ? undefined : value);
+}
+
 /**
  * Typed process configuration, validated once at start (docs/architecture/SYSTEM_ARCHITECTURE.md,
  * "Configuration and secrets"). A missing or malformed value stops the process with a clear
  * message. .env.example lists every name with placeholder values only.
  */
-/** The PWA's origin on a developer's computer, when the environment names none. */
-export const DEV_APP_ORIGIN = 'http://127.0.0.1:3000';
-
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -139,7 +149,7 @@ const envSchema = z
      * The PWA's public origin, written into links sent by email (the set-password link); https in
      * production.
      */
-    APP_ORIGIN: z.url().default(DEV_APP_ORIGIN),
+    APP_ORIGIN: appOriginSchema,
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
     RATE_LIMITS_RELAXED: flag,
     /**
