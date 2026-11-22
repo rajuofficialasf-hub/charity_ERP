@@ -38,6 +38,8 @@ const revoke = (over: Partial<PanelOverride>): PanelOverride => ({
   ...over,
 });
 
+/** Only an application that stands reaches its person: a deleted one reaches nobody. */
+const SENT = { status: { not: 'deleted' } };
 const P1 = '00000000-0000-7000-8000-0000000000a1';
 const P2 = '00000000-0000-7000-8000-0000000000b2';
 const DHAKA = '00000000-0000-7000-8000-0000000000d1';
@@ -189,7 +191,7 @@ describe('the revoked projects in every filter', () => {
       OR: [
         {
           applicationsBeneficiary: {
-            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] }, ...SENT },
           },
         },
       ],
@@ -320,7 +322,7 @@ describe('the revoked locations in every filter', () => {
     expect(volunteerWhere(none('volunteer', { global: true }))).toEqual({});
     expect(userWhere(none('user', { global: true }))).toEqual({});
     expect(beneficiaryWhere(none('beneficiary', { projectIds: [P1] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] }, ...SENT } } }],
     });
   });
 });
@@ -613,8 +615,16 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
       ),
     ).toEqual({
       OR: [
-        { applicationsBeneficiary: { some: { projectId: { in: [P1] }, OR: placed(DHAKA) } } },
-        { applicationsBeneficiary: { some: { projectId: { in: [P2] }, OR: placed(RANGPUR) } } },
+        {
+          applicationsBeneficiary: {
+            some: { projectId: { in: [P1] }, ...SENT, OR: placed(DHAKA) },
+          },
+        },
+        {
+          applicationsBeneficiary: {
+            some: { projectId: { in: [P2] }, ...SENT, OR: placed(RANGPUR) },
+          },
+        },
       ],
     });
   });
@@ -629,7 +639,7 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
           ],
         }),
       );
-    const projects = { projectId: { in: [P1, P2] } };
+    const projects = { projectId: { in: [P1, P2] }, ...SENT };
     const some = (placed: object) => ({
       OR: [{ applicationsBeneficiary: { some: { ...projects, ...placed } } }],
     });
@@ -649,10 +659,12 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
       })),
     );
     expect(beneficiaryWhere(scope({ projectIds: [P1] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] }, ...SENT } } }],
     });
     expect(beneficiaryWhere(scope({ programIds: [P2] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { project: { programId: { in: [P2] } } } } }],
+      OR: [
+        { applicationsBeneficiary: { some: { project: { programId: { in: [P2] } }, ...SENT } } },
+      ],
     });
   });
 

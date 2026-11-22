@@ -1,9 +1,11 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  beneficiaryListWhere,
   beneficiaryScopeSql,
   beneficiaryWhere,
   makeScope,
+  NO_INSTANCES,
   type Scope,
 } from '../../src/access/scope.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
@@ -160,6 +162,48 @@ describe('the scope condition of the raw duplicate queries', () => {
         .map((r) => r.id)
         .sort();
       expect(viaSql, user).toEqual(viaPrisma);
+    }
+  });
+
+  it('selects the same profiles in every form of the reach, for an area of each level and of none', async () => {
+    // one applicant of the project per place, and a person who lives there without applying
+    const applied = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
+    await f.applicant(h.db, { project: world.a1, loc: world.rangpur });
+    await f.beneficiary(h.db, world.dhaka);
+    const places: [string | undefined, string][] = [
+      ['division', world.dhaka.division],
+      ['district', world.dhaka.district],
+      ['upazila', world.dhaka.upazila],
+      ['union', world.dhaka.union],
+      // a level the scope did not read: the place is looked for at every level
+      [undefined, world.dhaka.upazila],
+    ];
+    const prisma = h.container.prisma;
+    const idsOf = async (where: Parameters<typeof prisma.beneficiary.findMany>[0]) =>
+      (await prisma.beneficiary.findMany({ ...where, select: { id: true } }))
+        .map((r) => r.id)
+        .sort();
+    for (const [level, locationId] of places) {
+      const scope = makeScope(world.users.rpmDhaka, 'beneficiary.view_all', 'beneficiary', {
+        ...NO_INSTANCES,
+        areas: [{ projectId: world.a1.id, locationId, ...(level ? { level } : {}) }],
+      });
+      const byCondition = await idsOf({ where: beneficiaryWhere(scope) });
+      expect(byCondition, String(level)).toContain(applied);
+      // the list's form, as ids and, past its limit, as the condition again
+      for (const max of [undefined, 0])
+        expect(
+          await idsOf({ where: await beneficiaryListWhere(prisma, scope, max) }),
+          `${level} ${max}`,
+        ).toEqual(byCondition);
+      const bySql = (
+        await prisma.$queryRaw<{ id: string }[]>(
+          Prisma.sql`SELECT b.id FROM beneficiaries b WHERE ${beneficiaryScopeSql(scope, 'b')}`,
+        )
+      )
+        .map((r) => r.id)
+        .sort();
+      expect(bySql, String(level)).toEqual(byCondition);
     }
   });
 });

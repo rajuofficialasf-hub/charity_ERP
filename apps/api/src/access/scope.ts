@@ -673,6 +673,14 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
+/**
+ * A deleted application reaches nobody: a person is reached through an application that stands.
+ * A draft stands too, since the office already works on its person (it reads the record and adds
+ * a missing document before the application is sent).
+ */
+const SENT = { status: { not: 'deleted' } };
+const SENT_SQL = Prisma.sql`ap.status <> 'deleted'`;
+
 /** One location held on several projects, with its level where the scope knows it. */
 interface HeldPlace {
   locationId: string;
@@ -708,7 +716,7 @@ function splitAreas(i: ScopeInstances): { ofProjects: HeldPlace[]; free: string[
  * upazila is the parent of its union), or at any of them where the level is not known.
  */
 function applicationsOfPlace(place: HeldPlace): Prisma.ApplicationWhereInput {
-  const projects = { projectId: { in: place.projectIds } };
+  const projects = { projectId: { in: place.projectIds }, ...SENT };
   switch (place.level) {
     case 'division':
       return { ...projects, regionLocationId: place.locationId };
@@ -731,7 +739,8 @@ function applicationsOfPlace(place: HeldPlace): Prisma.ApplicationWhereInput {
  * people whose division, district, upazila or union it is; for PROGRAM and PROJECT the
  * beneficiaries with an application in those projects (the Procurement Team's house-construction
  * projects among them), never through a revoked project and never a beneficiary whose address
- * lies in a revoked location. A beneficiary has no account, so SELF reaches nobody.
+ * lies in a revoked location. Only an application that stands reaches its person: a deleted one
+ * reaches nobody. A beneficiary has no account, so SELF reaches nobody.
  */
 export function beneficiaryWhere(
   scope: Scope,
@@ -752,17 +761,17 @@ export function beneficiaryWhere(
   if (i.programIds.length)
     or.push({
       applicationsBeneficiary: {
-        some: { project: { programId: { in: i.programIds } }, ...projectNotRevoked(i) },
+        some: { project: { programId: { in: i.programIds } }, ...projectNotRevoked(i), ...SENT },
       },
     });
   if (i.projectIds.length)
-    or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds } } } });
+    or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds }, ...SENT } } });
   if (!or.length) return { id: { in: [] } };
   return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
 /** The most people of a reach that a list reads as their ids. */
-export const REACH_AS_IDS_MAX = 20_000;
+const REACH_AS_IDS_MAX = 20_000;
 
 /**
  * The reach of `beneficiaryWhere` for the lists that combine it with any filter and order (the
@@ -776,6 +785,7 @@ export const REACH_AS_IDS_MAX = 20_000;
 export async function beneficiaryListWhere(
   db: Tx,
   scope: Scope,
+  max = REACH_AS_IDS_MAX,
 ): Promise<Prisma.BeneficiaryWhereInput> {
   const i = scope.instances;
   const { ofProjects } = splitAreas(i);
@@ -797,9 +807,9 @@ export async function beneficiaryListWhere(
   });
   const rows = await db.$queryRaw<{ id: string }[]>`
     SELECT DISTINCT ap.beneficiary_id AS id FROM applications ap
-     WHERE ap.beneficiary_id IS NOT NULL AND (${Prisma.join(places, ' OR ')})
-     LIMIT ${REACH_AS_IDS_MAX + 1}`;
-  if (rows.length > REACH_AS_IDS_MAX) return beneficiaryWhere(scope);
+     WHERE ap.beneficiary_id IS NOT NULL AND ${SENT_SQL} AND (${Prisma.join(places, ' OR ')})
+     LIMIT ${max + 1}`;
+  if (rows.length > max) return beneficiaryWhere(scope);
   return beneficiaryWhere(
     scope,
     rows.map((r) => r.id),
@@ -856,7 +866,7 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
   // names, or at any of them where the level is not known
   for (const place of ofProjects) {
     const at = Prisma.sql`${place.locationId}::uuid`;
-    const mine = Prisma.sql`ap.beneficiary_id = ${row}.id AND ap.project_id = ANY(${uuids(place.projectIds)})`;
+    const mine = Prisma.sql`ap.beneficiary_id = ${row}.id AND ${SENT_SQL} AND ap.project_id = ANY(${uuids(place.projectIds)})`;
     const column =
       place.level === 'division'
         ? Prisma.sql`ap.region_location_id`
@@ -878,11 +888,11 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
     : Prisma.empty;
   if (i.programIds.length)
     or.push(
-      Prisma.sql`EXISTS (SELECT 1 FROM applications ap JOIN projects pr ON pr.id = ap.project_id WHERE ap.beneficiary_id = ${row}.id AND pr.program_id = ANY(${uuids(i.programIds)})${notRevokedSql})`,
+      Prisma.sql`EXISTS (SELECT 1 FROM applications ap JOIN projects pr ON pr.id = ap.project_id WHERE ap.beneficiary_id = ${row}.id AND ${SENT_SQL} AND pr.program_id = ANY(${uuids(i.programIds)})${notRevokedSql})`,
     );
   if (i.projectIds.length)
     or.push(
-      Prisma.sql`EXISTS (SELECT 1 FROM applications ap WHERE ap.beneficiary_id = ${row}.id AND ap.project_id = ANY(${uuids(i.projectIds)}))`,
+      Prisma.sql`EXISTS (SELECT 1 FROM applications ap WHERE ap.beneficiary_id = ${row}.id AND ${SENT_SQL} AND ap.project_id = ANY(${uuids(i.projectIds)}))`,
     );
   if (!or.length) return Prisma.sql`FALSE`;
   const reach = Prisma.sql`(${Prisma.join(or, ' OR ')})`;

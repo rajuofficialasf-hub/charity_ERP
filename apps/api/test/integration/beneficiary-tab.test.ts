@@ -408,9 +408,11 @@ describe('whom the beneficiary tab reaches', () => {
   });
 
   it('shows an RPM the applicants placed in the own division of the project, and a PM those of every project of the program', async () => {
-    const dhaka = await person(world.dhaka);
-    const rangpur = await person(world.rangpur);
-    const second = await person(world.rangpur);
+    // a name of their own, so the list by that name holds these three and nobody else
+    const name = `নাগালের মানুষ ${randomUUID().slice(0, 8)}`;
+    const dhaka = await person(world.dhaka, { name });
+    const rangpur = await person(world.rangpur, { name });
+    const second = await person(world.rangpur, { name });
     await applyTo(world.a1, world.dhaka, dhaka);
     await applyTo(world.a1, world.rangpur, rangpur);
     // the program's second project holds no area: its applicants are the PM's alone
@@ -418,9 +420,11 @@ describe('whom the beneficiary tab reaches', () => {
     const people = [dhaka, rangpur, second];
     const listed = async (userId: string) => {
       const s = await as(userId);
-      const found: string[] = [];
-      for (const id of people) if ((await profile(s, id)).status === 200) found.push(id);
-      return found.sort();
+      const inList = ids(await list(s, { q: name })).sort();
+      // the profile opens for the same people the list shows
+      for (const id of people)
+        expect((await profile(s, id)).status, id).toBe(inList.includes(id) ? 200 : 404);
+      return inList;
     };
     expect(await listed(world.users.rpmDhaka)).toEqual([dhaka]);
     expect(await listed(world.users.rpmRangpur)).toEqual([rangpur]);
@@ -539,6 +543,19 @@ describe('the 360° profile', () => {
       expect(ids(await list(s, { unionId: world.dhaka.union, limit: '100' }))).not.toContain(
         neighbour,
       );
+    }
+    // a deleted application reaches nobody; a draft stands, and the office works on its person
+    const drafted = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, drafted, 'draft');
+    const removed = await person(world.dhaka);
+    await h.db.query(
+      `UPDATE applications SET status = 'deleted', deleted_at = now() WHERE id = $1`,
+      [await applyTo(world.a1, world.dhaka, removed)],
+    );
+    for (const who of [world.users.rpmDhaka, world.users.pm]) {
+      const s = await as(who);
+      expect((await profile(s, removed)).status, who).toBe(404);
+      expect((await profile(s, drafted)).status, who).toBe(200);
     }
     // an application placed in another region of the same project is not the Dhaka RPM's
     const far = await person(world.dhaka);
