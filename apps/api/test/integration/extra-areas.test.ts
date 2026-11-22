@@ -140,7 +140,11 @@ describe('an extra area given by the Department Head', () => {
     );
     expect((await at(s, 'get', `/users/${colleague}/sessions`)).status).toBe(404);
     // no beneficiary and no application: those follow the projects
+    const people = await at(s, 'get', '/beneficiaries').query({ unionId: barishal.union });
+    expect(people.status).toBe(200);
+    expect(people.body.data).toEqual([]);
     for (const [permission, entity] of [
+      ['beneficiary.view_all', 'beneficiary'],
       ['beneficiary.view_nid', 'beneficiary'],
       ['application.view', 'application'],
     ] as const) {

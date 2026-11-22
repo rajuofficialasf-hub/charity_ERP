@@ -262,7 +262,19 @@ describe('the limits of an export', () => {
   it('refuses more rows than a file may hold, and more than a PDF list may', async () => {
     const official = await account(h.db, { role: 'regional_program_manager' });
     const principal = await principalOf(h.db, official.id);
-    for (let i = 0; i < 5; i += 1) await f.beneficiary(h.db, world.rangpur);
+    // the applicants of a project the official holds two regions of: five in one, three in the
+    // other (more than a PDF list may hold, fewer than a file may)
+    const project = await f.project(h.db);
+    for (const [tree, people] of [
+      [world.rangpur, 5],
+      [world.dhaka, 3],
+    ] as const) {
+      await h.db.query(
+        `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+        [randomUUID(), project.id, tree.division, official.id],
+      );
+      for (let i = 0; i < people; i += 1) await f.applicant(h.db, { project, loc: tree });
+    }
     await expect(
       small().request(
         principal,
@@ -499,6 +511,10 @@ describe('what an export keeps to itself', () => {
       `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
       [randomUUID(), world.a2.id, world.dhaka.division, official.id],
     );
+    // the people the official reaches: the applicants of that project in the region
+    const people: string[] = [];
+    for (let i = 0; i < 3; i += 1)
+      people.push(await f.applicant(h.db, { project: world.a2, loc: world.dhaka }));
     const s = await login(h, official);
     const made = await at(s, 'post', '/exports').send({
       kind: 'beneficiaries',
@@ -519,8 +535,8 @@ describe('what an export keeps to itself', () => {
       .split('\r\n');
     expect(lines[0]).toBe('নাম,NID নম্বর');
     const nids = await h.db.query<{ nid: string }>(
-      `SELECT nid FROM beneficiaries WHERE division_id = $1 AND nid IS NOT NULL`,
-      [world.dhaka.division],
+      `SELECT nid FROM beneficiaries WHERE id = ANY($1)`,
+      [people],
     );
     expect(
       lines

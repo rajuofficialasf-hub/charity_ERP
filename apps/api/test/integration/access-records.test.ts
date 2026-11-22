@@ -132,10 +132,22 @@ describe('the beneficiary scope', () => {
     expect(ids).toEqual([inHouse]);
   });
 
-  it('reaches every beneficiary for a GLOBAL holder and none for a volunteer', async () => {
+  it('reaches every beneficiary for a GLOBAL holder, the applicants of the own program for a PM, and none for a volunteer', async () => {
     const someone = await f.beneficiary(h.db, world.rangpur);
-    const global = await scopeOf(world.users.pm, 'beneficiary.view_all', 'beneficiary');
+    const global = await scopeOf(world.users.head, 'beneficiary.view_all', 'beneficiary');
     expect(await h.container.access.reaches(global!, { beneficiaryId: someone })).toBe(true);
+    const ofProgram = () => scopeOf(world.users.pm, 'beneficiary.view_all', 'beneficiary');
+    expect(await h.container.access.reaches((await ofProgram())!, { beneficiaryId: someone })).toBe(
+      false,
+    );
+    await f.application(
+      h.db,
+      { project: world.a1, loc: world.rangpur },
+      { beneficiary_id: someone },
+    );
+    expect(await h.container.access.reaches((await ofProgram())!, { beneficiaryId: someone })).toBe(
+      true,
+    );
     expect(await scopeOf(world.users.general, 'beneficiary.view_all', 'beneficiary')).toBeNull();
   });
 });

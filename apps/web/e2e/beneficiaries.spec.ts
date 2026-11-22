@@ -1,7 +1,7 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { filterBy, openTab, rows as listRows, scan, select, signIn } from './support/admin';
 
-// The nationwide beneficiary tab and the 360° profile shell (docs/ui/SCREENS.md, the beneficiary
+// The beneficiary tab and the 360° profile shell (docs/ui/SCREENS.md, the beneficiary
 // tab and the beneficiary profile) against the API on its E2E database with the demo seed
 // (docs/testing/DEMO_ACCOUNTS.md: 25 beneficiaries in Dhaka district, 25 in Dinajpur). Mobile and
 // desktop share the database, so each signs in with its own account.
@@ -76,6 +76,27 @@ test.describe('the beneficiary tab', () => {
     await expect(page.getByText('মোট 1 বার সাহায্য পেয়েছেন')).toBeVisible();
   });
 
+  test('an Executive meets the applicants of the own district in the own project, and nobody else', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one account, one project');
+    // the demo seed (docs/testing/DEMO_ACCOUNTS.md): the Executive holds the Dhaka district of the
+    // project at work; beneficiary 11 applied to it there, beneficiary 36 in Dinajpur, and
+    // beneficiary 1 lives in the district without an application in the project
+    await signIn(page, 'executive@example.org');
+    await openTab(page, TAB);
+    await expect(rows(page).getByText('ঢাকা').first()).toBeVisible();
+    await expect(rows(page).getByText('দিনাজপুর')).toHaveCount(0);
+    const box = page.getByRole('searchbox');
+    await box.fill('1000001010');
+    await expect(rows(page).getByRole('link')).toHaveCount(1);
+    for (const nid of ['1000001035', '1000001000']) {
+      await box.fill(nid);
+      await expect(page.getByText(/পাওয়া যায়নি/)).toBeVisible();
+      await expect(rows(page).getByRole('link')).toHaveCount(0);
+    }
+  });
+
   test('the Media Team gets the limited view: no mobile, no family, no follow-ups', async ({
     page,
   }, info) => {
@@ -109,10 +130,12 @@ test.describe('the beneficiary tab', () => {
   });
 });
 
-// The lookup cases of the demo seed (docs/testing/DEMO_ACCOUNTS.md): beneficiary 1 of Dhaka is
+// The lookup cases of the demo seed (docs/testing/DEMO_ACCOUNTS.md): beneficiary 11 of Dhaka is
 // found, beneficiary 3 is blocked, and an unused NID finds nothing; all inside project WNT, which
-// the Dhaka RPM works on. Nothing here changes data, so both projects share the account.
-const FOUND_NID = '1000001000';
+// the Dhaka RPM works on. Beneficiary 11 applied to the RPM's project at work, so the RPM also
+// finds the profile in the tab; a person who never applied to an own project is filled in by the
+// lookup and not listed there. Nothing here changes data, so both projects share the account.
+const FOUND_NID = '1000001010';
 const BLOCKED_NID = '1000001002';
 const UNKNOWN_NID = '1000099999';
 

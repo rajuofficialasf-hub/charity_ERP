@@ -4,6 +4,7 @@ import {
   applicationWhere,
   applyInstanceRevokes,
   beneficiaryRowsProjectWhere,
+  beneficiaryNearWhere,
   beneficiaryWhere,
   holdsPermission,
   makeScope,
@@ -594,18 +595,75 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     expect(beneficiaryWhere(scope({ self: true }))).toEqual({ id: { in: [] } });
   });
 
-  it('reaches by address for an area and by application for a project or a program', () => {
-    const area = beneficiaryWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })) as {
+  it('reaches an area of a project through an application of that project placed there', () => {
+    const placed = (locationId: string) => [
+      { regionLocationId: locationId },
+      { districtId: locationId },
+      { unionId: locationId },
+      { union: { parentId: locationId } },
+    ];
+    expect(
+      beneficiaryWhere(
+        scope({
+          areas: [
+            { projectId: P1, locationId: DHAKA },
+            { projectId: P2, locationId: RANGPUR },
+          ],
+        }),
+      ),
+    ).toEqual({
+      OR: [
+        { applicationsBeneficiary: { some: { projectId: { in: [P1] }, OR: placed(DHAKA) } } },
+        { applicationsBeneficiary: { some: { projectId: { in: [P2] }, OR: placed(RANGPUR) } } },
+      ],
+    });
+  });
+
+  it('compares the one place of the application the level of an area names, across its projects', () => {
+    const held = (level: string) =>
+      beneficiaryWhere(
+        scope({
+          areas: [
+            { projectId: P1, locationId: DHAKA, level },
+            { projectId: P2, locationId: DHAKA, level },
+          ],
+        }),
+      );
+    const projects = { projectId: { in: [P1, P2] } };
+    const some = (placed: object) => ({
+      OR: [{ applicationsBeneficiary: { some: { ...projects, ...placed } } }],
+    });
+    expect(held('division')).toEqual(some({ regionLocationId: DHAKA }));
+    expect(held('district')).toEqual(some({ districtId: DHAKA }));
+    expect(held('union')).toEqual(some({ unionId: DHAKA }));
+    expect(held('upazila')).toEqual(some({ union: { parentId: DHAKA } }));
+  });
+
+  it('keeps the address for a location held without a project, and the applications for a project or a program', () => {
+    const area = beneficiaryWhere(scope({ areas: [{ projectId: null, locationId: DHAKA }] })) as {
       OR: unknown[];
     };
-    for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'])
-      expect(area.OR).toContainEqual({ [column]: { in: [DHAKA] } });
+    expect(area.OR).toEqual(
+      ['divisionId', 'districtId', 'upazilaId', 'unionId'].map((column) => ({
+        [column]: { in: [DHAKA] },
+      })),
+    );
     expect(beneficiaryWhere(scope({ projectIds: [P1] }))).toEqual({
       OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
     });
     expect(beneficiaryWhere(scope({ programIds: [P2] }))).toEqual({
       OR: [{ applicationsBeneficiary: { some: { project: { programId: { in: [P2] } } } } }],
     });
+  });
+
+  it('reads how near a lookup lies by the address of every area, with or without a project', () => {
+    const near = beneficiaryNearWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })) as {
+      OR: unknown[];
+    };
+    for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'])
+      expect(near.OR).toContainEqual({ [column]: { in: [DHAKA] } });
+    expect(beneficiaryNearWhere(scope({ global: true }))).toEqual({});
+    expect(beneficiaryNearWhere(scope({}))).toEqual({ id: { in: [] } });
   });
 
   it('limits the rows of a profile to the projects of a project scope only', () => {
@@ -616,6 +674,10 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     expect(beneficiaryRowsProjectWhere(scope({ projectIds: [P1] }))).toEqual({
       OR: [{ id: { in: [P1] } }],
     });
+    // a person reached through an area of a project shows that project's rows alone
+    expect(
+      beneficiaryRowsProjectWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })),
+    ).toEqual({ OR: [{ id: P1 }] });
   });
 });
 

@@ -489,7 +489,7 @@ const viewerOf = (req: AuthedRequest) => ({
 });
 
 /**
- * The nationwide beneficiary tab and the 360° profile shell (openapi tag beneficiaries). The scope
+ * The beneficiary tab and the 360° profile shell (openapi tag beneficiaries). The scope
  * entity is the beneficiary, so a team that reaches only some projects (the Procurement Team) sees
  * only their beneficiaries.
  */
@@ -574,7 +574,7 @@ export function beneficiariesRouter(
       method: 'get',
       path: '/beneficiaries',
       operationId: 'beneficiaries.beneficiary.list',
-      summary: 'Nationwide beneficiary tab with filters (masks per role)',
+      summary: "Beneficiary tab with filters, inside the caller's reach (masks per role)",
       query: listQuery,
       responses: {
         200: z.array(beneficiaryRow),

@@ -112,6 +112,9 @@ describe('the beneficiary list', () => {
   it('searches by name, by mobile for those who see it, and by NID only inside the NID scope', async () => {
     const dhaka = await person(world.dhaka, { name: 'Sample Amena Begum', mobile: '01911000001' });
     const rangpur = await person(world.rangpur);
+    // both applied to the RPMs' project where they live: the Dhaka RPM reaches the first alone
+    await applyTo(world.a1, world.dhaka, dhaka);
+    await applyTo(world.a1, world.rangpur, rangpur);
     const head = await as(world.users.head);
     expect(ids(await list(head, { q: 'amena' }))).toContain(dhaka);
     expect(ids(await list(head, { q: '01911000001' }))).toEqual([dhaka]);
@@ -346,6 +349,86 @@ describe('the beneficiary list', () => {
   });
 });
 
+// Whom the tab reaches (docs/BUSINESS_RULES.md, "An official sees a beneficiary and an
+// application only through a project they work or worked on").
+describe('whom the beneficiary tab reaches', () => {
+  it('shows an Executive and an Official দায়ী with two districts the applicants placed there in the own project, also after its close, until the place ends', async () => {
+    const first = await f.locationTree(h.db);
+    /** Another district of the same division. */
+    const sibling = async () => {
+      const tree = await f.locationTree(h.db);
+      await h.db.query('UPDATE locations SET parent_id = $1 WHERE id = $2', [
+        first.division,
+        tree.district,
+      ]);
+      return { ...tree, division: first.division };
+    };
+    const second = await sibling();
+    const third = await sibling();
+    const project = await f.project(h.db, { status: 'active' });
+    const other = await f.project(h.db, { status: 'active' });
+    const here = await f.applicant(h.db, { project, loc: first });
+    // sent by whichever volunteer: the place of the application decides, not who brought it
+    const there = await f.applicant(h.db, { project, loc: second });
+    await f.applicant(h.db, { project, loc: third });
+    // lives in the first district, and applied to a project the officials do not work on
+    await f.applicant(h.db, { project: other, loc: first });
+    await person(first);
+    const places: string[] = [];
+    const sessions: Session[] = [];
+    for (const role of ['project_executive', 'official_daee']) {
+      const official = await account(h.db, { role });
+      const place = randomUUID();
+      places.push(place);
+      await h.db.query(
+        `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+         VALUES ($1, $2, $3, $4, $5, $3)`,
+        [place, project.id, official.id, role, first.division],
+      );
+      for (const district of [first.district, second.district])
+        await h.db.query(
+          'INSERT INTO project_staff_districts (id, project_staff_id, location_id) VALUES ($1, $2, $3)',
+          [randomUUID(), place, district],
+        );
+      sessions.push(await login(h, official));
+    }
+    const seen = async (s: Session) =>
+      ids(await list(s, { divisionId: first.division, limit: '100' })).sort();
+    const expected = [here, there].sort();
+    for (const s of sessions) {
+      expect(await seen(s)).toEqual(expected);
+      expect((await statistics(s)).body.data.total).toBe(2);
+    }
+    // closed: the people of the project stay with those who worked on it
+    await h.db.query(`UPDATE projects SET status = 'closed' WHERE id = $1`, [project.id]);
+    for (const s of sessions) expect(await seen(s)).toEqual(expected);
+    // the place ended (a handover ends it the same way): nobody is left
+    await h.db.query('UPDATE project_staff SET ended_at = now() WHERE id = ANY($1)', [places]);
+    for (const s of sessions) expect(await seen(s)).toEqual([]);
+  });
+
+  it('shows an RPM the applicants placed in the own division of the project, and a PM those of every project of the program', async () => {
+    const dhaka = await person(world.dhaka);
+    const rangpur = await person(world.rangpur);
+    const second = await person(world.rangpur);
+    await applyTo(world.a1, world.dhaka, dhaka);
+    await applyTo(world.a1, world.rangpur, rangpur);
+    // the program's second project holds no area: its applicants are the PM's alone
+    await applyTo(world.a2, world.rangpur, second);
+    const people = [dhaka, rangpur, second];
+    const listed = async (userId: string) => {
+      const s = await as(userId);
+      const found: string[] = [];
+      for (const id of people) if ((await profile(s, id)).status === 200) found.push(id);
+      return found.sort();
+    };
+    expect(await listed(world.users.rpmDhaka)).toEqual([dhaka]);
+    expect(await listed(world.users.rpmRangpur)).toEqual([rangpur]);
+    expect(await listed(world.users.pm)).toEqual([...people].sort());
+    expect(await listed(world.users.head)).toEqual([...people].sort());
+  });
+});
+
 describe('the statistics of the beneficiary tab', () => {
   it('count everyone, those assisted this year, the blocked, the men and the women, inside the caller scope', async () => {
     const tree = await f.locationTree(h.db);
@@ -421,11 +504,48 @@ describe('the 360° profile', () => {
   it('sends the NID only inside the NID scope of the caller', async () => {
     const dhaka = await person(world.dhaka);
     const rangpur = await person(world.rangpur);
+    await applyTo(world.a1, world.dhaka, dhaka);
+    // the Dhaka RPM, given the tab of the Rangpur division too in the panel: the identity still
+    // follows the applications of the own project
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'beneficiary.view_all', 'grant', 'REGION', $3, 'Test grant', $4)`,
+      [randomUUID(), world.users.rpmDhaka, world.rangpur.division, world.users.head],
+    );
     const rpm = await as(world.users.rpmDhaka);
     expect((await profile(rpm, dhaka)).body.data).toHaveProperty('nid');
     const there = (await profile(rpm, rangpur)).body.data;
+    expect(there.id).toBe(rangpur);
     expect(there).not.toHaveProperty('nid');
     expect(there).not.toHaveProperty('birthReg');
+    await h.db.query(
+      `UPDATE user_permissions SET revoked_at = now(), revoked_by = $2
+        WHERE user_id = $1 AND permission_name = 'beneficiary.view_all'`,
+      [world.users.rpmDhaka, world.users.head],
+    );
+  });
+
+  it('answers 404 for a person who never applied to a project of the caller, wherever they live', async () => {
+    const neighbour = await person(world.dhaka);
+    const applicantHere = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, applicantHere);
+    const elsewhere = await person(world.dhaka);
+    await applyTo(world.b1, world.dhaka, elsewhere);
+    for (const who of [world.users.rpmDhaka, world.users.executive, world.users.pm]) {
+      const s = await as(who);
+      expect((await profile(s, applicantHere)).status, who).toBe(200);
+      expect((await profile(s, neighbour)).status, who).toBe(404);
+      expect((await profile(s, elsewhere)).status, who).toBe(404);
+      expect(ids(await list(s, { unionId: world.dhaka.union, limit: '100' }))).not.toContain(
+        neighbour,
+      );
+    }
+    // an application placed in another region of the same project is not the Dhaka RPM's
+    const far = await person(world.dhaka);
+    await applyTo(world.a1, world.rangpur, far);
+    expect((await profile(await as(world.users.rpmDhaka), far)).status).toBe(404);
+    expect((await profile(await as(world.users.rpmRangpur), far)).status).toBe(200);
+    expect((await profile(await as(world.users.pm), far)).status).toBe(200);
   });
 
   it('gives the Media Team no contact, care or identity data', async () => {
@@ -511,6 +631,7 @@ describe('the 360° profile', () => {
 
   it('shows the contact changes, the corrections and the merges of the person', async () => {
     const someone = await person(world.dhaka, { mobile: '01822000001' });
+    await applyTo(world.a1, world.dhaka, someone);
     const twin = await person(world.dhaka);
     const head = await as(world.users.head);
     const tag = (await profile(head, someone)).headers.etag as string;
@@ -636,6 +757,7 @@ describe('the 360° profile', () => {
 
   it('keeps identity values of a correction and an NID photo from a caller without the NID class', async () => {
     const someone = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, someone);
     const rpm = await as(world.users.rpmDhaka);
     await api()
       .post(`/api/v1/beneficiaries/${someone}/correction-requests`)

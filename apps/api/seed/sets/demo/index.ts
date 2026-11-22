@@ -241,6 +241,16 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
   }),
 );
 
+/**
+ * The demo beneficiaries (number n of `beneficiary:n`) who applied to the project at work: 11 to
+ * 20 live in the Dhaka division, 36 to 45 in the Rangpur division. The first ten of each division
+ * stay without an application, for the lookup cases.
+ */
+const DEMO_APPLICANTS: readonly number[] = [
+  ...Array.from({ length: 10 }, (_, i) => 11 + i),
+  ...Array.from({ length: 10 }, (_, i) => 36 + i),
+];
+
 /** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
 const DEMO_BLOCKED_BENEFICIARY = 3;
 
@@ -674,6 +684,57 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         },
         // a handover or an end of the place in a dev database stays as the person left it
         { insertOnly: ['user_id', 'area_location_id', 'can_view', 'can_edit', 'can_delete'] },
+      );
+    }
+    // the Executive holds one district of the division, the Official দায়ী the whole of it
+    await ctx.upsert(
+      'project_staff_districts',
+      {
+        id: seedId('project-staff-district:IFT:executive'),
+        project_staff_id: seedId('project-staff:IFT:executive'),
+        location_id: dhaka[0]!.district,
+        ...ctx.audit(),
+      },
+      // a district taken away in a dev database stays ended
+      { insertOnly: ['location_id'] },
+    );
+    // the applicants of the project at work: a person is reached through an application of an
+    // own project, so twenty of the demo people applied to it where they live (ten in each
+    // division, still under review), and the regional accounts meet them in the beneficiary tab
+    const activeFormId = seedId('form:IFT:demo');
+    await ctx.upsert('forms', {
+      id: activeFormId,
+      project_id: activeId,
+      key: 'demo_applicants',
+      title_bn: 'আবেদন ফর্ম',
+      title_en: 'Application form',
+      ...ctx.audit(),
+    });
+    const activeVersionId = seedId('form-version:IFT:demo:1');
+    await ctx.upsert('form_versions', {
+      id: activeVersionId,
+      form_id: activeFormId,
+      version_no: 1,
+      ...ctx.audit(),
+    });
+    for (const n of DEMO_APPLICANTS) {
+      const home = (n <= 25 ? dhaka : rangpur)[(n - 1) % 25]!;
+      // a merge or its revert moves the row; a later seed run leaves it where it is
+      await ctx.upsert(
+        'applications',
+        {
+          id: seedId(`application:IFT:${n}`),
+          project_id: activeId,
+          form_version_id: activeVersionId,
+          beneficiary_id: seedId(`beneficiary:${n}`),
+          status: 'under_review',
+          region_location_id: home.division,
+          district_id: home.district,
+          union_id: home.union,
+          submitted_at: SEED_AT,
+          ...ctx.audit(),
+        },
+        { insertOnly: ['beneficiary_id', 'status'] },
       );
     }
     for (const [code, id] of [

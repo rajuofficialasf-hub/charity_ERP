@@ -322,7 +322,7 @@ describe('an identity document added to a profile without one', () => {
   });
 
   it('refuses a number another profile holds, naming that profile for the comparison only to a caller who may see its number', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const id = await applicant({ nid: null });
     const holder = await f.beneficiary(h.db, world.dhaka);
     const rpm = await as(world.users.rpmDhaka);
     const taken = await add(rpm, id, { kind: 'nid', number: (await profileRow(holder)).nid });
@@ -342,7 +342,7 @@ describe('an identity document added to a profile without one', () => {
   });
 
   it('names a holder merged into a profile outside the caller’s NID scope by neither profile', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const id = await applicant({ nid: null });
     // the holder lies in Dhaka, inside the RPM's scope; the profile it was merged into in Rangpur
     const holder = await f.beneficiary(h.db, world.dhaka);
     const kept = await f.beneficiary(h.db, world.rangpur);
@@ -414,7 +414,7 @@ describe('an identity document added to a profile without one', () => {
   });
 
   it('refuses a stale version, a number in a wrong format and an application of another person', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka, { nid: null });
+    const id = await applicant({ nid: null });
     const rpm = await as(world.users.rpmDhaka);
     const stale = await add(rpm, id, { kind: 'nid', number: f.fakeNid() }, '"stale"');
     expect(stale.status).toBe(412);

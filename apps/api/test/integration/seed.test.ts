@@ -512,6 +512,31 @@ describe('demo set', () => {
         staff: ['official_daee', 'project_executive'],
       },
     ]);
+    // twenty demo people applied to it where they live, and the Executive holds one district
+    const applicants = (
+      await db.query(
+        `SELECT l.name_en, count(*)::int AS n FROM applications a
+           JOIN projects p ON p.id = a.project_id
+           JOIN locations l ON l.id = a.region_location_id
+          WHERE p.code = 'IFT' GROUP BY l.name_en ORDER BY l.name_en`,
+      )
+    ).rows;
+    expect(applicants).toEqual([
+      { name_en: 'Dhaka', n: 10 },
+      { name_en: 'Rangpur', n: 10 },
+    ]);
+    const districts = (
+      await db.query(
+        `SELECT s.role_key, count(d.id)::int AS n FROM project_staff s
+           JOIN projects p ON p.id = s.project_id
+           LEFT JOIN project_staff_districts d ON d.project_staff_id = s.id AND d.ended_at IS NULL
+          WHERE p.code = 'IFT' GROUP BY s.role_key ORDER BY s.role_key`,
+      )
+    ).rows;
+    expect(districts).toEqual([
+      { role_key: 'official_daee', n: 0 },
+      { role_key: 'project_executive', n: 1 },
+    ]);
     const sessions = (
       await db.query(`SELECT year, status FROM projects WHERE code = 'WNT' ORDER BY year`)
     ).rows;

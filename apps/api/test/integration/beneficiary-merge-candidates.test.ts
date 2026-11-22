@@ -50,24 +50,33 @@ beforeAll(async () => {
 afterAll(async () => h.close());
 
 let counter = 0;
-/** Two profiles of one made-up person: unique names, so pairs of other tests never mix in. */
+/**
+ * Two profiles of one made-up person: unique names, so pairs of other tests never mix in. Each
+ * applied to the world's first project where they live, unless `applied` is false: an official
+ * below the global roles reaches a person through an application of an own project.
+ */
 async function pair(
   tree: Tree,
   rule: 'name_father_mobile' | 'name_dob_union' | 'same_mobile',
   other: Tree = tree,
+  applied = true,
 ) {
+  const profile = (place: Tree, over: Record<string, unknown>) =>
+    applied
+      ? f.applicant(h.db, { project: world.a1, loc: place }, over)
+      : (f.beneficiary(h.db, place, over) as Promise<string>);
   const n = ++counter;
   const name = `যাচাই ব্যক্তি ${n}`;
   const father = `যাচাই পিতা ${n}`;
   const mobile = `0155${String(1_000_000 + n).slice(-7)}`;
   const dob = '1980-01-01';
-  const a = await f.beneficiary(h.db, tree, {
+  const a = await profile(tree, {
     name,
     father_or_husband_name: father,
     mobile,
     dob: rule === 'name_dob_union' ? dob : null,
   });
-  const b = await f.beneficiary(h.db, other, {
+  const b = await profile(other, {
     name: rule === 'same_mobile' ? `অন্য নাম ${n}` : ` ${name.replace(' ', '  ')}`,
     father_or_husband_name: rule === 'name_dob_union' ? `অন্য পিতা ${n}` : father,
     mobile: rule === 'name_dob_union' ? `0166${String(1_000_000 + n).slice(-7)}` : mobile,
@@ -120,11 +129,15 @@ const dismiss = (s: Session, [a, b]: [string, string], reason = 'আলাদা
 
 describe('the scope condition of the raw duplicate queries', () => {
   it('selects exactly the profiles the beneficiary scope filter selects', async () => {
-    for (const p of [
-      await pair(world.dhaka, 'same_mobile'),
-      await pair(world.rangpur, 'same_mobile'),
-    ])
-      await f.application(h.db, { project: world.a1, loc: world.dhaka }, { beneficiary_id: p[0] });
+    await pair(world.dhaka, 'same_mobile');
+    // a pair of Rangpur that never applied, but for one of the two, whose application is placed
+    // in Dhaka: reached through the application, not through the address
+    const there = await pair(world.rangpur, 'same_mobile', world.rangpur, false);
+    await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: there[0] },
+    );
     for (const user of [world.users.rpmDhaka, world.users.pm, world.users.head]) {
       const scope = await h.container.access.scopeOfUser(
         user,
@@ -257,15 +270,17 @@ describe('the suggested duplicate pairs', () => {
     expect(has(await candidates(await as(world.users.rpmDhaka)), p)).toBeUndefined();
   });
 
-  it("shows an RPM the pairs of the region only, and a PM those of the program's applicants", async () => {
+  it("shows an RPM the pairs of the applicants of the own region, and a PM those of the program's applicants", async () => {
     const dhaka = await pair(world.dhaka, 'same_mobile');
-    const rangpur = await pair(world.rangpur, 'same_mobile');
+    // people who never applied to a project of the program: nobody's below the global roles
+    const rangpur = await pair(world.rangpur, 'same_mobile', world.rangpur, false);
+    const idle = await pair(world.dhaka, 'same_mobile', world.dhaka, false);
     const rpm = await candidates(await as(world.users.rpmDhaka));
     expect(lists(rpm, dhaka)).toBe(true);
     expect(has(rpm, rangpur)).toBeUndefined();
+    expect(has(rpm, idle)).toBeUndefined();
     const applied = await pair(world.rangpur, 'same_mobile');
-    for (const id of applied)
-      await f.application(h.db, { project: world.a1, loc: world.rangpur }, { beneficiary_id: id });
+    expect(has(rpm, applied)).toBeUndefined();
     const pm = await candidates(await as(world.users.pm));
     expect(lists(pm, applied)).toBe(true);
     expect(has(pm, rangpur)).toBeUndefined();
@@ -496,7 +511,7 @@ describe('marking a pair as two different people', () => {
     expect((listed.body.data as { id: string }[]).map((d) => d.id)).toContain(marked.body.data.id);
     const lifted = await api()
       .post(`/api/v1/beneficiary-merge-dismissals/${marked.body.data.id}/lift`)
-      .set(bearer(await as(world.users.pm)))
+      .set(bearer(await as(world.users.rpmRangpur)))
       .send({ reason: 'আবার যাচাই করা দরকার' });
     expect(lifted.status).toBe(404);
     const liftedByRpm = await api()
@@ -561,8 +576,8 @@ describe('the pair by name, father’s or husband’s name and village', () => {
     b: Record<string, unknown>,
     treeB: Tree = world.dhaka,
   ) {
-    const x = await f.beneficiary(h.db, world.dhaka, a);
-    const y = await f.beneficiary(h.db, treeB, b);
+    const x = await f.applicant(h.db, { project: world.a1, loc: world.dhaka }, a);
+    const y = await f.applicant(h.db, { project: world.a1, loc: treeB }, b);
     await refresh(x, y);
     return [x, y].sort() as [string, string];
   }
@@ -682,8 +697,9 @@ describe('the pair by name, father’s or husband’s name and village', () => {
 
   it('shows the pair only to an official whose scope reaches both profiles', async () => {
     const p = person();
-    const rangpur = await f.beneficiary(h.db, world.rangpur, { ...p, village: 'দূর গ্রাম' });
-    const again = await f.beneficiary(h.db, world.rangpur, { ...p, village: 'দূর গ্রাম' });
+    const there = { project: world.a1, loc: world.rangpur };
+    const rangpur = await f.applicant(h.db, there, { ...p, village: 'দূর গ্রাম' });
+    const again = await f.applicant(h.db, there, { ...p, village: 'দূর গ্রাম' });
     await refresh(rangpur, again);
     const key = [rangpur, again].sort() as [string, string];
     expect(lists(await candidates(await as(world.users.rpmRangpur)), key)).toBe(true);

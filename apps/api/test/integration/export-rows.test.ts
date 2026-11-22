@@ -36,7 +36,7 @@ beforeAll(async () => {
     { staff: make('staff'), volunteerUser: make('volunteer') },
     { atWork: true },
   );
-  // scored and unscored applications of the Dhaka region, and people of both regions
+  // scored and unscored applications of the Dhaka region, and applicants of both regions
   for (const score of [40, null, 75, 40]) {
     const dhaka = await f.beneficiary(h.db, world.dhaka);
     await f.application(
@@ -44,8 +44,15 @@ beforeAll(async () => {
       { project: world.a1, loc: world.dhaka },
       { beneficiary_id: dhaka, total_score: score },
     );
-    await f.beneficiary(h.db, world.rangpur);
+    await f.applicant(h.db, { project: world.a1, loc: world.rangpur });
   }
+  // the Dhaka RPM's beneficiary tab is widened to the Rangpur division in the panel, so the list
+  // reaches people the RPM's identity scope (the applicants of the own region) does not
+  await h.db.query(
+    `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+     VALUES ($1, $2, 'beneficiary.view_all', 'grant', 'REGION', $3, 'Test grant', $4)`,
+    [randomUUID(), world.users.rpmDhaka, world.rangpur.division, world.users.head],
+  );
 });
 afterAll(async () => h.close());
 
@@ -84,7 +91,7 @@ describe('the rows of an export', () => {
     expect(await rows().count(frozen)).toBe(listed.body.data.length);
   });
 
-  it('are the beneficiary list’s rows, nationwide for an RPM as the list is', async () => {
+  it('are the beneficiary list’s rows, the people an RPM reaches as the list is', async () => {
     const s = await as(world.users.rpmDhaka);
     const listed = await api().get('/api/v1/beneficiaries?limit=100').set(bearer(s)).expect(200);
     const frozen = await freeze(world.users.rpmDhaka, { kind: 'beneficiaries', filters: {} });
@@ -162,9 +169,10 @@ describe('the rows of an export', () => {
 
   it('print the words of a missing mobile and a missing document, never a number or an empty word, and only where the classes reach', async () => {
     const name = `পরিচয়পত্র ছাড়া ${randomUUID().slice(0, 8)}`;
-    const inside = await f.beneficiary(h.db, world.dhaka, { name, nid: null, mobile: null });
+    const here = { project: world.a1, loc: world.dhaka };
+    const inside = await f.applicant(h.db, here, { name, nid: null, mobile: null });
     const outside = await f.beneficiary(h.db, world.rangpur, { name, nid: null, mobile: null });
-    const birthOnly = await f.beneficiary(h.db, world.dhaka, {
+    const birthOnly = await f.applicant(h.db, here, {
       name,
       nid: null,
       birth_reg: '20261112000000017',
@@ -200,14 +208,15 @@ describe('the rows of an export', () => {
     const executive = await readAll(
       await freeze(world.users.executive, { kind: 'beneficiaries', filters: { q: name } }),
     );
-    expect(executive.length).toBeGreaterThanOrEqual(3);
+    // the Executive's list holds the applicants of the own project, not the person of Rangpur
+    expect(executive.map((r) => r.id).sort()).toEqual([inside, birthOnly].sort());
     for (const row of executive) {
       expect(row.cells).not.toHaveProperty('nid');
       expect(JSON.stringify(row.cells)).not.toContain('পরিচয়পত্র নেই');
     }
   });
 
-  it('carry an RPM’s NIDs only of the people their region reaches, on the nationwide list', async () => {
+  it('carry an RPM’s NIDs only of the applicants of the own region, on a list the panel made wider', async () => {
     const exported = await readAll(
       await freeze(world.users.rpmDhaka, { kind: 'beneficiaries', filters: {} }),
     );

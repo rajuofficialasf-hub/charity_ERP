@@ -7836,7 +7836,7 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.list
-      summary: Nationwide beneficiary tab with filters (masks per role)
+      summary: Beneficiary tab with filters, inside the caller's reach (masks per role)
       description: >-
         Every beneficiary the caller's beneficiary.view_all scope reaches, newest first (O-67, D-094):
         the officials and the Media Team nationwide, the Procurement Team only the beneficiaries of

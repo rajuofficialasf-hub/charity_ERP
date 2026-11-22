@@ -18,6 +18,11 @@ export interface Area {
    * its areas, so the colleagues and the assignments of the place are read on this one.
    */
   within?: string;
+  /**
+   * The level of the location (division, district, upazila or union), where the scope's
+   * resolution read it: a filter that knows it compares one column instead of four.
+   */
+  level?: string;
 }
 
 /**
@@ -259,6 +264,21 @@ async function areasAtWork(db: Tx, areas: Area[]): Promise<Area[]> {
   return areas.filter((a) => a.projectId === null || working.has(a.projectId));
 }
 
+/** The areas of projects with the level of their location; the others as they are. */
+async function withLevels(db: Tx, areas: Area[]): Promise<Area[]> {
+  const ids = [...new Set(areas.filter((a) => a.projectId !== null).map((a) => a.locationId))];
+  if (!ids.length) return areas;
+  const locations = await db.location.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, level: true },
+  });
+  const levels = new Map(locations.map((l) => [l.id, l.level]));
+  return areas.map((a) => {
+    const level = a.projectId === null ? undefined : levels.get(a.locationId);
+    return level ? { ...a, level } : a;
+  });
+}
+
 /** The scopes of a grant that reaches other people's records below the whole country. */
 const REACHING_SCOPES: readonly string[] = ['PROGRAM', 'PROJECT', ...AREA_SCOPES];
 
@@ -491,6 +511,10 @@ export async function resolveInstances(
   }
   if (entity === 'user') inst.volunteerAreas = await areasAtWork(db, inst.volunteerAreas);
   await addExtraAreas(db, actorId, entity, grants, inst);
+  // a beneficiary is reached through an application placed in an area: the level of each area
+  // says which place of the application to compare (docs/testing/PERFORMANCE.md, "The beneficiary
+  // tab inside a person's reach")
+  if (entity === 'beneficiary') inst.areas = await withLevels(db, inst.areas);
   const revokedPrograms = revokes
     .filter((r) => r.scopeType === 'PROGRAM' && r.scopeRef !== null)
     .map((r) => r.scopeRef as string);
@@ -649,15 +673,146 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
 
+/** One location held on several projects, with its level where the scope knows it. */
+interface HeldPlace {
+  locationId: string;
+  level: string | undefined;
+  projectIds: string[];
+}
+
 /**
- * The beneficiaries a scope reaches (entity `beneficiary`): everyone at GLOBAL;
- * for an area the beneficiaries whose division, district, upazila or union is that location; for
- * PROGRAM and PROJECT the beneficiaries with an application in those projects (the Procurement
- * Team's house-construction projects among them), never through a revoked project and never a
- * beneficiary whose address lies in a revoked location. A beneficiary has no account, so SELF
- * reaches nobody.
+ * The areas of a scope that belong to a project, one entry per location with the projects it is
+ * held on, and the locations held without a project.
  */
-export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
+function splitAreas(i: ScopeInstances): { ofProjects: HeldPlace[]; free: string[] } {
+  const places = new Map<string, HeldPlace>();
+  for (const a of i.areas) {
+    if (a.projectId === null) continue;
+    const place = places.get(a.locationId) ?? {
+      locationId: a.locationId,
+      level: a.level,
+      projectIds: [],
+    };
+    if (!place.projectIds.includes(a.projectId)) place.projectIds.push(a.projectId);
+    places.set(a.locationId, place);
+  }
+  return {
+    ofProjects: [...places.values()],
+    free: [...new Set(i.areas.filter((a) => a.projectId === null).map((a) => a.locationId))],
+  };
+}
+
+/**
+ * The applications of the given projects placed in a location: by the one place of the
+ * application its level names (an application carries its division, district and union; an
+ * upazila is the parent of its union), or at any of them where the level is not known.
+ */
+function applicationsOfPlace(place: HeldPlace): Prisma.ApplicationWhereInput {
+  const projects = { projectId: { in: place.projectIds } };
+  switch (place.level) {
+    case 'division':
+      return { ...projects, regionLocationId: place.locationId };
+    case 'district':
+      return { ...projects, districtId: place.locationId };
+    case 'union':
+      return { ...projects, unionId: place.locationId };
+    case 'upazila':
+      return { ...projects, union: { parentId: place.locationId } };
+    default:
+      return { ...projects, ...applicationsIn(place.locationId) };
+  }
+}
+
+/**
+ * The beneficiaries a scope reaches (entity `beneficiary`): everyone at GLOBAL; for an area of a
+ * project the people with an application of that project placed in the area, at any of its levels
+ * (as the application filter reads a place), so a person is reached through the work on a project
+ * and stays reached after its close; for a location held without a project (a panel grant) the
+ * people whose division, district, upazila or union it is; for PROGRAM and PROJECT the
+ * beneficiaries with an application in those projects (the Procurement Team's house-construction
+ * projects among them), never through a revoked project and never a beneficiary whose address
+ * lies in a revoked location. A beneficiary has no account, so SELF reaches nobody.
+ */
+export function beneficiaryWhere(
+  scope: Scope,
+  placed?: readonly string[],
+): Prisma.BeneficiaryWhereInput {
+  const i = scope.instances;
+  const outside = addressOutsideRevoked(i);
+  if (i.global) return outside ?? {};
+  const or: Prisma.BeneficiaryWhereInput[] = [];
+  const { ofProjects, free } = splitAreas(i);
+  if (free.length) for (const column of ADDRESS_COLUMNS) or.push({ [column]: { in: free } });
+  // the people of the places, given as their ids (`beneficiaryListWhere`), or one condition per
+  // place, so each can be answered from an index of the applications
+  if (placed) or.push({ id: { in: [...placed] } });
+  else
+    for (const place of ofProjects)
+      or.push({ applicationsBeneficiary: { some: applicationsOfPlace(place) } });
+  if (i.programIds.length)
+    or.push({
+      applicationsBeneficiary: {
+        some: { project: { programId: { in: i.programIds } }, ...projectNotRevoked(i) },
+      },
+    });
+  if (i.projectIds.length)
+    or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds } } } });
+  if (!or.length) return { id: { in: [] } };
+  return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
+}
+
+/** The most people of a reach that a list reads as their ids. */
+export const REACH_AS_IDS_MAX = 20_000;
+
+/**
+ * The reach of `beneficiaryWhere` for the lists that combine it with any filter and order (the
+ * beneficiary tab and its counts): the same people, but those reached through the places of
+ * projects are read first, from the applications' own indexes, and given as ids. A filter that
+ * few of them match then costs the same as one that many match; left as a condition on the
+ * applications, such a filter makes the list walk every profile the filter matches
+ * (docs/testing/PERFORMANCE.md, "The beneficiary tab inside a person's reach"). A reach of more
+ * people than `REACH_AS_IDS_MAX` keeps the condition, where matches are close together.
+ */
+export async function beneficiaryListWhere(
+  db: Tx,
+  scope: Scope,
+): Promise<Prisma.BeneficiaryWhereInput> {
+  const i = scope.instances;
+  const { ofProjects } = splitAreas(i);
+  if (i.global || !ofProjects.length) return beneficiaryWhere(scope);
+  const uuids = (ids: string[]) => Prisma.sql`ARRAY[${Prisma.join(ids)}]::uuid[]`;
+  const places = ofProjects.map((place) => {
+    const at = Prisma.sql`${place.locationId}::uuid`;
+    const projects = Prisma.sql`ap.project_id = ANY(${uuids(place.projectIds)})`;
+    switch (place.level) {
+      case 'division':
+        return Prisma.sql`(${projects} AND ap.region_location_id = ${at})`;
+      case 'district':
+        return Prisma.sql`(${projects} AND ap.district_id = ${at})`;
+      case 'union':
+        return Prisma.sql`(${projects} AND ap.union_id = ${at})`;
+      default:
+        return Prisma.sql`(${projects} AND (${at} IN (ap.region_location_id, ap.district_id, ap.union_id) OR EXISTS (SELECT 1 FROM locations un WHERE un.id = ap.union_id AND un.parent_id = ${at})))`;
+    }
+  });
+  const rows = await db.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT ap.beneficiary_id AS id FROM applications ap
+     WHERE ap.beneficiary_id IS NOT NULL AND (${Prisma.join(places, ' OR ')})
+     LIMIT ${REACH_AS_IDS_MAX + 1}`;
+  if (rows.length > REACH_AS_IDS_MAX) return beneficiaryWhere(scope);
+  return beneficiaryWhere(
+    scope,
+    rows.map((r) => r.id),
+  );
+}
+
+/**
+ * The beneficiaries a scope lies near (the lookup by an identity number counts a profile outside
+ * it toward the day's limit): as `beneficiaryWhere`, but every area by the person's address,
+ * whether or not the area belongs to a project. It tells how far a lookup strays from the
+ * caller's own places, never whom a list shows.
+ */
+export function beneficiaryNearWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
   const i = scope.instances;
   const outside = addressOutsideRevoked(i);
   if (i.global) return outside ?? {};
@@ -695,8 +850,29 @@ export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prism
     : null;
   if (i.global) return outside ?? Prisma.sql`TRUE`;
   const or: Prisma.Sql[] = [];
-  const locations = [...new Set(i.areas.map((a) => a.locationId))];
-  if (locations.length) or.push(placedIn(locations));
+  const { ofProjects, free } = splitAreas(i);
+  if (free.length) or.push(placedIn(free));
+  // an area of a project: an application of that project placed there, by the place its level
+  // names, or at any of them where the level is not known
+  for (const place of ofProjects) {
+    const at = Prisma.sql`${place.locationId}::uuid`;
+    const mine = Prisma.sql`ap.beneficiary_id = ${row}.id AND ap.project_id = ANY(${uuids(place.projectIds)})`;
+    const column =
+      place.level === 'division'
+        ? Prisma.sql`ap.region_location_id`
+        : place.level === 'district'
+          ? Prisma.sql`ap.district_id`
+          : place.level === 'union'
+            ? Prisma.sql`ap.union_id`
+            : null;
+    or.push(
+      column
+        ? Prisma.sql`EXISTS (SELECT 1 FROM applications ap WHERE ${mine} AND ${column} = ${at})`
+        : place.level === 'upazila'
+          ? Prisma.sql`EXISTS (SELECT 1 FROM applications ap JOIN locations un ON un.id = ap.union_id WHERE ${mine} AND un.parent_id = ${at})`
+          : Prisma.sql`EXISTS (SELECT 1 FROM applications ap LEFT JOIN locations un ON un.id = ap.union_id WHERE ${mine} AND ${at} IN (ap.region_location_id, ap.district_id, ap.union_id, un.parent_id))`,
+    );
+  }
   const notRevokedSql = i.revokedProjectIds.length
     ? Prisma.sql` AND NOT (ap.project_id = ANY(${uuids(i.revokedProjectIds)}))`
     : Prisma.empty;
@@ -730,12 +906,13 @@ export function beneficiaryReachedByAll(
 
 /**
  * The projects whose rows a caller sees inside one beneficiary's profile: no limit at GLOBAL or
- * for an area scope (the person is theirs) beyond the revoked projects, otherwise only the
- * scope's projects, so a team attached to a few projects never reads the person's other projects.
+ * for a location held without a project (the person is theirs by the address) beyond the revoked
+ * projects, otherwise only the scope's projects, so a person reached through one project shows
+ * nothing of the projects the caller does not work on.
  */
 export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereInput | null {
   const i = scope.instances;
-  if (i.global || i.areas.length) return notRevoked(i);
+  if (i.global || i.areas.some((a) => a.projectId === null)) return notRevoked(i);
   return projectWhere(scope);
 }
 

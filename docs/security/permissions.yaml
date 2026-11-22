@@ -432,14 +432,14 @@ permissions:
 
   # ---- M05 Beneficiary Master ----------------------------------------------------------------------
   - name: beneficiary.view_all
-    description: Nationwide beneficiary tab and 360 profiles (sensitive fields masked per sensitive_fields)
+    description: Beneficiary tab and 360 profiles of the people with an application in the holder's projects, inside the holder's part of each (sensitive fields masked per sensitive_fields)
     module: M05
     sensitive: false
-    default:
-      - { role: program_manager, scope: GLOBAL }
-      - { role: regional_program_manager, scope: GLOBAL }
-      - { role: project_executive, scope: GLOBAL }
-      - { role: official_daee, scope: GLOBAL }
+    default:   # through the applications of the own projects, never the whole country (D-189); the Media roles keep their limited view of everyone
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
       - { role: media_team, scope: GLOBAL }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
