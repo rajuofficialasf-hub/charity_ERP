@@ -14,6 +14,8 @@ export const WAITING = ['needs_verification', 'submitted', 'under_review', 'revi
 interface Tie {
   roles: Set<string>;
   areas: Map<string, { bn: string; en: string }>;
+  /** The districts among the areas that a staff place holds, each with the area of that place. */
+  districts: Map<string, string>;
   wholeProject: boolean;
 }
 
@@ -201,14 +203,19 @@ export class ProjectsWorkService {
       }),
       tx.projectStaff.findMany({
         where: { userId, endedAt: null },
-        select: { projectId: true, roleKey: true, areaLocation: location },
+        select: {
+          projectId: true,
+          roleKey: true,
+          areaLocation: location,
+          districts: { where: { endedAt: null }, select: { location } },
+        },
       }),
     ]);
     const ties = new Map<string, Tie>();
     const tie = (projectId: string) => {
       let found = ties.get(projectId);
       if (!found) {
-        found = { roles: new Set(), areas: new Map(), wholeProject: false };
+        found = { roles: new Set(), areas: new Map(), districts: new Map(), wholeProject: false };
         ties.set(projectId, found);
       }
       return found;
@@ -226,9 +233,14 @@ export class ProjectsWorkService {
     for (const s of staff) {
       const t = tie(s.projectId);
       t.roles.add(s.roleKey);
-      if (s.areaLocation)
-        t.areas.set(s.areaLocation.id, { bn: s.areaLocation.nameBn, en: s.areaLocation.nameEn });
-      else t.wholeProject = true;
+      if (!s.areaLocation) t.wholeProject = true;
+      else if (s.districts.length)
+        // a place with districts works in those districts, not in its whole area
+        for (const { location: d } of s.districts) {
+          t.areas.set(d.id, { bn: d.nameBn, en: d.nameEn });
+          t.districts.set(d.id, s.areaLocation.id);
+        }
+      else t.areas.set(s.areaLocation.id, { bn: s.areaLocation.nameBn, en: s.areaLocation.nameEn });
     }
     return ties;
   }
@@ -248,6 +260,11 @@ export class ProjectsWorkService {
       projects: pairs.map(([p]) => p),
       locations: pairs.map(([, l]) => l),
     };
+    // an assignment names the project's area: for a district of a staff place, the volunteers
+    // assigned on the place's area who live in the district
+    const districts = projects
+      .filter((p) => !p.tie.wholeProject)
+      .flatMap((p) => [...p.tie.districts].map(([district, area]) => [p.id, area, district]));
     const reach = workReachSql(whole, held);
     const result = new Map<string, ProjectWorkFigures>(
       ids.map((id) => [
@@ -286,9 +303,16 @@ export class ProjectsWorkService {
       tx.$queryRaw<{ project_id: string; volunteers: Count }[]>`
         SELECT pv.project_id, count(DISTINCT pv.volunteer_id) AS volunteers
         FROM project_volunteers pv
+        JOIN volunteers v ON v.id = pv.volunteer_id
         WHERE pv.project_id = ANY(${ids}::uuid[]) AND pv.ended_at IS NULL
           AND (pv.project_id = ANY(${whole}::uuid[])
-            OR (pv.project_id, pv.region_location_id) IN (${heldAreasSql(held)}))
+            OR (pv.project_id, pv.region_location_id) IN (${heldAreasSql(held)})
+            OR (pv.project_id, pv.region_location_id, v.district_id) IN (
+              SELECT p, a, d FROM unnest(
+                ${districts.map(([p]) => p)}::uuid[],
+                ${districts.map(([, a]) => a)}::uuid[],
+                ${districts.map(([, , d]) => d)}::uuid[]
+              ) AS held_districts(p, a, d)))
         GROUP BY pv.project_id`,
       tx.$queryRaw<{ project_id: string; reviewed: Count; approved: Count }[]>`
         SELECT a.project_id,

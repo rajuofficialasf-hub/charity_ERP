@@ -205,6 +205,46 @@ describe("an RPM's own projects", () => {
   });
 });
 
+describe('an official whose place holds districts of its area', () => {
+  it('counts the applications and the volunteers of those districts alone', async () => {
+    const mine = await f.locationTree(h.db);
+    // a second district of the same division
+    const second = await f.locationTree(h.db);
+    await h.db.query('UPDATE locations SET parent_id = $1 WHERE id = $2', [
+      mine.division,
+      second.district,
+    ]);
+    const sibling = { ...second, division: mine.division };
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    const executive = await account(h.db, { role: 'project_executive' });
+    const project = await f.project(h.db, { year: 2026, status: 'active' });
+    await area(project, mine.division, rpm.id);
+    const place = randomUUID();
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, $5)`,
+      [place, project.id, executive.id, mine.division, rpm.id],
+    );
+    await h.db.query(
+      'INSERT INTO project_staff_districts (id, project_staff_id, location_id) VALUES ($1, $2, $3)',
+      [randomUUID(), place, mine.district],
+    );
+    const submitted = { status: 'submitted', submitted_at: new Date().toISOString() };
+    await app(project, mine, submitted);
+    await app(project, sibling, submitted);
+    // both are assigned on the division, the project's area
+    await assignVolunteer(project, mine, rpm.id);
+    await assignVolunteer(project, sibling, rpm.id);
+
+    const [work] = projectsOf((await own(executive)).body);
+    expect(work).toMatchObject({ areas: [{ id: mine.district }], wholeProject: false });
+    expect(work!.figures.area).toMatchObject({ received: 1, volunteers: 1 });
+    // the RPM of the division counts both districts
+    const [whole] = projectsOf((await own(rpm)).body);
+    expect(whole!.figures.area).toMatchObject({ received: 2, volunteers: 2 });
+  });
+});
+
 describe('a Program Manager', () => {
   it('works on every project of their program, the whole project as their area', async () => {
     const tree = await f.locationTree(h.db);

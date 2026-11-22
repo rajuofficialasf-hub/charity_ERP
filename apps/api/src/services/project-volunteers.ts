@@ -8,6 +8,7 @@ import {
   permissionSetAllowed,
 } from '@css/shared/projects';
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
+import { assignmentsIn } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import { liveApplicationCounts } from '../applications/limit.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -228,6 +229,24 @@ export class ProjectVolunteersService {
     return [...new Set([...areas, ...districts.map((d) => d.id)])];
   }
 
+  /**
+   * The assignments of a project inside the caller's areas, by the region stored at assignment. A
+   * caller whose staff place holds districts also reaches the assignments stored on the place's
+   * area whose volunteer lives in one of those districts (`assignmentsIn` of the access scope).
+   */
+  private async assignedIn(
+    db: Tx,
+    viewer: ProjectViewer,
+    projectId: string,
+    areas: string[],
+  ): Promise<Prisma.ProjectVolunteerWhereInput> {
+    const stored = { regionLocationId: { in: await this.regions(db, areas) } };
+    const districts = viewer.scope.instances.areas.filter(
+      (a) => a.projectId === projectId && a.within && areas.includes(a.locationId),
+    );
+    return districts.length ? { OR: [stored, ...districts.map(assignmentsIn)] } : stored;
+  }
+
   // ---- the assigned volunteers
 
   async list(viewer: ProjectViewer, projectId: string, query: PageQuery) {
@@ -241,9 +260,10 @@ export class ProjectVolunteersService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const where: Prisma.ProjectVolunteerWhereInput = {
-      projectId,
-      endedAt: null,
-      regionLocationId: { in: await this.regions(this.prisma, areas) },
+      AND: [
+        { projectId, endedAt: null },
+        await this.assignedIn(this.prisma, viewer, projectId, areas),
+      ],
     };
     const fetched = await this.prisma.projectVolunteer.findMany({
       where: cursor ? { AND: [where, keysetWhere(SORT, cursor)] } : where,
@@ -281,7 +301,8 @@ export class ProjectVolunteersService {
         )
           this.refuse(viewer);
         const areas = await this.callerAreas(tx, viewer, project);
-        const [volunteers, blocked, assigned, onTeam] = await Promise.all([
+        const [projectAreas, volunteers, blocked, assigned, onTeam] = await Promise.all([
+          tx.projectArea.findMany({ where: { projectId }, select: { locationId: true } }),
           tx.volunteer.findMany({
             where: { AND: [{ id: { in: ids } }, inAreas(areas), { user: { state: 'active' } }] },
             select: { id: true, type: true, divisionId: true, districtId: true },
@@ -297,6 +318,7 @@ export class ProjectVolunteersService {
           }),
         ]);
         const found = new Map(volunteers.map((v) => [v.id, v]));
+        const split = new Set(projectAreas.map((a) => a.locationId));
         // a volunteer the caller may not assign is not found for the caller
         if (
           ids.some(
@@ -314,8 +336,10 @@ export class ProjectVolunteersService {
             throw new ApiError('validation.failed', 422, undefined, [
               { path: `volunteers.${index}.permissionSet`, code: 'validation.option_unknown' },
             ]);
-          // the area the volunteer lives in: the district when the division is split
-          const region = areas.includes(v.districtId) ? v.districtId : v.divisionId;
+          // the project's area the volunteer lives in: the district when the division is split.
+          // The project's own areas decide, never the caller's: a caller whose place holds
+          // districts of a division still assigns on the division.
+          const region = split.has(v.districtId) ? v.districtId : v.divisionId;
           return {
             id: uuidv7(),
             projectId,
@@ -380,9 +404,10 @@ export class ProjectVolunteersService {
       // the region stored at assignment decides, as in the list; a later move of the volunteer's
       // address never hands the assignment to another area
       where: {
-        id: assignmentId,
-        endedAt: null,
-        regionLocationId: { in: await this.regions(tx, areas) },
+        AND: [
+          { id: assignmentId, endedAt: null },
+          await this.assignedIn(tx, viewer, found.projectId, areas),
+        ],
       },
       select: { ...ASSIGNMENT, projectId: true },
     });

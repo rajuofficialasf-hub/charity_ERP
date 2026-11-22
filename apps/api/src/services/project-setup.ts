@@ -508,10 +508,46 @@ export class ProjectSetupService {
   async staff(viewer: ProjectViewer, projectId: string) {
     this.officialsOnly(viewer);
     const { project } = await this.projects.get(viewer, projectId);
-    const all = await this.readStaff(this.prisma, projectId);
-    if ('programId' in project && this.programLevel(viewer, project.programId)) return all;
-    const own = this.ownAreas(viewer, projectId);
+    return this.staffSeenBy(
+      viewer,
+      { id: projectId, programId: 'programId' in project ? project.programId : null },
+      this.prisma,
+    );
+  }
+
+  /**
+   * The staff places of a project as the caller sees them, also in the answer of a change: every
+   * place for the PM and the global roles, else the places of the caller's own areas. A caller
+   * whose place holds districts sees the places of that place's area, since staff are placed by
+   * the project's areas.
+   */
+  private async staffSeenBy(
+    viewer: ProjectViewer,
+    project: { id: string; programId: string | null },
+    db: Tx,
+  ) {
+    const all = await this.readStaff(db, project.id);
+    if (project.programId && this.programLevel(viewer, project.programId)) return all;
+    const own = new Set(
+      viewer.scope.instances.areas
+        .filter((a) => a.projectId === project.id || a.projectId === null)
+        .map((a) => a.within ?? a.locationId),
+    );
     return all.filter((s) => s.areaLocationId !== null && own.has(s.areaLocationId));
+  }
+
+  /** Starts the given districts on a staff place. */
+  private async startDistricts(tx: Tx, placeId: string, locationIds: string[], actor: string) {
+    if (!locationIds.length) return;
+    await tx.projectStaffDistrict.createMany({
+      data: locationIds.map((locationId) => ({
+        id: uuidv7(),
+        projectStaffId: placeId,
+        locationId,
+        createdBy: actor,
+        updatedBy: actor,
+      })),
+    });
   }
 
   private async readStaff(db: Tx, projectId: string) {
@@ -611,16 +647,7 @@ export class ProjectSetupService {
             updatedBy: actor,
           },
         });
-        if (districtIds.length)
-          await tx.projectStaffDistrict.createMany({
-            data: districtIds.map((locationId) => ({
-              id: uuidv7(),
-              projectStaffId: id,
-              locationId,
-              createdBy: actor,
-              updatedBy: actor,
-            })),
-          });
+        await this.startDistricts(tx, id, districtIds, actor);
         const change = { projectId, staffAccess: { id, ...body, districtIds } };
         await this.versions.bump(tx, body.userId, { action: 'permission_change', new: change });
         // the project's own audit trail shows who got access too
@@ -630,7 +657,7 @@ export class ProjectSetupService {
           entityId: projectId,
           new: change,
         });
-        return this.readStaff(tx, projectId);
+        return this.staffSeenBy(viewer, project, tx);
       });
     } catch (error) {
       if (isUniqueViolation(error)) throw new ApiError('project.staff_exists', 409);
@@ -658,7 +685,11 @@ export class ProjectSetupService {
         select: {
           userId: true,
           areaLocationId: true,
-          districts: { where: { endedAt: null }, select: { id: true, locationId: true } },
+          districts: {
+            where: { endedAt: null },
+            orderBy: { locationId: 'asc' },
+            select: { id: true, locationId: true },
+          },
         },
       });
       if (!place) throw new ApiError('permission.not_found', 404);
@@ -666,7 +697,9 @@ export class ProjectSetupService {
         const own = this.ownAreas(viewer, found.projectId);
         if (!place.areaLocationId || !own.has(place.areaLocationId)) this.refuse(viewer);
       }
-      const wanted = await this.assertDistricts(tx, place.areaLocationId, body.districtIds);
+      const wanted = (
+        await this.assertDistricts(tx, place.areaLocationId, body.districtIds)
+      ).sort();
       const held = place.districts.map((d) => d.locationId);
       const gone = place.districts.filter((d) => !wanted.includes(d.locationId));
       const added = wanted.filter((locationId) => !held.includes(locationId));
@@ -675,21 +708,13 @@ export class ProjectSetupService {
           where: { id: { in: gone.map((d) => d.id) }, endedAt: null },
           data: { endedAt: new Date(), updatedBy: actor },
         });
-      if (added.length)
-        await tx.projectStaffDistrict.createMany({
-          data: added.map((locationId) => ({
-            id: uuidv7(),
-            projectStaffId: assignmentId,
-            locationId,
-            createdBy: actor,
-            updatedBy: actor,
-          })),
-        });
+      await this.startDistricts(tx, assignmentId, added, actor);
       const change = {
         old: { projectId: found.projectId, staffAccess: { id: assignmentId, districtIds: held } },
         new: { projectId: found.projectId, staffAccess: { id: assignmentId, districtIds: wanted } },
       };
-      // the person's sessions refresh only when the districts did change
+      // the person's sessions refresh only when the districts did change; the request is written
+      // to the project's trail either way
       if (gone.length || added.length)
         await this.versions.bump(tx, place.userId, { action: 'permission_change', ...change });
       await this.audit.record(tx, {
@@ -698,7 +723,7 @@ export class ProjectSetupService {
         entityId: found.projectId,
         ...change,
       });
-      return this.readStaff(tx, found.projectId);
+      return this.staffSeenBy(viewer, project, tx);
     });
   }
 

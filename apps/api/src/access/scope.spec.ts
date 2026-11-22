@@ -423,6 +423,36 @@ describe('the user filter', () => {
     expect(bound.OR).not.toContainEqual({ homeDivisionId: DHAKA });
   });
 
+  it('reads a district of a staff place on the place area for colleagues, and in the district for volunteers', () => {
+    const DISTRICT = '00000000-0000-7000-8000-0000000000e1';
+    const w = where({ areas: [{ projectId: P1, locationId: DISTRICT, within: DHAKA }] }) as {
+      OR: unknown[];
+    };
+    expect(w.OR).toEqual([
+      { projectStaffUser: { some: { endedAt: null, areaLocationId: DHAKA, projectId: P1 } } },
+      {
+        volunteersUser: {
+          is: {
+            projectVolunteersVolunteer: {
+              some: {
+                AND: [
+                  { endedAt: null, projectId: P1 },
+                  {
+                    OR: [
+                      { regionLocationId: DISTRICT },
+                      { regionLocationId: DHAKA, volunteer: { districtId: DISTRICT } },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { projectAreasRpmUser: { some: { locationId: DHAKA, projectId: P1 } } },
+    ]);
+  });
+
   it('reaches only volunteers through a volunteer area', () => {
     const v = where({ volunteerAreas: [{ projectId: P1, locationId: DHAKA }] }) as {
       OR: unknown[];

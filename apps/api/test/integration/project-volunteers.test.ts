@@ -281,6 +281,67 @@ describe('an executive with the RPM grant', () => {
   });
 });
 
+// A staff place that holds districts of its area (docs/security/RBAC.md, "Data scopes and their
+// resolution"): the assignments stay on the project's area, and the person works in the districts.
+describe('an executive whose place holds districts of the area', () => {
+  it('lists, assigns and changes the volunteers of those districts, on the project area', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const limited = await account(h.db, { kind: 'staff', role: 'project_executive' });
+    accounts.set(limited.id, limited);
+    const place = await at(rpm, 'post', `/projects/${world.a1.id}/staff`).send({
+      userId: limited.id,
+      roleKey: 'project_executive',
+      areaLocationId: world.dhaka.division,
+      districtIds: [otherDistrict],
+    });
+    expect(place.status).toBe(201);
+    const grant = await at(rpm, 'post', `/projects/${world.a1.id}/grants`).send({
+      userId: limited.id,
+      permissions: ['volunteer.assign_project'],
+      reason: 'সহায়তার জন্য',
+    });
+    expect(grant.status).toBe(200);
+
+    const inside = await someone({ division: world.dhaka.division, district: otherDistrict });
+    const outside = await someone(world.dhaka);
+    const byRpm = await assign(rpm, world.a1.id, [
+      { volunteerId: inside.volunteerId },
+      { volunteerId: outside.volunteerId },
+    ]);
+    expect(byRpm.status).toBe(201);
+    const assignmentOf = (volunteerId: string) =>
+      (byRpm.body.data as { id: string; volunteerId: string }[]).find(
+        (r) => r.volunteerId === volunteerId,
+      )!.id;
+
+    const executive = await as(limited.id);
+    const list = await at(executive, 'get', `/projects/${world.a1.id}/volunteers`).query({
+      limit: 100,
+    });
+    expect(list.status).toBe(200);
+    const listed = (list.body.data as { volunteerId: string }[]).map((r) => r.volunteerId);
+    expect(listed).toContain(inside.volunteerId);
+    expect(listed).not.toContain(outside.volunteerId);
+
+    // a new assignment is stored on the project's area, where the RPM's list and notices read it
+    const own = await someone({ division: world.dhaka.division, district: otherDistrict });
+    const assigned = await assign(executive, world.a1.id, [{ volunteerId: own.volunteerId }]);
+    expect(assigned.status).toBe(201);
+    expect(assigned.body.data[0].regionLocationId).toBe(world.dhaka.division);
+    const beyond = await someone(world.dhaka);
+    expect(
+      (await assign(executive, world.a1.id, [{ volunteerId: beyond.volunteerId }])).status,
+    ).toBe(404);
+
+    const change = (volunteerId: string) =>
+      at(executive, 'patch', `/project-volunteers/${assignmentOf(volunteerId)}`).send({
+        permissionSet: 'application_distribution',
+      });
+    expect((await change(inside.volunteerId)).status).toBe(200);
+    expect((await change(outside.volunteerId)).status).toBe(404);
+  });
+});
+
 describe('changing and ending an assignment', () => {
   async function assigned() {
     const rpm = await as(world.users.rpmDhaka);

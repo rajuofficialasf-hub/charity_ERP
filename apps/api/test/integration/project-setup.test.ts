@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
@@ -921,8 +922,16 @@ describe('staff access', () => {
       expect(placeOf(narrowed, executive.id).districtIds).toEqual([second.district]);
       expect(await version(executive.id)).toBe(before + 1);
       expect(await reached(executive.id, ids)).toEqual([ids[1]]);
-      const changes = await audit(executive.id, 'permission_change');
-      expect(JSON.stringify(changes.at(-1)!.new)).toContain(second.district);
+      // the change is written on the person and on the project, with the districts before and after
+      const staffAccess = (districtIds: string[]) => ({
+        projectId: world.a1.id,
+        staffAccess: { id: place.id, districtIds: [...districtIds].sort() },
+      });
+      for (const entity of [executive.id, world.a1.id]) {
+        const entry = (await audit(entity, 'permission_change')).at(-1)!;
+        expect(entry.old, entity).toEqual(staffAccess([world.dhaka.district, second.district]));
+        expect(entry.new, entity).toEqual(staffAccess([second.district]));
+      }
       // the old token no longer passes
       const stale = await api().get('/api/v1/auth/me').set(bearer(executive.session)).expect(401);
       expect(stale.body.error.code).toBe('auth.token_stale');
@@ -947,6 +956,86 @@ describe('staff access', () => {
       const rangpur = await as(world.users.rpmRangpur);
       expect((await put(rangpur, [world.dhaka.district])).status).toBe(403);
       expect((await put(await as(world.users.general), [])).status).toBe(403);
+    });
+
+    it('answers an RPM with the places of its own areas alone, and shows a person with districts the staff of the place area', async () => {
+      const pm = await as(world.users.pm);
+      const rpm = await as(world.users.rpmDhaka);
+      const far = await staff('project_executive');
+      const elsewhere = await give(pm, {
+        userId: far.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.rangpur.division,
+      });
+      expect(elsewhere.status).toBe(201);
+      const near = await staff('project_executive');
+      const given = await give(rpm, {
+        userId: near.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.dhaka.division,
+      });
+      const districts = (s: Session, districtIds: string[]) =>
+        at(s, 'put', `/project-staff/${placeOf(given, near.id).id}/districts`).send({
+          districtIds,
+        });
+      const users = (res: { body: { data: { userId: string }[] } }) =>
+        res.body.data.map((s) => s.userId);
+      for (const res of [given, await districts(rpm, [world.dhaka.district])]) {
+        expect(users(res)).toContain(near.id);
+        expect(users(res)).not.toContain(far.id);
+      }
+      // the person's place holds one district: the colleagues are those of the place's area
+      const seen = await at(await as(near.id), 'get', `/projects/${world.a1.id}/staff`);
+      expect(seen.status).toBe(200);
+      expect(users(seen)).toContain(near.id);
+      expect(users(seen)).not.toContain(far.id);
+      // the PM is answered with every place
+      expect(users(await districts(pm, []))).toEqual(expect.arrayContaining([near.id, far.id]));
+    });
+
+    it('refuses a place that does not exist, a closed project and an ended place, and changes no district', async () => {
+      const pm = await as(world.users.pm);
+      const put = (id: string) =>
+        at(pm, 'put', `/project-staff/${id}/districts`).send({ districtIds: [] });
+      expect((await put(randomUUID())).status).toBe(404);
+
+      const id = await draft();
+      const tree = await f.locationTree(h.db);
+      const rpm = await staff('regional_program_manager');
+      const area = await at(pm, 'post', `/projects/${id}/areas`).send({
+        locationId: tree.division,
+        rpmUserId: rpm.id,
+      });
+      expect(area.status).toBe(201);
+      const executive = await staff('project_executive');
+      const given = await at(pm, 'post', `/projects/${id}/staff`).send({
+        userId: executive.id,
+        roleKey: 'project_executive',
+        areaLocationId: tree.division,
+        districtIds: [tree.district],
+      });
+      expect(given.status).toBe(201);
+      const place = placeOf(given, executive.id);
+      const rows = async () =>
+        (
+          await h.db.query(
+            'SELECT location_id, ended_at IS NULL AS live FROM project_staff_districts WHERE project_staff_id = $1',
+            [place.id],
+          )
+        ).rows;
+      const held = [{ location_id: tree.district, live: true }];
+
+      await setStatus(id, 'closed');
+      const closed = await put(place.id);
+      expect(closed.status).toBe(409);
+      expect(closed.body.error.code).toBe('project.read_only');
+      expect(await rows()).toEqual(held);
+
+      await setStatus(id, 'draft');
+      const ended = await at(pm, 'post', `/project-staff/${place.id}/end`).send({ reason: 'বদল' });
+      expect(ended.status).toBeLessThan(300);
+      expect((await put(place.id)).status).toBe(404);
+      expect(await rows()).toEqual(held);
     });
   });
 

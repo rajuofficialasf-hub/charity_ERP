@@ -12,6 +12,11 @@ import {
 export interface Area {
   projectId: string | null;
   locationId: string;
+  /**
+   * For a district of a staff place: the area of that place. The people of a project are placed by
+   * its areas, so the colleagues and the assignments of the place are read on this one.
+   */
+  within?: string;
 }
 
 /**
@@ -213,9 +218,13 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
   return [
     ...areas,
     ...staff.flatMap((s) =>
-      (s.districts.length ? s.districts.map((d) => d.locationId) : [s.areaLocationId!]).map(
-        (locationId) => ({ projectId: s.projectId, locationId }),
-      ),
+      s.districts.length
+        ? s.districts.map((d) => ({
+            projectId: s.projectId,
+            locationId: d.locationId,
+            within: s.areaLocationId!,
+          }))
+        : [{ projectId: s.projectId, locationId: s.areaLocationId! }],
     ),
   ];
 }
@@ -423,6 +432,19 @@ function usersOnProjects(projectWhere: Prisma.ProjectWhereInput): Prisma.UserWhe
   ];
 }
 
+/**
+ * The assignments of an area by the region stored at assignment. A district of a staff place also
+ * reaches the assignments stored on the place's area whose volunteer lives in the district, since
+ * an assignment names the project's area and never a district inside it.
+ */
+export function assignmentsIn(a: Area): Prisma.ProjectVolunteerWhereInput {
+  const stored = { regionLocationId: a.locationId };
+  if (!a.within) return stored;
+  return {
+    OR: [stored, { regionLocationId: a.within, volunteer: { districtId: a.locationId } }],
+  };
+}
+
 /** Volunteers assigned to a project inside the area; `others` limits an area without a project. */
 function volunteersIn(a: Area, others: { projectId?: { notIn: string[] } }): Prisma.UserWhereInput {
   const project = a.projectId ? { projectId: a.projectId } : others;
@@ -430,7 +452,7 @@ function volunteersIn(a: Area, others: { projectId?: { notIn: string[] } }): Pri
     volunteersUser: {
       is: {
         projectVolunteersVolunteer: {
-          some: { endedAt: null, regionLocationId: a.locationId, ...project },
+          some: { AND: [{ endedAt: null, ...project }, assignmentsIn(a)] },
         },
       },
     },
@@ -460,10 +482,13 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
   if (i.projectIds.length) or.push(...usersOnProjects({ id: { in: i.projectIds } }));
   for (const a of i.areas) {
     const project = a.projectId ? { projectId: a.projectId } : others;
+    // the staff and the RPM of a project are placed by its areas: a district of a place reads them
+    // on the place's area
+    const placed = a.within ?? a.locationId;
     or.push(
-      { projectStaffUser: { some: { endedAt: null, areaLocationId: a.locationId, ...project } } },
+      { projectStaffUser: { some: { endedAt: null, areaLocationId: placed, ...project } } },
       volunteersIn(a, others),
-      { projectAreasRpmUser: { some: { locationId: a.locationId, ...project } } },
+      { projectAreasRpmUser: { some: { locationId: placed, ...project } } },
     );
     if (!a.projectId) or.push({ homeDivisionId: a.locationId });
   }
