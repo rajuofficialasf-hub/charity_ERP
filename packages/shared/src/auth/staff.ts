@@ -57,7 +57,6 @@ const profileShape = {
   /** The other department or the partner organisation; only when not department staff. */
   affiliationUnit: text(200).nullable(),
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
   /** The official this one reports to (the organogram). */
   supervisorUserId: z.uuid().nullable(),
 };
@@ -129,7 +128,7 @@ export interface InvitationIssued {
   emailed: boolean;
 }
 
-/** A name in both languages (a program, a division). */
+/** A name in both languages (a program). */
 interface Named {
   id: string;
   name: { bn: string; en: string };
@@ -151,7 +150,6 @@ export interface OwnStaffProfile {
   affiliation: Affiliation | null;
   affiliationUnit: string | null;
   program: Named | null;
-  division: Named | null;
   supervisor: { id: string; name: string } | null;
   mobile: string | null;
   email: string | null;

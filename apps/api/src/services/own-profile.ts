@@ -23,7 +23,6 @@ export class OwnProfileService {
         affiliation: true,
         affiliationUnit: true,
         homeProgramId: true,
-        homeDivisionId: true,
         supervisorUserId: true,
         mobile: true,
         email: true,
@@ -37,16 +36,10 @@ export class OwnProfileService {
       },
     });
     if (!user || user.kind !== 'staff') throw new ApiError('permission.not_found', 404);
-    const [program, division, supervisor, photos] = await Promise.all([
+    const [program, supervisor, photos] = await Promise.all([
       user.homeProgramId
         ? this.prisma.program.findUnique({
             where: { id: user.homeProgramId },
-            select: { id: true, nameBn: true, nameEn: true },
-          })
-        : null,
-      user.homeDivisionId
-        ? this.prisma.location.findUnique({
-            where: { id: user.homeDivisionId },
             select: { id: true, nameBn: true, nameEn: true },
           })
         : null,
@@ -71,9 +64,6 @@ export class OwnProfileService {
       affiliationUnit: user.affiliationUnit,
       program: program
         ? { id: program.id, name: { bn: program.nameBn, en: program.nameEn } }
-        : null,
-      division: division
-        ? { id: division.id, name: { bn: division.nameBn, en: division.nameEn } }
         : null,
       supervisor: supervisor ? { id: supervisor.id, name: supervisor.displayName } : null,
       mobile: user.mobile,

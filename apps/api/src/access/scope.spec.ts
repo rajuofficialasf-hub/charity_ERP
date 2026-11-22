@@ -153,9 +153,8 @@ describe('the revoked projects in every filter', () => {
     const w = userWhere(
       scope('user', { programIds: [P1], areas: [{ projectId: null, locationId: DHAKA }] }),
     ) as { OR: unknown[] };
-    // the home program and the home division are not reached through a project
+    // the home program is not reached through a project
     expect(w.OR).toContainEqual({ homeProgramId: { in: [P1] } });
-    expect(w.OR).toContainEqual({ homeDivisionId: DHAKA });
     expect(w.OR).toContainEqual({
       projectStaffUser: {
         some: { endedAt: null, project: { programId: { in: [P1] }, ...outside } },
@@ -300,13 +299,8 @@ describe('the revoked locations in every filter', () => {
     expect(volunteerWhere(scope('volunteer', {}))).toEqual({ id: { in: [] } });
   });
 
-  it('leaves out the people whose own place is there, and keeps an official without a home division', () => {
-    const outside = {
-      AND: [
-        { OR: [{ homeDivisionId: null }, { homeDivisionId: { notIn: [DISTRICT] } }] },
-        { NOT: { volunteersUser: { is: { OR: inRevoked([DISTRICT]).NOT.OR } } } },
-      ],
-    };
+  it('leaves out the volunteers living there, and no official, whose account names no area', () => {
+    const outside = { NOT: { volunteersUser: { is: { OR: inRevoked([DISTRICT]).NOT.OR } } } };
     expect(userWhere(scope('user', { global: true }))).toEqual(outside);
     const w = userWhere(scope('user', { programIds: [P1] })) as { AND: unknown[] };
     expect(w.AND).toHaveLength(2);
@@ -424,7 +418,15 @@ describe('the user filter', () => {
     expect(self.OR).toEqual([{ id: 'actor' }]);
     expect(both.OR).toContainEqual({ id: 'actor' });
     expect(both.OR).toContainEqual({ homeProgramId: { in: [P1] } });
-    expect(both.OR).toContainEqual({ homeDivisionId: DHAKA });
+  });
+
+  it('reaches no official through an area alone: an account names no area', () => {
+    for (const projectId of [null, P1]) {
+      const w = where({ areas: [{ projectId, locationId: DHAKA }] });
+      expect(JSON.stringify(w)).not.toContain('homeDivision');
+      // the three ways an area reaches a person, each through a project
+      expect((w as { OR: unknown[] }).OR).toHaveLength(3);
+    }
   });
 
   it('keeps an area inside its project when the area names one', () => {
@@ -432,7 +434,6 @@ describe('the user filter', () => {
     expect(bound.OR).toContainEqual({
       projectAreasRpmUser: { some: { locationId: DHAKA, projectId: P1 } },
     });
-    expect(bound.OR).not.toContainEqual({ homeDivisionId: DHAKA });
   });
 
   it('reads a district of a staff place on the place area for colleagues, and in the district for volunteers', () => {

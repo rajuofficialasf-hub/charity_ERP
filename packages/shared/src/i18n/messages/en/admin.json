@@ -1548,8 +1548,6 @@
       "unit_external": "Name of the organisation",
       "program": "Program",
       "no_program": "No program",
-      "division": "Division (region)",
-      "no_division": "No division",
       "supervisor": "Reports to",
       "supervisor_hint": "Pick an active official of the department from the list, or search by name or job ID.",
       "stale": "Someone else saved this profile meanwhile. The form shows it as stored now; check it and save again.",

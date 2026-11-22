@@ -15,7 +15,6 @@ export const staffMemberSchema = z.object({
   affiliation: z.enum(AFFILIATIONS).nullable(),
   affiliationUnit: z.string().nullable(),
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
   supervisorUserId: z.uuid().nullable(),
   /** Created by the admin and the set-password link not used yet. */
   awaitingPassword: z.boolean(),
@@ -59,7 +58,6 @@ const organogramFields = {
   designation: z.string().nullable(),
   roles: z.array(z.string()),
   state: z.enum(['pending', 'active', 'blocked']),
-  homeDivisionId: z.uuid().nullable(),
   /** The official's uploaded photo; null shows the initial. */
   photoFileId: z.uuid().nullable(),
 };

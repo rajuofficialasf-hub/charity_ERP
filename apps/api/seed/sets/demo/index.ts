@@ -354,8 +354,6 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         match_keys_version: k.matchKeysVersion,
       };
     };
-    const divisionIdOf = (key: string) =>
-      key === 'rpm_rangpur' ? rangpur[0]!.division : dhaka[0]!.division;
 
     // staff accounts and their roles; a PM's home program is filled in once the program exists
     const homeProgram = (s: DemoStaff) =>
@@ -376,7 +374,6 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       job_id: s.jobId,
       affiliation: 'department',
       supervisor_user_id: s.supervisor ? userId(s.supervisor) : null,
-      home_division_id: s.role === 'regional_program_manager' ? divisionIdOf(s.key) : null,
       ...(withProgram ? { home_program_id: homeProgram(s) } : {}),
       language: 'bn',
       ...ctx.audit(),

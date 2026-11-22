@@ -112,7 +112,6 @@ export async function newOfficial(
       affiliation: 'department',
       affiliationUnit: null,
       homeProgramId: null,
-      homeDivisionId: null,
       supervisorUserId: null,
       email: `official.${digits(8)}@example.org`,
       mobile: null,

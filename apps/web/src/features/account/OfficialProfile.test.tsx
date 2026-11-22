@@ -31,7 +31,6 @@ const official = (over: Partial<OwnStaffProfile> = {}): OwnStaffProfile => ({
   affiliation: 'department',
   affiliationUnit: null,
   program: { id: PROGRAM, name: { bn: 'মানবিক কার্যক্রম', en: 'Humanitarian Program' } },
-  division: { id: DIVISION, name: { bn: 'ঢাকা', en: 'Dhaka' } },
   supervisor: { id: '01900000-0000-7000-8000-0000000000e5', name: 'করিম আহমেদ' },
   mobile: '01700000401',
   email: 'rahim@example.org',
@@ -160,10 +159,11 @@ describe("an official's own profile", () => {
       'CSS-0042',
       'Regional Program Manager',
       'Humanitarian Program',
-      'Dhaka',
       'করিম আহমেদ',
     ])
       expect(within(identity).getByText(text)).toBeInTheDocument();
+    // the account names no area: the projects section shows where the person works
+    expect(within(identity).queryByText(/division/i)).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
     await user.click(within(nav).getByRole('button', { name: 'Contact and account' }));

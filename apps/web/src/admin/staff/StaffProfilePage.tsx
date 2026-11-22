@@ -19,7 +19,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
@@ -129,7 +128,6 @@ function Profile({
     enabled: u.supervisorUserId !== null,
     retry: false,
   });
-  const division = useLocationName(undefined, u.homeDivisionId);
   const none = t('none');
   const roleName = (key: string) => {
     const role = roleList.data?.find((r) => r.key === key);
@@ -282,7 +280,6 @@ function Profile({
                   label: td('program'),
                   value: program ? localized(program.name, locale) : none,
                 },
-                { label: td('division'), value: division?.[locale] ?? none },
                 {
                   label: td('supervisor'),
                   value: supervisor.data ? (

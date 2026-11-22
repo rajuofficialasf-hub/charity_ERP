@@ -859,7 +859,6 @@ components:
         affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
         affiliationUnit: { type: [string, 'null'] }
         homeProgramId: { type: [string, 'null'], format: uuid }
-        homeDivisionId: { type: [string, 'null'], format: uuid }
         supervisorUserId: { type: [string, 'null'], format: uuid }
         awaitingPassword:
           type: boolean
@@ -870,7 +869,7 @@ components:
           description: The official's uploaded photo, readable by those who may see the staff list; null shows the initial (D-147)
     OwnStaffProfile:
       type: object
-      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, division, supervisor, mobile, email, state, lastLoginAt, photoFileId]
+      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, supervisor, mobile, email, state, lastLoginAt, photoFileId]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -887,14 +886,6 @@ components:
         affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
         affiliationUnit: { type: [string, 'null'] }
         program:
-          oneOf:
-            - type: 'null'
-            - type: object
-              required: [id, name]
-              properties:
-                id: { $ref: '#/components/schemas/Uuid' }
-                name: { $ref: '#/components/schemas/Bilingual' }
-        division:
           oneOf:
             - type: 'null'
             - type: object
@@ -1020,7 +1011,7 @@ components:
         department_head.
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId, email, mobile, roleKey]
+      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, supervisorUserId, email, mobile, roleKey]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -1031,10 +1022,6 @@ components:
             - { type: string, minLength: 1, maxLength: 200 }
             - { type: 'null' }
         homeProgramId:
-          anyOf:
-            - { type: string, format: uuid }
-            - { type: 'null' }
-        homeDivisionId:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
@@ -1059,7 +1046,7 @@ components:
         the line above never comes back to this official (422 user.supervisor_invalid).
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId]
+      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, supervisorUserId]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -1073,17 +1060,13 @@ components:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
-        homeDivisionId:
-          anyOf:
-            - { type: string, format: uuid }
-            - { type: 'null' }
         supervisorUserId:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
     OrganogramNode:
       type: object
-      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, photoFileId, reports]
+      required: [userId, displayName, jobId, designation, roles, state, photoFileId, reports]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -1091,7 +1074,6 @@ components:
         designation: { type: [string, 'null'] }
         roles: { type: array, items: { type: string } }
         state: { type: string, enum: [pending, active, blocked] }
-        homeDivisionId: { type: [string, 'null'], format: uuid }
         photoFileId: { type: [string, 'null'], format: uuid, description: 'The uploaded photo; null shows the initial (D-147)' }
         reports: { type: array, items: { $ref: '#/components/schemas/OrganogramNode' } }
     Organogram:
@@ -1607,10 +1589,10 @@ components:
       description: >-
         An official's own change (D-147, BR-289). The new value is required except for the photo,
         which the own photo upload fills; the workplace is an object with the affiliation and its
-        unit; a program or division of null asks to clear it. The supervisor is not asked for
-        (D-148).
+        unit; a program of null asks to clear it. The supervisor is not asked for (D-148). The
+        account names no area (D-189, BR-327): an area is never asked for here.
       properties:
-        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, photo] }
+        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, photo] }
         newValue:
           anyOf:
             - { type: string, maxLength: 2000 }
@@ -1628,7 +1610,7 @@ components:
             currentValue: { description: "The person's value of the field now, in the shape of newValue" }
             names:
               type: object
-              description: The names of the program or division the two values name, by id
+              description: The names of the program the two values name, by id
               additionalProperties: { $ref: '#/components/schemas/Bilingual' }
     StaffChangeRequestList:
       type: object
@@ -1703,7 +1685,6 @@ components:
             email: { type: [string, 'null'] }
             photoFileId: { type: [string, 'null'], format: uuid }
             homeProgramId: { type: [string, 'null'], format: uuid }
-            homeDivisionId: { type: [string, 'null'], format: uuid }
             volunteer: { oneOf: [{ $ref: '#/components/schemas/PendingVolunteerDetail' }, { type: 'null' }] }
             blocklisted: { type: boolean }
             corrections: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
@@ -6143,12 +6124,13 @@ paths:
     post:
       tags: [users]
       operationId: users.user.create
-      summary: Create an official with job ID, role and place; the set-password link is emailed and returned once
+      summary: Create an official with job ID, role and program; the set-password link is emailed and returned once
       description: >-
         DECISION_LOG D-097, BR-261. The account is pending without a password until the link is
         used. A failed email keeps the account (emailed false); the admin copies the link. Errors
         409 user.job_id_taken, registration.account_exists; 422 validation.option_unknown (roleKey,
-        homeProgramId, homeDivisionId), user.supervisor_invalid (supervisorUserId).
+        homeProgramId), user.supervisor_invalid (supervisorUserId). The account names no area
+        (D-189, BR-327): a body with homeDivisionId is refused (422 validation.failed).
       x-permission: user.create
       x-scope: global
       x-audit: user.created
@@ -6262,7 +6244,7 @@ paths:
     put:
       tags: [users]
       operationId: users.user.updateProfile
-      summary: Replace an official's job ID, name, designation, affiliation, program, division and supervisor
+      summary: Replace an official's job ID, name, designation, affiliation, program and supervisor
       description: >-
         DECISION_LOG D-097, BR-261; existing officials too. Audited with the before and after
         values. 409 user.job_id_taken, user.not_staff; 422 user.supervisor_invalid.
@@ -7090,8 +7072,7 @@ paths:
       summary: The programs an official may ask to move to, by name
       description: >-
         Every active program by its name (D-148), since an official's own program scope may not
-        hold the one they move to; the division comes from GET /locations. A volunteer holds no
-        grant (403).
+        hold the one they move to. A volunteer holds no grant (403).
       x-permission: staff_edit_request.submit
       x-scope: self
       x-audit: none
@@ -7173,7 +7154,7 @@ paths:
       summary: "Officials' own change requests waiting for a decision"
       description: >-
         For the Department Head and the Monitoring Team (D-147, BR-289): each request with the
-        person, their current value and the names of the program or division named.
+        person, their current value and the name of the program named.
       x-permission: staff_edit_request.approve
       x-scope: global
       x-audit: none
@@ -7199,8 +7180,8 @@ paths:
       operationId: registration.staffEditRequest.decide
       summary: "Approve (the change applies at once) or reject with a reason an official's own request; never one's own"
       description: >-
-        An approval writes the change: a new contact ends the person's sessions, a new program or
-        division moves their permission version on (D-147, BR-289). The person who asked gets 403.
+        An approval writes the change: a new contact ends the person's sessions, a new program
+        moves their permission version on (D-147, BR-289). The person who asked gets 403.
       x-permission: staff_edit_request.approve
       x-scope: global
       x-audit: auth.edit_request_decided
@@ -12249,7 +12230,7 @@ paths:
       summary: "An official's own profile: identity, workplace, contact and account"
       description: >-
         The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
-        affiliation and unit, program, division, supervisor, mobile, email, state, last login and
+        affiliation and unit, program, supervisor, mobile, email, state, last login and
         photo. A volunteer has no official profile (404; their own profile is GET /volunteers/me).
       x-permission: authenticated
       x-scope: self

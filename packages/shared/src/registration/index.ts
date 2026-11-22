@@ -314,7 +314,7 @@ export const PHOTO_FIELDS = PHOTO_SLOTS;
  * The details an official may ask to change about themself (docs/DECISION_LOG.md, the official's
  * own profile of 2026-11-02): the name, the designation, the contacts (a code to the new value
  * first), the photo (the own upload fills it) and the workplace; the Department Head or the
- * Monitoring Team decides. A program or division of null asks to clear it. The supervisor is not
+ * Monitoring Team decides. A program of null asks to clear it. The supervisor is not
  * asked for: the deciders change it on the official's page (docs/DECISION_LOG.md, 2026-11-03).
  */
 export const STAFF_EDIT_FIELD_VALUES = {
@@ -324,7 +324,6 @@ export const STAFF_EDIT_FIELD_VALUES = {
   email: EDIT_FIELD_VALUES.email,
   workplace: staffWorkplaceSchema,
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
 } as const;
 export type StaffValueField = keyof typeof STAFF_EDIT_FIELD_VALUES;
 export const STAFF_EDIT_FIELDS = [
@@ -378,7 +377,6 @@ export const REQUEST_FIELD_LABEL = {
   designation: 'form.designation',
   workplace: 'form.workplace',
   homeProgramId: 'form.home_program',
-  homeDivisionId: 'form.division',
 } as const;
 
 export const editRequestCreateSchema = z

@@ -23,7 +23,6 @@ import { useMemo, useState } from 'react';
 import { Controller, type Path, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
-import { locations } from '../../features/registration/registration-api';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
@@ -54,9 +53,9 @@ const asPanelUser = (u: StaffMember): PanelUser => ({
 
 /**
  * A new official: job ID, name, designation, email, mobile, role,
- * affiliation with its unit, home program, division and supervisor; the server creates the account
+ * affiliation with its unit, home program and supervisor; the server creates the account
  * and the set-password link. With `official` it edits the profile of an existing official instead
- * (job ID, name, designation, affiliation, program, division, supervisor) with the version read
+ * (job ID, name, designation, affiliation, program, supervisor) with the version read
  * when it opened. The server checks every field again and answers per field.
  */
 export function OfficialDialog({
@@ -128,7 +127,6 @@ function officialSchema(create: boolean) {
       affiliation: z.enum(AFFILIATIONS),
       affiliationUnit: z.string(),
       homeProgramId: z.string(),
-      homeDivisionId: z.string(),
       supervisor: z.custom<PanelUser | null | undefined>(),
       supervisorUserId: z.string().nullable(),
     })
@@ -190,7 +188,6 @@ function OfficialForm({
       affiliation: official?.affiliation ?? 'department',
       affiliationUnit: official?.affiliationUnit ?? '',
       homeProgramId: official?.homeProgramId ?? NONE,
-      homeDivisionId: official?.homeDivisionId ?? NONE,
       supervisor: undefined,
       supervisorUserId: official?.supervisorUserId ?? null,
     },
@@ -205,11 +202,6 @@ function OfficialForm({
   const [step, setStep] = useState(0);
 
   const programList = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
-  const divisions = useQuery({
-    queryKey: ['locations', 'divisions'],
-    queryFn: () => locations(),
-    staleTime: 60 * 60_000,
-  });
   const roleList = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: !official });
   // the name of the current supervisor, for the field only: the id is on the record
   const currentSupervisor = useQuery({
@@ -231,7 +223,6 @@ function OfficialForm({
     affiliation: v.affiliation,
     affiliationUnit: v.affiliation === 'department' ? null : v.affiliationUnit.trim() || null,
     homeProgramId: v.homeProgramId === NONE ? null : v.homeProgramId,
-    homeDivisionId: v.homeDivisionId === NONE ? null : v.homeDivisionId,
     // untouched, the stored supervisor stays, whether or not the name has loaded
     supervisorUserId: v.supervisorUserId,
   });
@@ -281,10 +272,6 @@ function OfficialForm({
       value: p.id,
       label: `${localized(p.name, locale)} (${p.code})`,
     })),
-  ];
-  const divisionOptions = [
-    { value: NONE, label: t('no_division') },
-    ...(divisions.data ?? []).map((d) => ({ value: d.id, label: localized(d.name, locale) })),
   ];
   const steps = [t('step_identity'), t('step_place')];
 
@@ -398,19 +385,6 @@ function OfficialForm({
                   value={field.value}
                   onChange={(id) => field.onChange(id || NONE)}
                   options={programOptions}
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="homeDivisionId"
-              render={({ field, fieldState }) => (
-                <SelectField
-                  label={t('division')}
-                  value={field.value}
-                  onChange={(id) => field.onChange(id || NONE)}
-                  options={divisionOptions}
                   error={fieldState.error?.message}
                 />
               )}

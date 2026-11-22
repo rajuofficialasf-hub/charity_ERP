@@ -20,7 +20,6 @@ const node = (userId: string, displayName: string, jobId: string, reports: unkno
   designation: null,
   roles: [],
   state: 'active',
-  homeDivisionId: null,
   reports,
 });
 const CHART = {

@@ -171,7 +171,6 @@ export const OBJECT_FIELDS = new Set([
   'permanentAddress',
   'workplace',
   'homeProgramId',
-  'homeDivisionId',
   'supervisorUserId',
 ]);
 function storedValue(field: string, text: string): unknown {
@@ -309,7 +308,6 @@ export class RegistrationsService {
         mobile: true,
         email: true,
         homeProgramId: true,
-        homeDivisionId: true,
         volunteersUser: {
           select: {
             ...pendingSelect.volunteersUser.select,
@@ -365,7 +363,6 @@ export class RegistrationsService {
       email: user.email,
       photoFileId: v?.photoFileId ?? staffPhoto?.fileId ?? null,
       homeProgramId: user.homeProgramId,
-      homeDivisionId: user.homeDivisionId,
       volunteer: v
         ? {
             id: v.id,

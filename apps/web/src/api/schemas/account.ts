@@ -85,7 +85,6 @@ export const ownStaffProfileSchema = z.object({
   affiliation: z.enum(AFFILIATIONS).nullable(),
   affiliationUnit: z.string().nullable(),
   program: named.nullable(),
-  division: named.nullable(),
   supervisor: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   mobile: z.string().nullable(),
   email: z.string().nullable(),

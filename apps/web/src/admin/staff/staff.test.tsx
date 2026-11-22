@@ -37,7 +37,6 @@ const official = (over: Record<string, unknown> = {}) => ({
   affiliation: 'department',
   affiliationUnit: null,
   homeProgramId: PROGRAM.id,
-  homeDivisionId: DIVISION.id,
   supervisorUserId: null,
   awaitingPassword: false,
   ...over,
@@ -287,6 +286,9 @@ describe('the officials page', () => {
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
+    // an official's area comes from the projects: the account asks for a program and no area
+    expect(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: /অঞ্চল/ })).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     // the Department Head role is an Admin's to give: the Head is not offered it
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
@@ -303,6 +305,7 @@ describe('the officials page', () => {
       homeProgramId: null,
       supervisorUserId: null,
     });
+    expect(created[0]).not.toHaveProperty('homeDivisionId');
     const linkDialog = await screen.findByRole('dialog', { name: /পাসওয়ার্ড লিঙ্ক/ });
     expect(within(linkDialog).getByText(/ইমেইল পাঠানো যায়নি/)).toBeInTheDocument();
     expect(within(linkDialog).getByRole('textbox', { name: /লিঙ্ক/ })).toHaveValue(ISSUED.link);
@@ -365,7 +368,6 @@ describe('the officials page', () => {
       affiliation: 'external',
       affiliationUnit: 'সহযোগী সংস্থা',
       homeProgramId: null,
-      homeDivisionId: null,
       supervisorUserId: null,
       email: 'p@example.org',
       mobile: null,
@@ -529,7 +531,6 @@ describe('the officials page', () => {
         affiliation: 'department',
         affiliationUnit: null,
         homeProgramId: PROGRAM.id,
-        homeDivisionId: DIVISION.id,
         supervisorUserId: null,
       },
     });
@@ -662,6 +663,8 @@ describe('the official profile', () => {
     const place = screen.getByRole('region', { name: 'ভূমিকা ও অবস্থান' });
     expect(await within(place).findByText('মানবিক সহায়তা')).toBeInTheDocument();
     expect(await within(place).findByText('রিজিওনাল প্রোগ্রাম ম্যানেজার')).toBeInTheDocument();
+    // the account names no area: none is listed with the role and the program
+    expect(within(place).queryByText(/অঞ্চল/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'কল করুন' })).toHaveAttribute(
       'href',
       'tel:01711000201',

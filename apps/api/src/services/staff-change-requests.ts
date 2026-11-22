@@ -34,24 +34,19 @@ const EDIT = 'profile_edit';
 /** An official's request has no volunteer; the volunteer path never reaches it. */
 const WAITING = { kind: EDIT, status: 'submitted', volunteerId: null } as const;
 /** The references whose ids the deciders see with their names. */
-const REFERENCES = ['homeProgramId', 'homeDivisionId'] as const;
+const REFERENCES = ['homeProgramId'] as const;
 type Reference = (typeof REFERENCES)[number];
 
-/** The references of a request that names one of them; the other two stay unchecked. */
+/** The reference a request names, to be checked; the supervisor is not asked for here. */
 const refs = (field: Reference, value: unknown) =>
-  ({
-    homeProgramId: null,
-    homeDivisionId: null,
-    supervisorUserId: null,
-    [field]: value,
-  }) as Parameters<typeof assertStaffRefs>[1];
+  ({ supervisorUserId: null, [field]: value }) as Parameters<typeof assertStaffRefs>[1];
 
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isReference = (field: string): field is Reference =>
   (REFERENCES as readonly string[]).includes(field);
-/** A move to another program or division changes what the official's scope reaches. */
-const MOVES_SCOPE = new Set<string>(['homeProgramId', 'homeDivisionId']);
+/** A move to another program changes what the official's scope reaches. */
+const MOVES_SCOPE = new Set<string>(['homeProgramId']);
 
 const invalid = (code: string) =>
   new ApiError('validation.failed', 422, undefined, [{ path: 'newValue', code }]);
@@ -72,7 +67,6 @@ const PERSON = {
   affiliation: true,
   affiliationUnit: true,
   homeProgramId: true,
-  homeDivisionId: true,
   supervisorUserId: true,
 } as const;
 type Person = {
@@ -83,11 +77,13 @@ type Person = {
   affiliation: string | null;
   affiliationUnit: string | null;
   homeProgramId: string | null;
-  homeDivisionId: string | null;
   supervisorUserId: string | null;
 };
 
-/** The person's value of a field now, in the shape a request carries. */
+/**
+ * The person's value of a field now, in the shape a request carries. A request still waiting for
+ * a detail that is no longer asked for (the area an account once named) has no value to show.
+ */
 function currentValue(person: Person, field: StaffEditField, photo: string | null): unknown {
   switch (field) {
     case 'workplace':
@@ -95,7 +91,7 @@ function currentValue(person: Person, field: StaffEditField, photo: string | nul
     case 'photo':
       return photo;
     default:
-      return person[field];
+      return person[field] ?? null;
   }
 }
 
@@ -237,7 +233,7 @@ export class StaffChangeRequestsService {
     return { rows: await this.withNames(views), meta };
   }
 
-  /** The names of the programs and divisions the rows name, by id. */
+  /** The names of the programs the rows name, by id. */
   private async withNames<T extends { field: string; newValue?: unknown; currentValue: unknown }>(
     rows: T[],
   ): Promise<(T & { names: Record<string, { bn: string; en: string }> })[]> {
@@ -249,20 +245,13 @@ export class StaffChangeRequestsService {
           .filter((v): v is string => typeof v === 'string'),
       ),
     ];
-    const [programs, divisions] = await Promise.all([
-      this.prisma.program.findMany({
-        where: { id: { in: ids('homeProgramId') } },
-        select: { id: true, nameBn: true, nameEn: true },
-      }),
-      this.prisma.location.findMany({
-        where: { id: { in: ids('homeDivisionId') } },
-        select: { id: true, nameBn: true, nameEn: true },
-      }),
-    ]);
-    const names = new Map<string, { bn: string; en: string }>([
-      ...programs.map((p) => [p.id, { bn: p.nameBn, en: p.nameEn }] as const),
-      ...divisions.map((d) => [d.id, { bn: d.nameBn, en: d.nameEn }] as const),
-    ]);
+    const programs = await this.prisma.program.findMany({
+      where: { id: { in: ids('homeProgramId') } },
+      select: { id: true, nameBn: true, nameEn: true },
+    });
+    const names = new Map<string, { bn: string; en: string }>(
+      programs.map((p) => [p.id, { bn: p.nameBn, en: p.nameEn }] as const),
+    );
     return rows.map((r) => ({
       ...r,
       names: Object.fromEntries(

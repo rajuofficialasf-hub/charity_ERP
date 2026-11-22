@@ -145,12 +145,13 @@ describe('an area revoke against a broader grant', () => {
     ).toEqual([elsewhere]);
   });
 
-  it('leaves out the people whose own place is there, and keeps an official without a home division', async () => {
+  it('leaves out the volunteers living there, and no official: an account names no area', async () => {
     const { monitoring } = world.users;
-    const official = async (homeDivision: string | null) => {
+    // a division still stored on an account from before is not read any more
+    const official = async (stored: string | null) => {
       const id = await f.user(h.db);
       await grantRole(h.db, id, 'project_executive');
-      await h.db.query('UPDATE users SET home_division_id = $1 WHERE id = $2', [homeDivision, id]);
+      await h.db.query('UPDATE users SET home_division_id = $1 WHERE id = $2', [stored, id]);
       return id;
     };
     const ofDhaka = await official(world.dhaka.division);
@@ -170,7 +171,7 @@ describe('an area revoke against a broader grant', () => {
           select: { id: true },
         }),
       ),
-    ).toEqual([ofRangpur, ofNowhere, volunteerOfRangpur].sort());
+    ).toEqual([ofDhaka, ofRangpur, ofNowhere, volunteerOfRangpur].sort());
   });
 
   it('takes nothing from an Admin or the Department Head, whatever row exists', async () => {

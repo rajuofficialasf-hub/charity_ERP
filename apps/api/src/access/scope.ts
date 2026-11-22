@@ -581,11 +581,12 @@ function volunteersIn(a: Area, others: { projectId?: { notIn: string[] } }): Pri
 
 /**
  * The users a scope reaches (entity `user`): everyone at GLOBAL; the caller for SELF; the users of
- * the caller's programs and projects; for an area, the users working in that location (inside its
- * project when the area names one, by home division otherwise); for a volunteer area, only the
- * volunteers there. A revoked project reaches nobody; its people stay when another path reaches
- * them. A revoked location leaves out the people whose own place it is (`userOutsideRevoked`),
- * whichever grant reaches them. No instance means no user.
+ * the caller's programs and projects; for an area, the users working in that location on a
+ * project (inside the area's project when it names one); for a volunteer area, only the
+ * volunteers there. An official's account names no area, so an area reaches an official only
+ * through a place on a project. A revoked project reaches nobody; its people stay when another
+ * path reaches them. A revoked location leaves out the volunteers living there
+ * (`userOutsideRevoked`), whichever grant reaches them. No instance means no user.
  */
 export function userWhere(scope: Scope): Prisma.UserWhereInput {
   const i = scope.instances;
@@ -610,7 +611,6 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
       volunteersIn(a, others),
       { projectAreasRpmUser: { some: { locationId: placed, ...project } } },
     );
-    if (!a.projectId) or.push({ homeDivisionId: a.locationId });
   }
   for (const a of i.volunteerAreas) or.push(volunteersIn(a, others));
   // the extra areas: the volunteers living there, or every volunteer for the whole country
@@ -637,18 +637,14 @@ function addressOutsideRevoked(i: ScopeInstances) {
 }
 
 /**
- * The same for a user: an official's place is the home division, a volunteer's the address. An
- * official without a home division is in no location, so no revoked location leaves them out.
+ * The same for a user: a volunteer's place is the address. An official's account names no area,
+ * so no revoked location leaves an official out; the places an official holds on projects are
+ * taken out with the areas themselves.
  */
 function userOutsideRevoked(i: ScopeInstances): Prisma.UserWhereInput | null {
   const ids = i.revokedLocationIds;
   if (!ids.length) return null;
-  return {
-    AND: [
-      { OR: [{ homeDivisionId: null }, { homeDivisionId: { notIn: ids } }] },
-      { NOT: { volunteersUser: { is: { OR: addressIn(ids) } } } },
-    ],
-  };
+  return { NOT: { volunteersUser: { is: { OR: addressIn(ids) } } } };
 }
 
 /**

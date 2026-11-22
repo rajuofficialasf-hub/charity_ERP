@@ -184,7 +184,7 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 | password_change_required | boolean | no | false | set when a staff registration is approved with a global role; cleared when the person sets a new password (AUTH.md §3, O-66) |
 | designation | text | yes | — | staff only |
 | home_program_id | uuid | yes | — | FK programs; staff |
-| home_division_id | uuid | yes | — | FK locations (division); staff |
+| home_division_id | uuid | yes | — | FK locations (division); staff. Kept with its stored values and no longer read or written: an official's area comes from the projects (D-189, BR-327) |
 | job_id | text | yes | — | staff only; the organisation's own ID, the official's login id (D-097); stored in capitals; CHECK `^[A-Z0-9][A-Z0-9._/-]{1,31}$` and never a mobile number once dashes are removed |
 | affiliation | text | yes | — | staff only, required for staff: `department` (the department's own staff), `foundation` (another department of the Foundation) or `external` (an outside partner); a BEFORE INSERT trigger sets `department` for a staff row without one (D-097) |
 | affiliation_unit | text | yes | — | the other department or the partner organisation, ≤ 200; required exactly when the affiliation is not `department` |

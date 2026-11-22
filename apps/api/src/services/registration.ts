@@ -324,7 +324,6 @@ export class RegistrationService {
           // a rejected account that registers again starts clean: what the old form held and the
           // new one no longer asks for is cleared
           homeProgramId: null,
-          homeDivisionId: null,
           failedLoginCount: 0,
           lockedUntil: null,
           deactivatedAt: null,

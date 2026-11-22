@@ -41,7 +41,6 @@ const placeSelect = {
   affiliation: true,
   affiliationUnit: true,
   homeProgramId: true,
-  homeDivisionId: true,
   supervisorUserId: true,
   // only to tell whether the official still waits for the set-password link; never returned
   passwordHash: true,

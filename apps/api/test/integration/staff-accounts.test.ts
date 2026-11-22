@@ -75,7 +75,6 @@ function official(over: Record<string, unknown> = {}) {
     affiliation: 'department',
     affiliationUnit: null,
     homeProgramId: null,
-    homeDivisionId: null,
     supervisorUserId: null,
     roleKey: 'project_executive',
     ...over,
@@ -183,7 +182,7 @@ describe('who gives a role with the whole reach', () => {
 
 describe('creating an official', () => {
   it('creates a pending account without a password, with its role and an emailed link', async () => {
-    const body = official({ mobile: f.fakeMobile(), homeDivisionId: loc.division });
+    const body = official({ mobile: f.fakeMobile() });
     const res = await create(body);
     expect(res.status).toBe(201);
     const issued = res.body.data as Record<string, string | boolean>;
@@ -205,7 +204,7 @@ describe('creating an official', () => {
       password_hash: null,
       job_id: `ASF-${1000 + n}`,
       affiliation: 'department',
-      home_division_id: loc.division,
+      home_division_id: null,
       created_by: head.id,
     });
     const roles = await h.db.query(
@@ -284,12 +283,14 @@ describe('creating an official', () => {
     }
   });
 
-  it('checks the program, the division and the supervisor', async () => {
+  it('checks the program and the supervisor, and takes no area for the account', async () => {
     const program = await create(official({ homeProgramId: randomUUID() }));
     expect(program.status).toBe(422);
     expect(program.body.error.details[0].path).toBe('homeProgramId');
-    const division = await create(official({ homeDivisionId: loc.district }));
-    expect(division.body.error.details[0].path).toBe('homeDivisionId');
+    // an official's area comes from the projects: the account names none
+    const division = await create(official({ homeDivisionId: loc.division }));
+    expect(division.status).toBe(422);
+    expect(division.body.error.code).toBe('validation.failed');
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const supervisor = await create(official({ supervisorUserId: volunteer.id }));
     expect(supervisor.status).toBe(422);

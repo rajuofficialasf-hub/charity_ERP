@@ -99,7 +99,6 @@ const profileOf = (over: Record<string, unknown> = {}) => ({
   affiliation: 'department',
   affiliationUnit: null,
   homeProgramId: null,
-  homeDivisionId: null,
   supervisorUserId: null,
   ...over,
 });
