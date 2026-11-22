@@ -7,6 +7,7 @@ import { checkOrgTarget, linksFileName } from './target.js';
 // outside the repository.
 const REPO = join('D:', 'repo');
 const OUTSIDE = join('D:', 'own-data', 'staff.tsv');
+const VOLUNTEERS = join('D:', 'own-data', 'volunteers.tsv');
 const env = (url: string) => ({ DATABASE_URL: url });
 const DEV = 'postgresql://localhost:5433/css_erp_dev';
 
@@ -53,6 +54,7 @@ describe('parseSeedArgs', () => {
     expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE])).toEqual({
       sets: ['base', 'org'],
       file: OUTSIDE,
+      volunteers: null,
       demoPassword: false,
     });
     expect(() => parseSeedArgs(['--set', 'org'])).toThrow(/--file/);
@@ -62,21 +64,36 @@ describe('parseSeedArgs', () => {
     expect(parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--demo-password'])).toEqual({
       sets: ['base', 'org'],
       file: OUTSIDE,
+      volunteers: null,
       demoPassword: true,
     });
     expect(() => parseSeedArgs(['--set', 'demo', '--demo-password'])).toThrow(/org set/);
   });
 
+  it('reads the volunteer list for the org set only', () => {
+    expect(
+      parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers', VOLUNTEERS]).volunteers,
+    ).toBe(VOLUNTEERS);
+    expect(() => parseSeedArgs(['--set', 'base', '--volunteers', VOLUNTEERS])).toThrow(/org set/);
+  });
+
   it('keeps the earlier sets as they were', () => {
-    expect(parseSeedArgs([])).toEqual({ sets: ['base', 'demo'], file: null, demoPassword: false });
+    expect(parseSeedArgs([])).toEqual({
+      sets: ['base', 'demo'],
+      file: null,
+      volunteers: null,
+      demoPassword: false,
+    });
     expect(parseSeedArgs(['--set', 'base'])).toEqual({
       sets: ['base'],
       file: null,
+      volunteers: null,
       demoPassword: false,
     });
     expect(parseSeedArgs(['--set', 'demo'])).toEqual({
       sets: ['base', 'demo'],
       file: null,
+      volunteers: null,
       demoPassword: false,
     });
   });

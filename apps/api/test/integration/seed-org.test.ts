@@ -1,3 +1,4 @@
+import { fakeMobile, isFakeNid } from '@css/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext, seedId } from '../../seed/context.js';
@@ -7,6 +8,8 @@ import { DEMO_PASSWORD } from '../../seed/sets/demo/index.js';
 import { type OrgLink, seedOrg } from '../../seed/sets/org/index.js';
 import type { StaffListRow } from '../../seed/sets/org/staff-file.js';
 import { type AuthHarness, authHarness, login, PASSWORD } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
+import type { VolunteerListRow } from '../../seed/sets/org/volunteer-file.js';
 
 // The org seed set: the department's own officials loaded from a checked staff list. Every row
 // here is made up; the real list stays outside the repository.
@@ -39,12 +42,26 @@ const LIST: StaffListRow[] = [
 ];
 const userOf = (jobId: string) => seedId(`org-user:${jobId}`);
 
-async function run(list = LIST, written: OrgLink[][] = [], demoPassword = false) {
+let home: Awaited<ReturnType<typeof f.locationTree>>;
+const VOLUNTEERS: VolunteerListRow[] = [
+  { line: 2, name: 'Sample Volunteer One', mobile: fakeMobile(961) },
+  { line: 3, name: 'Sample Volunteer Two', mobile: fakeMobile(962) },
+];
+const volunteerUser = (mobile: string) => seedId(`org-volunteer:${mobile}`);
+
+async function run(
+  list = LIST,
+  written: OrgLink[][] = [],
+  demoPassword = false,
+  volunteers: VolunteerListRow[] = [],
+) {
   const ctx = new SeedContext(h.container.prisma);
   ctx.actorId = SYSTEM_ACTOR_ID;
   return seedOrg(ctx, list, {
     appOrigin: ORIGIN,
     demoPassword,
+    volunteers,
+    volunteerHome: home,
     // the links are issued on the app's own clock, so the set-password page reads them as open
     now: h.clock.now(),
     writeLinks: (links) => {
@@ -67,9 +84,11 @@ beforeAll(async () => {
   // the harness brings the global and PM roles; the list also names an Executive
   await h.db.query(
     `INSERT INTO roles (key, name_bn, name_en, kind, global_scope)
-     VALUES ('project_executive', 'project_executive', 'project_executive', 'official', false)
+     VALUES ('project_executive', 'project_executive', 'project_executive', 'official', false),
+            ('volunteer_general', 'volunteer_general', 'volunteer_general', 'volunteer', false)
      ON CONFLICT (key) DO NOTHING`,
   );
+  home = await f.locationTree(h.db);
 });
 afterAll(async () => h.close());
 
@@ -262,6 +281,74 @@ describe('the org seed set', () => {
       [userOf('ORG-30')],
     );
     expect(open.rows[0].n).toBe(0);
+  });
+
+  it('makes the volunteers approved general volunteers with sample details, signing in by mobile with the demo password', async () => {
+    await run(LIST, [], true, VOLUNTEERS);
+    const { rows } = await h.db.query(
+      `SELECT u.kind, u.state, u.display_name, u.mobile, v.nid, v.type, v.father_name, v.mother_name,
+              v.union_id, v.approved_at IS NOT NULL AS approved, r.role_key
+       FROM users u JOIN volunteers v ON v.user_id = u.id
+       JOIN user_roles r ON r.user_id = u.id AND r.revoked_at IS NULL
+       WHERE u.id = ANY($1::uuid[]) ORDER BY u.mobile`,
+      [VOLUNTEERS.map((v) => volunteerUser(v.mobile))],
+    );
+    expect(rows).toHaveLength(2);
+    for (const [i, r] of rows.entries()) {
+      expect(r).toMatchObject({
+        kind: 'volunteer',
+        state: 'active',
+        display_name: VOLUNTEERS[i]!.name,
+        mobile: VOLUNTEERS[i]!.mobile,
+        type: 'general',
+        union_id: home.union,
+        approved: true,
+        role_key: 'volunteer_general',
+      });
+      expect(isFakeNid(r.nid)).toBe(true);
+      expect(r.father_name).toContain('(নমুনা)');
+      expect(r.mother_name).toContain('(নমুনা)');
+    }
+    await expect(
+      login(h, VOLUNTEERS[0]!.mobile, { password: DEMO_PASSWORD }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('changes no volunteer on a rerun, and keeps a password a volunteer set', async () => {
+    await run(LIST, [], true, VOLUNTEERS);
+    const own = volunteerUser(VOLUNTEERS[1]!.mobile);
+    await h.db.query(`UPDATE users SET password_hash = 'own-password-hash' WHERE id = $1`, [own]);
+    const before = await h.db.query(
+      `SELECT u.id, u.updated_at, v.updated_at AS v_updated, v.nid FROM users u
+       JOIN volunteers v ON v.user_id = u.id WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
+      [VOLUNTEERS.map((v) => volunteerUser(v.mobile))],
+    );
+    await run(LIST, [], true, VOLUNTEERS);
+    const after = await h.db.query(
+      `SELECT u.id, u.updated_at, v.updated_at AS v_updated, v.nid FROM users u
+       JOIN volunteers v ON v.user_id = u.id WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
+      [VOLUNTEERS.map((v) => volunteerUser(v.mobile))],
+    );
+    expect(after.rows).toEqual(before.rows);
+    const kept = await h.db.query(`SELECT password_hash FROM users WHERE id = $1`, [own]);
+    expect(kept.rows[0].password_hash).toBe('own-password-hash');
+  });
+
+  it('refuses a volunteer whose mobile another account holds, and writes nothing', async () => {
+    const taken = fakeMobile(963);
+    await h.db.query(
+      `INSERT INTO users (id, kind, mobile, state, display_name) VALUES (gen_random_uuid(), 'volunteer', $1, 'active', 'Someone else')`,
+      [taken],
+    );
+    const extra: VolunteerListRow = { line: 4, name: 'Sample Taken', mobile: taken };
+    const fresh: VolunteerListRow = { line: 5, name: 'Sample Fresh', mobile: fakeMobile(964) };
+    await expect(run(LIST, [], true, [...VOLUNTEERS, extra, fresh])).rejects.toThrow(
+      /line 4: the mobile belongs to another account/,
+    );
+    const made = await h.db.query(`SELECT count(*)::int AS n FROM users WHERE id = $1`, [
+      volunteerUser(fresh.mobile),
+    ]);
+    expect(made.rows[0].n).toBe(0);
   });
 
   it('keeps the demo set out of a database that holds the department’s own officials', async () => {

@@ -68,7 +68,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U3. The owner's volunteers in the dev database
 - **Goal:** the owner's 20 volunteers in css_erp_dev.
@@ -103,7 +103,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 ## Progress
 - **Branch:** `chore/org-volunteers-seed`
 - **Updated:** 2026-11-22 13:10
-- **Next:** U2, the volunteers in the org set
+- **Next:** U3, load the owner's volunteers into css_erp_dev
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH.
+- **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH. U2: a new volunteer takes the next free sample NID and keeps it on reruns (an index by list order would collide when the list grows); the placeholders are insert-only so details edited in the app stay.
