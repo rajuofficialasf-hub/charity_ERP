@@ -268,8 +268,9 @@ const REACHING_SCOPES: readonly string[] = ['PROGRAM', 'PROJECT', ...AREA_SCOPES
  * of theirs is at work there. They count only where the person's own grant of the permission
  * reaches other people at all (a grant bound to one project, a SELF or an ASSIGNED grant brings
  * none), and they reach volunteers alone: every volunteer permission for the entity `volunteer`,
- * and for the entity `user` the volunteers living there, never an official and never a
- * beneficiary.
+ * and for the entity `user` only a grant that is itself limited to volunteers (`own_region`), as
+ * the volunteers living there, never an official and never a beneficiary. A permission over
+ * users that the role holds for its staff and colleagues gains nothing from an extra area.
  */
 async function addExtraAreas(
   db: Tx,
@@ -283,7 +284,7 @@ async function addExtraAreas(
     (g) =>
       g.projectId === null &&
       REACHING_SCOPES.includes(g.scopeType) &&
-      (g.condition === null || (entity === 'user' && g.condition === 'own_region')),
+      (entity === 'user' ? g.condition === 'own_region' : g.condition === null),
   );
   if (!reaches) return;
   const extra = await db.userExtraArea.findMany({

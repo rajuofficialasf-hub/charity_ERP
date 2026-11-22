@@ -220,13 +220,22 @@ describe('an extra area given on', () => {
     expect((await end(head, rpm, liveOf(toRpm, barishal.district).id)).status).toBe(200);
     expect(await listed(rpm, barishal)).toEqual([]);
     expect(await listed(executive, barishal)).toEqual([person.volunteerId]);
-    // the RPM no longer reaches the district, so the Head takes the Executive's away
+    // the RPM no longer reaches the district: another RPM's area there is not theirs to end, and
+    // what they gave themselves still is
+    const other = await official('project_executive');
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, $5)`,
+      [randomUUID(), world.a1.id, other, world.dhaka.division, rpm],
+    );
+    const toOther = await give(head, other, { locationId: barishal.district });
+    expect(toOther.status).toBe(201);
+    expect(refusal(await end(await as(rpm), other, liveOf(toOther, barishal.district).id))).toEqual(
+      [403, 'outside_own_reach'],
+    );
     const row = liveOf(await at(head, 'get', `/users/${executive}/extra-areas`), barishal.district);
-    expect(refusal(await end(await as(rpm), executive, row.id))).toEqual([
-      403,
-      'outside_own_reach',
-    ]);
-    expect((await end(head, executive, row.id)).status).toBe(200);
+    expect((await end(await as(rpm), executive, row.id)).status).toBe(200);
+    expect(await listed(executive, barishal)).toEqual([]);
   });
 
   it('keeps an RPM and a PM inside what they reach and whom they reach', async () => {
@@ -302,9 +311,22 @@ describe('what an extra area refuses', () => {
         expect.objectContaining({ path: 'locationId' }),
       );
     }
-    expect(
-      (await give(head, target, { locationId: world.dhaka.division, reason: 'x' })).status,
-    ).toBe(422);
+    // a reason too short to say why
+    const short = await give(head, target, { locationId: world.dhaka.division, reason: 'x' });
+    expect(short.status).toBe(422);
+    expect(short.body.error.details).toContainEqual(expect.objectContaining({ path: 'reason' }));
+  });
+
+  it("answers 404 for another person's area under this person's address, and leaves it live", async () => {
+    const head = await as(world.users.head);
+    const holder = await official('regional_program_manager');
+    const other = await official('regional_program_manager');
+    const given = await give(head, holder, { locationId: world.dhaka.division });
+    expect(given.status).toBe(201);
+    const row = liveOf(given, world.dhaka.division);
+    expect((await end(head, other, row.id)).status).toBe(404);
+    const kept = await h.db.query('SELECT ended_at FROM user_extra_areas WHERE id = $1', [row.id]);
+    expect(kept.rows).toEqual([{ ended_at: null }]);
   });
 
   it('lists the live areas first, then the ended ones, each with who gave it and why', async () => {

@@ -6457,7 +6457,8 @@ paths:
       operationId: users.extraArea.end
       summary: Take an extra area away from an official, with a reason
       description: >-
-        Ends a live extra area under the rules of its giving (403 `permission.grant_refused`); an
+        Ends a live extra area under the rules of its giving (403 `permission.grant_refused`);
+        whoever gave the area may always end it, also after losing the reach it was given from. An
         area the person gave on to someone else stays, each row standing on its own. 404 for an
         area that is not live or not this person's.
       x-permission: user.extra_area.manage

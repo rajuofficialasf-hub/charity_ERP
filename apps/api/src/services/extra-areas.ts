@@ -48,8 +48,10 @@ interface Place {
  * whole country in which the person sees the volunteers whether or not a project of theirs is at
  * work there. The person above gives and takes it away, inside what that person reaches for
  * volunteers; the whole country is an Admin's or the Department Head's to give; nobody gives one
- * to themselves. Each change is audited on the person, raises the person's permission version and
- * is told to the person. An area that was given on stands on its own when the giver's is ended.
+ * to themselves. Whoever gave an area may always take it away again, also after losing the reach
+ * it was given from. Each change is audited on the person, raises the person's permission version
+ * and is told to the person. An area that was given on stands on its own when the giver's is
+ * ended.
  */
 export class ExtraAreasService {
   constructor(
@@ -201,6 +203,7 @@ export class ExtraAreasService {
         where: { id: areaId, userId: user.id, endedAt: null },
         select: {
           wholeCountry: true,
+          grantedBy: true,
           location: { select: { id: true, parentId: true, nameBn: true, nameEn: true } },
         },
       });
@@ -211,7 +214,9 @@ export class ExtraAreasService {
         parentId: row.location?.parentId ?? null,
         name: row.location ? { bn: row.location.nameBn, en: row.location.nameEn } : null,
       };
-      const rule = await this.rule(tx, actor, user.id, place);
+      // taking away what one gave oneself needs no reach: it only narrows what the person sees
+      const ownGift = row.grantedBy === actor.userId && user.id !== actor.userId;
+      const rule = ownGift ? null : await this.rule(tx, actor, user.id, place);
       if (rule) return { rule, place };
       await tx.userExtraArea.update({
         where: { id: areaId },
