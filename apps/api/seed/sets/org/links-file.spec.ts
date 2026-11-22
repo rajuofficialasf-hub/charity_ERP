@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { staffListOf } from '../../run.js';
-import { linksFileText, removeLinksFile, writeLinksFile } from './links-file.js';
+import { linksDestination, linksFileText, removeLinksFile, writeLinksFile } from './links-file.js';
 
 // The file that carries the set-password links, and the stop before any write when the staff list
 // has a problem. Every row here is made up.
@@ -68,6 +68,21 @@ describe('the links file', () => {
     removeLinksFile(path);
     expect(() => readFileSync(path)).toThrow(/ENOENT/);
     expect(() => removeLinksFile(path)).not.toThrow();
+  });
+});
+
+describe('where the links go', () => {
+  it('writes a new file beside the list, or nothing when the officials open with the demo password', () => {
+    const list = join(dir, 'staff.tsv');
+    const now = new Date(2026, 10, 22, 9, 5, 7);
+    const none = linksDestination(list, now, true);
+    expect(none.linksPath).toBeNull();
+    none.writeLinks(LINKS);
+    expect(readdirSync(dir)).toEqual([]);
+    const file = linksDestination(list, now, false);
+    expect(file.linksPath).toBe(join(dir, 'invitations-20261122-090507.tsv'));
+    file.writeLinks(LINKS);
+    expect(readFileSync(file.linksPath!, 'utf8')).toBe(linksFileText(LINKS));
   });
 });
 

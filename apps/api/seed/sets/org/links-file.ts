@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import type { OrgLink } from './index.js';
+import { linksFileName } from './target.js';
 
 /**
  * The file that carries each official's set-password link to the owner, who hands each link to its
@@ -34,4 +35,18 @@ export function writeLinksFile(path: string, links: OrgLink[]): void {
 /** Removes a links file whose tokens a failed run did not store. */
 export function removeLinksFile(path: string): void {
   if (existsSync(path)) rmSync(path);
+}
+
+/**
+ * Where a run's links go: a new file beside the list, or nowhere when the officials open with the
+ * demo password, since then nobody gets a link and no file of tokens should exist.
+ */
+export function linksDestination(
+  listPath: string,
+  now: Date,
+  demoPassword: boolean,
+): { linksPath: string | null; writeLinks: (links: OrgLink[]) => void } {
+  if (demoPassword) return { linksPath: null, writeLinks: () => undefined };
+  const linksPath = linksFileName(listPath, now);
+  return { linksPath, writeLinks: (links) => writeLinksFile(linksPath, links) };
 }

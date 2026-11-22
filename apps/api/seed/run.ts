@@ -15,9 +15,9 @@ import { readPermissionsFile } from './sets/base/access.js';
 import { seedBase } from './sets/base/index.js';
 import { DEMO_PROGRAMS, seedDemo } from './sets/demo/index.js';
 import { type OrgOptions, seedOrg } from './sets/org/index.js';
-import { removeLinksFile, writeLinksFile } from './sets/org/links-file.js';
+import { linksDestination, removeLinksFile } from './sets/org/links-file.js';
 import { readStaffList, type StaffListRow } from './sets/org/staff-file.js';
-import { checkOrgTarget, linksFileName } from './sets/org/target.js';
+import { checkOrgTarget } from './sets/org/target.js';
 import { REPO_ROOT } from './sets/util.js';
 
 export type SeedSet = 'base' | 'demo' | 'org';
@@ -127,20 +127,16 @@ async function main(): Promise<void> {
     // the address the API itself writes into its links, so the seed's links open the same page
     const appOrigin = appOriginOf(process.env.APP_ORIGIN);
     const now = new Date();
-    const path = linksFileName(list, now);
-    // with the demo password nobody gets a link, so no file of tokens is written
-    linksPath = demoPassword ? null : path;
+    const destination = linksDestination(list, now, demoPassword);
+    linksPath = destination.linksPath;
     org = {
       rows: staffListOf(list),
-      options: {
-        appOrigin,
-        now,
-        demoPassword,
-        writeLinks: (links) => {
-          if (!demoPassword) writeLinksFile(path, links);
-        },
-      },
+      options: { appOrigin, now, demoPassword, writeLinks: destination.writeLinks },
     };
+    if (demoPassword)
+      console.warn(
+        '  the demo password opens these accounts, the Main Admin and the Department Head included, for anyone who reaches this app: keep it to this computer or the office network you trust',
+      );
   }
   // runSeed refuses a database outside the guard before the client opens a connection
   const prisma = prismaClientFor(process.env.DATABASE_URL ?? '');

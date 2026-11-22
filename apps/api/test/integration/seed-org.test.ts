@@ -235,7 +235,7 @@ describe('the org seed set', () => {
       row({ jobId: 'ORG-30', supervisorJobId: 'ORG-1' }),
       row({ jobId: 'ORG-31', supervisorJobId: 'ORG-1' }),
     ];
-    // ORG-31 sets a password of their own through a link first
+    // the last official of the list sets a password of their own through a link first
     const links: OrgLink[][] = [];
     await run(list, links);
     const own = links[0]!.find((l) => l.jobId === 'ORG-31')!;
