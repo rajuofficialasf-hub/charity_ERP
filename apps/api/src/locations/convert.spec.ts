@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { convertOwnerLocations, locationsToCsv, type OwnerFile } from './convert.js';
-import { parseCsv, parseCsvRecords, toCsv } from './csv.js';
+import { parseCsv, parseCsvLines, parseCsvRecords, toCsv } from './csv.js';
 
 const place = (
   name_en: string,
@@ -184,6 +184,21 @@ describe('CSV helpers', () => {
     expect(parseCsv('﻿a,b\r\n\r\n1,2\n')).toEqual([
       ['a', 'b'],
       ['1', '2'],
+    ]);
+  });
+
+  it('splits on a tab when asked, keeping commas inside a cell', () => {
+    expect(parseCsv('a\tb\n1,5\t2\n', '\t')).toEqual([
+      ['a', 'b'],
+      ['1,5', '2'],
+    ]);
+  });
+
+  it('gives the line each row starts on, counting empty lines and breaks inside quotes', () => {
+    expect(parseCsvLines('a,b\r\n\r\n1,"x\r\ny"\n\n2,z\n')).toEqual([
+      { line: 1, cells: ['a', 'b'] },
+      { line: 3, cells: ['1', 'x\r\ny'] },
+      { line: 6, cells: ['2', 'z'] },
     ]);
   });
 });

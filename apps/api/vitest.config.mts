@@ -14,6 +14,6 @@ export default defineProject({
     // pg-boss's optional @opentelemetry/api ships an ESM build with extensionless imports that
     // only a bundler resolves; Vitest inlines it (the Node runtime loads its CommonJS build).
     server: { deps: { inline: ['pg-boss', '@opentelemetry/api'] } },
-    include: ['src/**/*.spec.ts', 'test/api/**/*.test.ts'],
+    include: ['src/**/*.spec.ts', 'seed/**/*.spec.ts', 'test/api/**/*.test.ts'],
   },
 });
