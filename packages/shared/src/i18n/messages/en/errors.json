@@ -217,6 +217,8 @@
     "role_unchanged": "The user already holds this role.",
     "department_head_exists": "A Department Head is already in office. Change that person's role first.",
     "role_change_inactive": "Only an active account's role can be changed.",
+    "extra_area_exists": "This person already holds this area.",
+    "extra_area_inactive": "Only an active account can be given an extra area.",
     "not_locked": "This account is not locked.",
     "job_id_taken": "This job ID belongs to another account.",
     "supervisor_invalid": "Choose an active department official who does not report to this person.",

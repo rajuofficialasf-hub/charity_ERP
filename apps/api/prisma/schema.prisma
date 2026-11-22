@@ -133,6 +133,11 @@ model User {
   projectStaffUpdatedBy                ProjectStaff[]             @relation("project_staff_updated_by")
   projectStaffDistrictsCreatedBy       ProjectStaffDistrict[]     @relation("project_staff_districts_created_by")
   projectStaffDistrictsUpdatedBy       ProjectStaffDistrict[]     @relation("project_staff_districts_updated_by")
+  userExtraAreasUser                   UserExtraArea[]            @relation("user_extra_areas_user_id")
+  userExtraAreasGrantedBy              UserExtraArea[]            @relation("user_extra_areas_granted_by")
+  userExtraAreasEndedBy                UserExtraArea[]            @relation("user_extra_areas_ended_by")
+  userExtraAreasCreatedBy              UserExtraArea[]            @relation("user_extra_areas_created_by")
+  userExtraAreasUpdatedBy              UserExtraArea[]            @relation("user_extra_areas_updated_by")
   projectTemplatesCreatedBy            ProjectTemplate[]          @relation("project_templates_created_by")
   projectTemplatesUpdatedBy            ProjectTemplate[]          @relation("project_templates_updated_by")
   projectQuotasCreatedBy               ProjectQuota[]             @relation("project_quotas_created_by")
@@ -573,6 +578,7 @@ model Location {
   projectAreasLocation            ProjectArea[]      @relation("project_areas_location_id")
   projectStaffAreaLocation        ProjectStaff[]     @relation("project_staff_area_location_id")
   projectStaffDistrictsLocation   ProjectStaffDistrict[] @relation("project_staff_districts_location_id")
+  userExtraAreasLocation          UserExtraArea[]    @relation("user_extra_areas_location_id")
   projectQuotasLocation           ProjectQuota[]     @relation("project_quotas_location_id")
   beneficiariesDivision           Beneficiary[]      @relation("beneficiaries_division_id")
   beneficiariesDistrict           Beneficiary[]      @relation("beneficiaries_district_id")
@@ -927,6 +933,40 @@ model ProjectStaffDistrict {
   @@index([createdBy], map: "project_staff_districts_created_by_idx")
   @@index([updatedBy], map: "project_staff_districts_updated_by_idx")
   @@map("project_staff_districts")
+}
+
+/// The extra areas of an official: a location, or the whole country, for volunteers alone.
+model UserExtraArea {
+  id           String    @id @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  locationId   String?   @map("location_id") @db.Uuid
+  wholeCountry Boolean   @default(false) @map("whole_country")
+  reason       String
+  grantedBy    String    @map("granted_by") @db.Uuid
+  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz(6)
+  endedBy      String?   @map("ended_by") @db.Uuid
+  endReason    String?   @map("end_reason")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  user         User      @relation("user_extra_areas_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  location     Location? @relation("user_extra_areas_location_id", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  grantedByRef User      @relation("user_extra_areas_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  endedByRef   User?     @relation("user_extra_areas_ended_by", fields: [endedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?     @relation("user_extra_areas_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?     @relation("user_extra_areas_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([userId, locationId], where: raw("ended_at IS NULL AND location_id IS NOT NULL"), map: "user_extra_areas_user_id_location_id_key")
+  @@unique([userId], where: raw("ended_at IS NULL AND whole_country"), map: "user_extra_areas_user_id_whole_country_key")
+  @@index([userId], map: "user_extra_areas_user_id_idx")
+  @@index([locationId], map: "user_extra_areas_location_id_idx")
+  @@index([grantedBy], map: "user_extra_areas_granted_by_idx")
+  @@index([endedBy], map: "user_extra_areas_ended_by_idx")
+  @@index([createdBy], map: "user_extra_areas_created_by_idx")
+  @@index([updatedBy], map: "user_extra_areas_updated_by_idx")
+  @@map("user_extra_areas")
 }
 
 model ProjectArea {

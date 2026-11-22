@@ -524,6 +524,25 @@ The districts of a staff place inside its area (D-189, BR-324): an RPM gives a P
 
 Constraints: partial UNIQUE (project_staff_id, location_id) WHERE ended_at IS NULL. Index: (location_id).
 
+### user_extra_areas
+The extra areas of an official (D-189, BR-325): a division, a district or the whole country in which the person sees the volunteers whether or not a project of theirs is at work there. A row names one location or the whole country, never both. One taken away is ended with who ended it and why, never deleted; the same place may be given again afterwards.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| user_id | uuid | no | — | FK users; the official who holds the area |
+| location_id | uuid | yes | — | FK locations; a division or a district (checked by the service); null for the whole country |
+| whole_country | boolean | no | false | true for the whole country |
+| reason | text | no | — | why it was given |
+| granted_by | uuid | no | — | FK users |
+| granted_at | timestamptz | no | now() | |
+| ended_at | timestamptz | yes | — | set when the area is taken away |
+| ended_by | uuid | yes | — | FK users |
+| end_reason | text | yes | — | why it was taken away |
+| [A] | | | | |
+
+Constraints: CHECK ((location_id IS NULL) = whole_country); CHECK ((ended_at IS NULL) = (ended_by IS NULL)); partial UNIQUE (user_id, location_id) WHERE ended_at IS NULL AND location_id IS NOT NULL; partial UNIQUE (user_id) WHERE ended_at IS NULL AND whole_country. Indexes: (user_id), (location_id), (granted_by), (ended_by).
+
 ### project_templates
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|

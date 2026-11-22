@@ -34,6 +34,13 @@ export interface ScopeInstances {
   /** Areas that reach volunteers only (condition `own_region` on the user entity). */
   volunteerAreas: Area[];
   /**
+   * For the user entity: the locations of the caller's extra areas, which reach the volunteers
+   * living there and nobody else.
+   */
+  volunteerLocations?: string[];
+  /** For the user entity: an extra area of the whole country, which reaches every volunteer. */
+  everyVolunteer?: boolean;
+  /**
    * Projects a panel revoke took out (a revoked project, or every project of a revoked program):
    * every filter excludes them, whichever grant would reach them.
    */
@@ -174,6 +181,9 @@ export function applyInstanceRevokes(
     projectIds: instances.projectIds.filter((id) => !projects.has(id)),
     areas: instances.areas.filter(keep),
     volunteerAreas: instances.volunteerAreas.filter(keep),
+    ...(instances.volunteerLocations
+      ? { volunteerLocations: instances.volunteerLocations.filter((id) => !locations.has(id)) }
+      : {}),
     revokedProjectIds: [...new Set([...instances.revokedProjectIds, ...projects])],
     revokedProgramIds: [...new Set([...instances.revokedProgramIds, ...programs])],
     revokedLocationIds: [...new Set([...instances.revokedLocationIds, ...locations])],
@@ -247,6 +257,49 @@ async function areasAtWork(db: Tx, areas: Area[]): Promise<Area[]> {
   });
   const working = new Set(projects.map((p) => p.id));
   return areas.filter((a) => a.projectId === null || working.has(a.projectId));
+}
+
+/** The scopes of a grant that reaches other people's records below the whole country. */
+const REACHING_SCOPES: readonly string[] = ['PROGRAM', 'PROJECT', ...AREA_SCOPES];
+
+/**
+ * Adds the caller's extra areas (docs/security/RBAC.md, "Data scopes and their resolution"): a
+ * location or the whole country in which an official sees the volunteers whether or not a project
+ * of theirs is at work there. They count only where the person's own grant of the permission
+ * reaches other people at all (a grant bound to one project, a SELF or an ASSIGNED grant brings
+ * none), and they reach volunteers alone: every volunteer permission for the entity `volunteer`,
+ * and for the entity `user` the volunteers living there, never an official and never a
+ * beneficiary.
+ */
+async function addExtraAreas(
+  db: Tx,
+  actorId: string,
+  entity: string,
+  grants: EffectiveGrant[],
+  inst: ScopeInstances,
+): Promise<void> {
+  if (entity !== 'volunteer' && entity !== 'user') return;
+  const reaches = grants.some(
+    (g) =>
+      g.projectId === null &&
+      REACHING_SCOPES.includes(g.scopeType) &&
+      (g.condition === null || (entity === 'user' && g.condition === 'own_region')),
+  );
+  if (!reaches) return;
+  const extra = await db.userExtraArea.findMany({
+    where: { userId: actorId, endedAt: null },
+    select: { locationId: true, wholeCountry: true },
+  });
+  if (!extra.length) return;
+  const locations = extra.flatMap((e) => (e.locationId ? [e.locationId] : []));
+  const everywhere = extra.some((e) => e.wholeCountry);
+  if (entity === 'volunteer') {
+    if (everywhere) inst.global = true;
+    inst.areas.push(...locations.map((locationId) => ({ projectId: null, locationId })));
+  } else {
+    if (everywhere) inst.everyVolunteer = true;
+    inst.volunteerLocations = locations;
+  }
 }
 
 /** The entities a grant limited to the attached house-construction projects reaches. */
@@ -436,6 +489,7 @@ export async function resolveInstances(
       );
   }
   if (entity === 'user') inst.volunteerAreas = await areasAtWork(db, inst.volunteerAreas);
+  await addExtraAreas(db, actorId, entity, grants, inst);
   const revokedPrograms = revokes
     .filter((r) => r.scopeType === 'PROGRAM' && r.scopeRef !== null)
     .map((r) => r.scopeRef as string);
@@ -534,6 +588,10 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
     if (!a.projectId) or.push({ homeDivisionId: a.locationId });
   }
   for (const a of i.volunteerAreas) or.push(volunteersIn(a, others));
+  // the extra areas: the volunteers living there, or every volunteer for the whole country
+  if (i.everyVolunteer) or.push({ kind: 'volunteer' });
+  else if (i.volunteerLocations?.length)
+    or.push({ volunteersUser: { is: { OR: addressIn(i.volunteerLocations) } } });
   if (!or.length) return { id: { in: [] } };
   return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }

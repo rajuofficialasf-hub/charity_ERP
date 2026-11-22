@@ -55,6 +55,7 @@ describe('effective permissions', () => {
       'user.handover',
       'permission.panel.manage',
       'user.role.change',
+      'user.extra_area.manage',
       'system.owner.transfer',
       'staff.registration.approve',
       'staff_edit_request.approve',

@@ -1255,6 +1255,46 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/RoleHistoryRow' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    ExtraAreaRequest:
+      type: object
+      description: An extra area for volunteers; one of `locationId` (a division or a district) and `wholeCountry`, never both.
+      additionalProperties: false
+      required: [reason]
+      properties:
+        locationId: { type: string, format: uuid }
+        wholeCountry: { type: boolean, default: false }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    ExtraAreaRow:
+      type: object
+      description: One extra area a person holds or held; `endedAt` is null while it is live, and `location` is null for the whole country.
+      required: [id, wholeCountry, location, reason, grantedAt, grantedBy, endedAt, endedBy, endReason]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        wholeCountry: { type: boolean }
+        location:
+          oneOf:
+            - type: object
+              required: [id, level, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                level: { type: string }
+                name: { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        reason: { type: string }
+        grantedAt: { type: string, format: date-time }
+        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        endedAt: { type: [string, 'null'], format: date-time }
+        endedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
+        endReason: { type: [string, 'null'] }
+    ExtraAreaList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ExtraAreaRow' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
 
     # ---------------- access ----------------
     Role:
@@ -6346,6 +6386,99 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/extra-areas:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [users]
+      operationId: users.extraArea.list
+      summary: The extra areas an official holds or held for volunteers, the live ones first, with who gave and who ended each
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The extra areas; not paginated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [users]
+      operationId: users.extraArea.give
+      summary: Give an official a division, a district or the whole country for volunteers, inside the giver's own reach, with a reason
+      description: >-
+        An extra area shows an official the volunteers living there whether or not a project of
+        theirs is at work there, for every volunteer permission the role holds; it shows no
+        beneficiary and no official (D-189, BR-325). The body names one active division or district,
+        or the whole country, never both (422 otherwise). Refused with 403
+        `permission.grant_refused` (`params.rule`): `self_change` for the own account,
+        `whole_country_top_roles_only` when anyone but an Admin or the Department Head gives the
+        whole country, and `outside_own_reach` when the giver does not reach the place for
+        volunteers (a location the giver holds, or a district of a division the giver holds; an
+        Admin and the Department Head give any place). With 409 `user.extra_area_exists` for a
+        live area given again and `user.extra_area_inactive` for an account that is not active. The
+        change raises the person's permission version and tells the person.
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: user.extra_area_given
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExtraAreaRequest' }
+      responses:
+        '201':
+          description: The person's extra areas after the change
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/extra-areas/{areaId}/end:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+      - name: areaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [users]
+      operationId: users.extraArea.end
+      summary: Take an extra area away from an official, with a reason
+      description: >-
+        Ends a live extra area under the rules of its giving (403 `permission.grant_refused`); an
+        area the person gave on to someone else stays, each row standing on its own. 404 for an
+        area that is not live or not this person's.
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: user.extra_area_ended
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: The person's extra areas after the change
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}/roles:
     parameters:

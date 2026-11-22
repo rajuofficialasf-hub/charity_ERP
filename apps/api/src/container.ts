@@ -122,6 +122,7 @@ import { RegistrationService } from './services/registration.js';
 import { RegistrationPhotosService } from './services/registration-photos.js';
 import { SessionsService } from './services/sessions.js';
 import { AccessPanelService } from './services/access.js';
+import { ExtraAreasService } from './services/extra-areas.js';
 import { RoleChangesService } from './services/role-changes.js';
 import { OrganogramService } from './services/organogram.js';
 import { StaffAccountsService } from './services/staff-accounts.js';
@@ -157,6 +158,7 @@ export interface Container {
   deviceSessions: SessionsService;
   users: UsersService;
   roleChanges: RoleChangesService;
+  extraAreas: ExtraAreasService;
   ownProfile: OwnProfileService;
   projectsWork: ProjectsWorkService;
   staffAccounts: StaffAccountsService;
@@ -466,6 +468,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         users,
         auth,
       ),
+    extraAreas:
+      o.extraAreas ??
+      new ExtraAreasService(prisma, clock, audit, access, permissionVersions, accountEvents),
     ownProfile: o.ownProfile ?? new OwnProfileService(prisma),
     projectsWork: o.projectsWork ?? new ProjectsWorkService(prisma, access),
     staffAccounts:

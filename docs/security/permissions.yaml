@@ -238,6 +238,14 @@ permissions:
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
+  - name: user.extra_area.manage
+    description: Give an official an extra area for volunteers (a division, a district or the whole country) and take it away, inside the giver's own reach (D-189)
+    module: M02
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: permission.view
     description: View a user's effective permissions
     module: M02

@@ -462,6 +462,32 @@ describe('the user filter', () => {
     ]);
   });
 
+  it('reaches through an extra area the volunteers living there, and every volunteer for the whole country', () => {
+    const area = where({ volunteerLocations: [DHAKA] }) as { OR: unknown[] };
+    expect(area.OR).toEqual([
+      {
+        volunteersUser: {
+          is: {
+            OR: ['divisionId', 'districtId', 'upazilaId', 'unionId'].map((column) => ({
+              [column]: { in: [DHAKA] },
+            })),
+          },
+        },
+      },
+    ]);
+    expect(where({ everyVolunteer: true, volunteerLocations: [DHAKA] })).toEqual({
+      OR: [{ kind: 'volunteer' }],
+    });
+    expect(where({ volunteerLocations: [] })).toEqual({ id: { in: [] } });
+  });
+
+  it('drops an extra area of a revoked location', () => {
+    const kept = applyInstanceRevokes({ ...NO_INSTANCES, volunteerLocations: [DHAKA, RANGPUR] }, [
+      revoke({ scopeRef: DHAKA }),
+    ]);
+    expect(kept.volunteerLocations).toEqual([RANGPUR]);
+  });
+
   it('reaches only volunteers through a volunteer area', () => {
     const v = where({ volunteerAreas: [{ projectId: P1, locationId: DHAKA }] }) as {
       OR: unknown[];

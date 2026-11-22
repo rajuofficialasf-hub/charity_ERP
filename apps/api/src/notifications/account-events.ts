@@ -34,6 +34,12 @@ const PERMISSION_CHANGE = {
   ended: 'common.notification.permission_ended',
 } as const satisfies Record<string, MessageKey>;
 
+const EXTRA_AREA = {
+  given: 'common.notification.extra_area_given',
+  ended: 'common.notification.extra_area_ended',
+} as const satisfies Record<string, MessageKey>;
+const WHOLE_COUNTRY = 'common.notification.whole_country' satisfies MessageKey;
+
 /** Lockouts in one Dhaka day that send the Monitoring Team an email. */
 export const LOCKOUT_ALERT_PER_DAY = 10;
 
@@ -222,6 +228,31 @@ export class AccountEvents {
       recipients: [{ user: userId }],
       // eslint-disable-next-line security/detect-object-injection -- a typed key
       params: { summary: bilingualText(PERMISSION_CHANGE[change], { permission }) },
+      about: userId,
+      actorId,
+    });
+  }
+
+  /**
+   * An extra area for volunteers was given to the person or taken away: the notice names the
+   * place in each language, the whole country where no location is named.
+   */
+  async extraAreaChanged(
+    tx: Tx,
+    userId: string,
+    change: keyof typeof EXTRA_AREA,
+    area: { bn: string; en: string } | null,
+    actorId: string,
+  ): Promise<void> {
+    // eslint-disable-next-line security/detect-object-injection -- a typed key
+    const key = EXTRA_AREA[change];
+    const text = (locale: 'bn' | 'en') =>
+      // eslint-disable-next-line security/detect-object-injection -- a fixed pair of languages
+      translate(locale, key, { area: area ? area[locale] : translate(locale, WHOLE_COUNTRY) });
+    await this.notifications.publish(tx, {
+      key: 'permission_changed',
+      recipients: [{ user: userId }],
+      params: { summary: { bn: text('bn'), en: text('en') } },
       about: userId,
       actorId,
     });
