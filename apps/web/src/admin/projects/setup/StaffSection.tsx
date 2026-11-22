@@ -118,7 +118,9 @@ function PlacePart({ access }: { access: StaffAccess }) {
     .filter((d) => access.districtIds.includes(d.id))
     .map((d) => localized(d.name, locale));
   if (names.length === 0)
-    return <>{t('staff_district_count', { count: formatCount(access.districtIds.length, locale) })}</>;
+    return (
+      <>{t('staff_district_count', { count: formatCount(access.districtIds.length, locale) })}</>
+    );
   return <>{names.join(', ')}</>;
 }
 
