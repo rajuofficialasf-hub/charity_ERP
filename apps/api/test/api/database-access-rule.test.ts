@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 // The lint guard that keeps the API's own code, the seed and the scripts on Prisma: no `pg` import
 // outside the pg-boss files and the tests, and no raw call that takes a built string.
@@ -20,6 +20,12 @@ const db =
   ' $executeRaw(s: TemplateStringsArray, ...v: unknown[]): unknown };\n';
 
 describe('the database access rule', { timeout: 30_000 }, () => {
+  // the first lint loads the whole config and the type program once: setup, not the rule, so a
+  // loaded machine spends that time here and not in the first case's limit
+  beforeAll(async () => {
+    await eslint.lintText(pgImport, { filePath: 'apps/api/src/services/example.ts' });
+  }, 180_000);
+
   it('refuses a pg import in the API code, the seed and the scripts', async () => {
     for (const file of [
       'apps/api/src/services/example.ts',
