@@ -1630,6 +1630,27 @@
       "past": "Earlier extra areas",
       "ended_by": "Ended by {name}, {date}",
       "offline": "The server could not be reached. Check the connection and try again."
+    },
+    "role_change": {
+      "open": "Change role",
+      "title": "Change the role of {name}",
+      "current": "Current role: {roles}",
+      "new_role": "New role",
+      "global_hint": "This role sees everything. At the next sign-in the person chooses a new password of 12 characters.",
+      "reason": "Reason",
+      "confirm": "Change role",
+      "done": "The role has been changed.",
+      "handover": "Some of this official's work has not been handed over yet. Hand it over first, then change the role.",
+      "handover_link": "Handover page",
+      "stale": "Someone changed this profile meanwhile. The current details have been read again; check them and try again.",
+      "offline": "The server could not be reached. Check the connection and try again."
+    },
+    "role_history": {
+      "title": "Role history",
+      "now": "Now",
+      "given_by": "Given by {name}, {date}",
+      "ended_by": "Ended by {name}, {date}",
+      "none": "No role has been given."
     }
   },
   "settings": {

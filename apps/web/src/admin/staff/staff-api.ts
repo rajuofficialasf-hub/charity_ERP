@@ -4,11 +4,12 @@ import type {
   StaffCreateRequest,
   StaffProfileRequest,
 } from '@css/shared/auth';
-import type { ExtraAreaRequest } from '@css/shared/access';
+import type { ExtraAreaRequest, RoleChangeRequest } from '@css/shared/access';
 import { api } from '../../api/client';
 import type {
   ExtraArea,
   Organogram,
+  RoleHistoryRow,
   OrganogramNode,
   StaffDetail,
   StaffMember,
@@ -16,7 +17,15 @@ import type {
   StaffRecord,
 } from '../../api/schemas';
 
-export type { ExtraArea, Organogram, OrganogramNode, StaffDetail, StaffMember, StaffPage };
+export type {
+  ExtraArea,
+  Organogram,
+  OrganogramNode,
+  RoleHistoryRow,
+  StaffDetail,
+  StaffMember,
+  StaffPage,
+};
 
 export const STAFF_KEY = ['admin', 'staff'] as const;
 
@@ -79,6 +88,17 @@ export const findSupervisors = (text: string) =>
   );
 
 export const organogram = () => api<Organogram>('/organogram');
+
+export const roleHistoryKey = (userId: string) => [...STAFF_KEY, 'roles', userId] as const;
+/** The roles a person holds or held, the newest first, with who gave and who ended each. */
+export const roleHistory = (userId: string) => api<RoleHistoryRow[]>(`/users/${userId}/roles`);
+/** Another role in place of the present one, with the version read when the dialog opened. */
+export const changeRole = (userId: string, etag: string, body: RoleChangeRequest) =>
+  api<StaffDetail>(`/users/${userId}/role`, {
+    method: 'POST',
+    body,
+    headers: { 'If-Match': etag },
+  });
 
 export const extraAreasKey = (userId: string) => [...STAFF_KEY, 'extra-areas', userId] as const;
 /** The extra areas an official holds or held for volunteers, the live ones first. */

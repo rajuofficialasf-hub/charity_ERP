@@ -30,6 +30,7 @@ import {
   canSeeStaff,
   holdsGlobalRole,
   mayGiveRole,
+  canChangeRoles,
   canGiveWholeCountry,
   canManageExtraAreas,
   seesPeopleByArea,
@@ -213,6 +214,13 @@ describe('admin role lists', () => {
       expect(canGiveWholeCountry(as(role)), role).toBe(true);
     for (const role of ['program_manager', 'regional_program_manager', 'monitoring_team'])
       expect(canGiveWholeCountry(as(role)), role).toBe(false);
+  });
+
+  it('lets an Admin and the Department Head change a role, and nobody below them', () => {
+    for (const role of ['admin', 'department_head'])
+      expect(canChangeRoles(as(role)), role).toBe(true);
+    for (const role of ['monitoring_team', 'program_manager', 'regional_program_manager'])
+      expect(canChangeRoles(as(role)), role).toBe(false);
   });
 
   it('says who sees the people of the own areas alone, so an empty tab can say why', () => {

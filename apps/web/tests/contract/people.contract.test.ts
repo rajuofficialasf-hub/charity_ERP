@@ -14,6 +14,7 @@ import {
   pendingRegistrationSchema,
   permissionSchema,
   registrationDetailSchema,
+  roleHistoryRowSchema,
   roleInfoSchema,
   staffDetailSchema,
   staffEditRequestRowSchema,
@@ -305,6 +306,37 @@ describe.skipIf(!contractBase())('the officials', () => {
       201,
       invitationIssuedSchema,
     );
+  });
+
+  it('changes the role of an official with the version read, and lists the roles held', async () => {
+    const head = await signIn(HEAD);
+    const official = await newOfficial('project_executive');
+    const record = expectEnvelope(
+      await call(head, 'GET', `/users/${official.userId}`),
+      200,
+      staffRecordSchema,
+    );
+    const changed = expectContract(
+      await call(
+        head,
+        'POST',
+        `/users/${official.userId}/role`,
+        { roleKey: 'regional_program_manager', reason: REASON },
+        { 'If-Match': record.meta.etag },
+      ),
+      200,
+      staffDetailSchema,
+    );
+    expect(changed.roles).toEqual(['regional_program_manager']);
+    const history = expectContract(
+      await call(head, 'GET', `/users/${official.userId}/roles`),
+      200,
+      z.array(roleHistoryRowSchema),
+    );
+    expect(history.map((r) => [r.roleKey, r.revokedAt === null])).toEqual([
+      ['regional_program_manager', true],
+      ['project_executive', false],
+    ]);
   });
 
   it('gives an official an extra area for volunteers, lists it and ends it', async () => {
