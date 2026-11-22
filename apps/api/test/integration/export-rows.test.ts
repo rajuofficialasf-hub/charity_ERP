@@ -31,7 +31,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
   // scored and unscored applications of the Dhaka region, and people of both regions
   for (const score of [40, null, 75, 40]) {
     const dhaka = await f.beneficiary(h.db, world.dhaka);
@@ -223,7 +227,7 @@ describe('the rows of an export', () => {
     }
   });
 
-  it('carry a volunteer’s identity and bank details only inside the region, with the volunteer export permission', async () => {
+  it('hold the volunteers of the RPM’s region alone, with their identity and bank details under the volunteer export permission', async () => {
     const byRpm = await readAll(
       await freeze(world.users.rpmDhaka, { kind: 'volunteers', filters: {} }),
     );
@@ -234,17 +238,26 @@ describe('the rows of an export', () => {
     const dhaka = byRpm.filter((r) => divisions.get(r.id) === world.dhaka.division);
     const rangpur = byRpm.filter((r) => divisions.get(r.id) === world.rangpur.division);
     expect(dhaka.length).toBeGreaterThanOrEqual(2);
-    expect(rangpur.length).toBeGreaterThanOrEqual(1);
+    // the file holds the people the list shows: nobody of another region
+    expect(rangpur).toEqual([]);
+    expect(dhaka).toHaveLength(byRpm.length);
     for (const row of dhaka) {
       expect(row.cells).toHaveProperty('nid');
       expect(row.cells).toHaveProperty('bank_account_number');
     }
-    for (const row of rangpur) {
-      expect(row.cells).not.toHaveProperty('nid');
-      expect(row.cells).not.toHaveProperty('bank_name');
-      expect(row.cells).not.toHaveProperty('bank_account_number');
-      expect(row.cells).toHaveProperty('name');
-    }
+    // the Department Head's file holds both regions
+    const byHead = await readAll(
+      await freeze(world.users.head, { kind: 'volunteers', filters: {} }),
+    );
+    const all = new Set(
+      (
+        await divisionsOf(
+          'volunteers',
+          byHead.map((r) => r.id),
+        )
+      ).values(),
+    );
+    expect(all.has(world.dhaka.division) && all.has(world.rangpur.division)).toBe(true);
     // the Project Executive holds no volunteer export permission: no row carries them
     const byExecutive = await readAll(
       await freeze(world.users.executive, { kind: 'volunteers', filters: {} }),

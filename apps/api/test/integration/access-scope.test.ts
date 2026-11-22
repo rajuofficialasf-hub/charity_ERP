@@ -14,6 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
+import * as f from './support/fixtures.js';
 
 // Scope resolution and enforcement through the real endpoints (docs/security/RBAC.md, "Data scopes
 // and their resolution" and "Server-side enforcement").
@@ -62,7 +63,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
 });
 
 afterAll(async () => {
@@ -95,6 +100,47 @@ async function refresh(s: Session): Promise<string> {
     .expect(200);
   return res.body.data.accessToken as string;
 }
+
+// The areas of a project show volunteers only while it is at work (docs/security/RBAC.md, "Data
+// scopes and their resolution"); its applications stay with the people who work or worked on it.
+describe('the areas of a project at work', () => {
+  it('reach volunteers while the project is active or closing, and its applications in every state', async () => {
+    const tree = await f.locationTree(h.db);
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    const project = await f.project(h.db);
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), project.id, tree.division, rpm.id],
+    );
+    // the PM of the project's program reaches volunteers through the same areas
+    const pm = await account(h.db, { role: 'program_manager' });
+    await h.db.query('UPDATE programs SET pm_user_id = $1 WHERE id = $2', [pm.id, project.program]);
+    const areas = async (permission: string, entity: string, userId = rpm.id) =>
+      (await h.container.access.scopeOfUser(userId, permission, entity)).instances.areas.map(
+        (a) => a.locationId,
+      );
+    for (const [status, shown] of [
+      ['draft', false],
+      ['active', true],
+      ['closing', true],
+      ['closed', false],
+      ['cancelled', false],
+    ] as const) {
+      await h.db.query(
+        `UPDATE projects SET status = $1, cancelled_at = CASE WHEN $1 = 'cancelled' THEN now() END WHERE id = $2`,
+        [status, project.id],
+      );
+      for (const permission of ['volunteer.view_all', 'registration.approve'])
+        expect(await areas(permission, 'volunteer'), `${permission} ${status}`).toEqual(
+          shown ? [tree.division] : [],
+        );
+      expect(await areas('volunteer.view_all', 'volunteer', pm.id), `PM ${status}`).toEqual(
+        shown ? [tree.division] : [],
+      );
+      expect(await areas('application.view', 'application'), status).toEqual([tree.division]);
+    }
+  });
+});
 
 describe('scope on the user endpoints', () => {
   it('shows a PM the users of own program and nobody else', async () => {

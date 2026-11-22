@@ -322,14 +322,14 @@ permissions:
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
-    description: Nationwide volunteer tab with filters and statistics (sensitive fields masked per sensitive_fields)
+    description: Volunteer tab with filters and statistics, in the areas the holder has on projects at work (sensitive fields masked per sensitive_fields)
     module: M04
     sensitive: false
-    default:
-      - { role: program_manager, scope: GLOBAL }
-      - { role: regional_program_manager, scope: GLOBAL }
-      - { role: project_executive, scope: GLOBAL }
-      - { role: official_daee, scope: GLOBAL }
+    default:   # the areas of the projects at work, never the whole country (D-189)
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
   - name: volunteer.view_sensitive
     description: See volunteer NID, NID photo and bank details
     module: M04

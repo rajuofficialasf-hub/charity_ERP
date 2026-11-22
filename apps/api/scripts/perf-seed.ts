@@ -305,6 +305,16 @@ async function nameKeys(prisma: PrismaClient): Promise<void> {
   );
 }
 
+const seed = () =>
+  run('base and demo seed', 'pnpm', [
+    'exec',
+    'tsx',
+    '--conditions=@css/source',
+    'seed/run.ts',
+    '--set',
+    'all',
+  ]);
+
 async function main(): Promise<void> {
   const created = await createDatabase();
   run('migrations', 'pnpm', ['exec', 'prisma', 'migrate', 'deploy']);
@@ -315,6 +325,9 @@ async function main(): Promise<void> {
       SELECT value FROM settings WHERE key = ${MARKER}`;
     if (!created && marker.length) {
       console.warn(`perf:seed: ${database} already holds the data set (--fresh rebuilds it).`);
+      // the seed only adds and updates its own rows, so its newer rows reach the kept data set
+      // (the demo project at work, for one, which gives the Dhaka RPM the division to measure)
+      seed();
       await nameKeys(prisma);
       return;
     }
@@ -324,14 +337,7 @@ async function main(): Promise<void> {
     if (!created && volunteers > 0)
       throw new Error(`${database} holds a partial data set; run with --fresh`);
     run('locations', 'pnpm', ['db:load-locations']);
-    run('base and demo seed', 'pnpm', [
-      'exec',
-      'tsx',
-      '--conditions=@css/source',
-      'seed/run.ts',
-      '--set',
-      'all',
-    ]);
+    seed();
     const start = Date.now();
     await load(prisma);
     await nameKeys(prisma);

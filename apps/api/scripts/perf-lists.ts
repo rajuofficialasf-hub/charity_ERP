@@ -186,7 +186,7 @@ async function main(): Promise<void> {
     ['head', 'head@example.org'],
     ['rpm', 'rpm.dhaka@example.org'],
   ] as const) {
-    const vv = await viewerOf(email, 'volunteer.view_all', 'global');
+    const vv = await viewerOf(email, 'volunteer.view_all', 'volunteer');
     const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
     const mv = await viewerOf(email, 'beneficiary.merge.dismiss', 'beneficiary');
     const ov = await viewerOf(email, 'project.overview.view', 'program');
@@ -281,6 +281,23 @@ async function main(): Promise<void> {
     );
     out();
   }
+  // the volunteer tab of a PM reads the areas of the own program's projects at work
+  // (docs/testing/PERFORMANCE.md, "The volunteer tab inside a person's reach")
+  const pv = await viewerOf('pm.hum@example.org', 'volunteer.view_all', 'volunteer');
+  results.push(
+    await measure('pm volunteers.list first page', () => c.volunteerList.list({ ...page }, pv)),
+    await measure('pm volunteers.list with total', () =>
+      c.volunteerList.list({ ...page, include: 'total' }, pv),
+    ),
+    await measure('pm volunteers.list name search + total', () =>
+      c.volunteerList.list(
+        { ...page, q: SEARCH_TERMS.volunteerPair, include: 'total' } as VolunteerQuery,
+        pv,
+      ),
+    ),
+    await measure('pm volunteers.statistics all', () => c.volunteerList.statistics({}, pv)),
+  );
+  out();
 
   // the office's list of one project's applications, on the project with the most of them
   // (docs/testing/PERFORMANCE.md, "The application lists")

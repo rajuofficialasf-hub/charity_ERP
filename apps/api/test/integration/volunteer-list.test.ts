@@ -27,7 +27,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
 });
 afterAll(async () => h.close());
 
@@ -46,9 +50,15 @@ async function someone(
   return { account: a, volunteerId };
 }
 
-async function staff(role: string) {
+/** An official with a place in a division on a project at work, so the volunteers there are theirs to see. */
+async function placed(role: string, tree: Tree) {
   const a = await account(h.db, { role });
-  accounts.set(a.id, a);
+  const project = await f.project(h.db, { status: 'active' });
+  await h.db.query(
+    `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+     VALUES ($1, $2, $3, $4, $5, $3)`,
+    [randomUUID(), project.id, a.id, role, tree.division],
+  );
   return login(h, a);
 }
 
@@ -169,7 +179,9 @@ describe('the volunteer list', () => {
     const rpm = await as(world.users.rpmDhaka);
     expect(ids(await list(rpm, { q: nid }))).toEqual([dhaka.volunteerId]);
     expect(ids(await list(rpm, { q: otherNid }))).toEqual([]);
-    const daee = await staff('official_daee');
+    // the Official দায়ী of the area lists the volunteer and still finds no NID
+    const daee = await placed('official_daee', world.dhaka);
+    expect(ids(await list(daee, { unionId: world.dhaka.union }))).toContain(dhaka.volunteerId);
     expect(ids(await list(daee, { q: nid }))).toEqual([]);
     const head = await as(world.users.head);
     expect(ids(await list(head, { q: otherNid }))).toEqual([rangpur.volunteerId]);
@@ -187,7 +199,7 @@ describe('the volunteer list', () => {
     expect(ids(await list(monitoring, { unionId: tree.union, category: 'inactive' }))).toEqual([
       rated.volunteerId,
     ]);
-    const daee = await staff('official_daee');
+    const daee = await placed('official_daee', tree);
     const hidden = (await list(daee, { unionId: tree.union })).body.data[0];
     expect(hidden.id).toBe(rated.volunteerId);
     expect(hidden).not.toHaveProperty('category');
@@ -254,7 +266,7 @@ describe('the statistics of the volunteer tab', () => {
     expect(narrower.body.data.volunteers).toMatchObject({ total: 1, pending: 1, active: 0 });
     expect(narrower.body.data.applications.total).toBe(0);
     // without the rating class there is no inactive count
-    const daee = await staff('official_daee');
+    const daee = await placed('official_daee', tree);
     const masked = await statistics(daee, { districtId: tree.district });
     expect(masked.body.data.volunteers).not.toHaveProperty('inactive');
     expect(masked.body.data.volunteers.total).toBe(4);
@@ -292,6 +304,148 @@ describe('the statistics of the volunteer tab', () => {
     expect(res.body.data.volunteers.total).toBe(Number(rows[0]!.people));
     expect(res.body.data.volunteers.active).toBe(Number(rows[0]!.active));
     expect(res.body.data.applications.total).toBe(Number(rows[0]!.work));
+  });
+});
+
+// Whom the tab reaches (docs/BUSINESS_RULES.md, "An official sees the volunteers whose address
+// lies in the areas they hold on projects at work").
+describe('whom the volunteer tab reaches', () => {
+  const total = async (s: Session, query: Record<string, string> = {}) =>
+    (await statistics(s, query)).body.data.volunteers.total as number;
+  const areaOf = (projectId: string, locationId: string, rpmUserId: string) =>
+    h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), projectId, locationId, rpmUserId],
+    );
+
+  it('shows an RPM the volunteers of the own division and nobody of another, in the list and its counts', async () => {
+    const near = await someone(world.dhaka);
+    const waiting = await someone(world.dhaka, { state: 'pending' });
+    const far = await someone(world.rangpur);
+    const rpm = await as(world.users.rpmDhaka);
+    expect(ids(await list(rpm, { unionId: world.dhaka.union, limit: '100' }))).toEqual(
+      expect.arrayContaining([near.volunteerId, waiting.volunteerId]),
+    );
+    expect(ids(await list(rpm, { unionId: world.rangpur.union }))).toEqual([]);
+    expect(await total(rpm, { divisionId: world.rangpur.division })).toBe(0);
+    // without a filter the RPM counts the division, as the Department Head counts it there
+    const head = await as(world.users.head);
+    expect(await total(rpm)).toBe(await total(head, { divisionId: world.dhaka.division }));
+    const rangpur = await as(world.users.rpmRangpur);
+    expect(ids(await list(rangpur, { unionId: world.rangpur.union, limit: '100' }))).toContain(
+      far.volunteerId,
+    );
+    expect(ids(await list(rangpur, { unionId: world.dhaka.union }))).toEqual([]);
+  });
+
+  it('shows an Executive and an Official দায়ী with two districts the volunteers of those districts alone', async () => {
+    const first = await f.locationTree(h.db);
+    /** Another district of the same division. */
+    const sibling = async () => {
+      const tree = await f.locationTree(h.db);
+      await h.db.query('UPDATE locations SET parent_id = $1 WHERE id = $2', [
+        first.division,
+        tree.district,
+      ]);
+      return { ...tree, division: first.division };
+    };
+    const second = await sibling();
+    const third = await sibling();
+    const inFirst = await someone(first);
+    const inSecond = await someone(second);
+    await someone(third);
+    const project = await f.project(h.db, { status: 'active' });
+    for (const role of ['project_executive', 'official_daee']) {
+      const official = await account(h.db, { role });
+      const place = randomUUID();
+      await h.db.query(
+        `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+         VALUES ($1, $2, $3, $4, $5, $3)`,
+        [place, project.id, official.id, role, first.division],
+      );
+      for (const district of [first.district, second.district])
+        await h.db.query(
+          'INSERT INTO project_staff_districts (id, project_staff_id, location_id) VALUES ($1, $2, $3)',
+          [randomUUID(), place, district],
+        );
+      const s = await login(h, official);
+      expect(ids(await list(s, { divisionId: first.division })).sort(), role).toEqual(
+        [inFirst.volunteerId, inSecond.volunteerId].sort(),
+      );
+      expect(await total(s), role).toBe(2);
+    }
+  });
+
+  it('shows a PM every area of the own program projects at work, and nothing where the program has no area', async () => {
+    const near = await someone(world.dhaka);
+    const far = await someone(world.rangpur);
+    const nowhere = await f.locationTree(h.db);
+    await someone(nowhere);
+    const pm = await as(world.users.pm);
+    expect(ids(await list(pm, { unionId: world.dhaka.union, limit: '100' }))).toContain(
+      near.volunteerId,
+    );
+    expect(ids(await list(pm, { unionId: world.rangpur.union, limit: '100' }))).toContain(
+      far.volunteerId,
+    );
+    expect(ids(await list(pm, { unionId: nowhere.union }))).toEqual([]);
+    // the PM of the other program, whose project holds no area
+    const other = await account(h.db, { role: 'program_manager' });
+    await h.db.query('UPDATE programs SET pm_user_id = $1 WHERE id = $2', [
+      other.id,
+      world.b1.program,
+    ]);
+    const s = await login(h, other);
+    expect(ids(await list(s))).toEqual([]);
+    expect(await total(s)).toBe(0);
+  });
+
+  it('is empty while the project is a draft and after its close, and back after the reopen; a draft still offers its area to choose from', async () => {
+    const tree = await f.locationTree(h.db);
+    const person = await someone(tree);
+    const official = await account(h.db, { role: 'regional_program_manager' });
+    const project = await f.project(h.db);
+    await areaOf(project.id, tree.division, official.id);
+    const rpm = await login(h, official);
+    const seen = async () => ids(await list(rpm, { unionId: tree.union }));
+    const become = (status: string) =>
+      h.db.query('UPDATE projects SET status = $1 WHERE id = $2', [status, project.id]);
+
+    expect(await seen()).toEqual([]);
+    expect(await total(rpm)).toBe(0);
+    // the project's own candidate list reads its areas whatever its state
+    const candidates = await api()
+      .get(`/api/v1/projects/${project.id}/volunteer-candidates`)
+      .set(bearer(rpm));
+    expect(candidates.status).toBe(200);
+    expect((candidates.body.data as { volunteerId: string }[]).map((c) => c.volunteerId)).toEqual([
+      person.volunteerId,
+    ]);
+
+    // active, closing, closed, and reopened
+    for (const [status, shown] of [
+      ['active', true],
+      ['closing', true],
+      ['closed', false],
+      ['active', true],
+    ] as const) {
+      await become(status);
+      expect(await seen(), status).toEqual(shown ? [person.volunteerId] : []);
+      expect(await total(rpm), status).toBe(shown ? 1 : 0);
+    }
+  });
+
+  it('shows an Admin, the Department Head and the Monitoring Team everyone', async () => {
+    const near = await someone(world.dhaka);
+    const nowhere = await f.locationTree(h.db);
+    const far = await someone(nowhere);
+    for (const who of [world.users.admin, world.users.head, world.users.monitoring]) {
+      const s = await as(who);
+      expect(ids(await list(s, { unionId: world.dhaka.union, limit: '100' }))).toContain(
+        near.volunteerId,
+      );
+      expect(ids(await list(s, { unionId: nowhere.union }))).toEqual([far.volunteerId]);
+    }
   });
 });
 

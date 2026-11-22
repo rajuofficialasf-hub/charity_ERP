@@ -32,7 +32,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
   // a third division where only another program (B1) works
   sylhet = await f.locationTree(h.db);
   await h.db.query(
@@ -84,6 +88,30 @@ const auditOf = async (entityId: string) =>
   ).rows as { action: string; reason: string | null }[];
 
 describe('the pending list and approval in scope', () => {
+  it('shows a registration of a division with no project at work to the global roles alone', async () => {
+    const tree = await f.locationTree(h.db);
+    const registered = await registerVolunteer(tree);
+    // the division's only project is still a draft
+    const waiting = await account(h.db, { role: 'regional_program_manager' });
+    const project = await f.project(h.db);
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), project.id, tree.division, waiting.id],
+    );
+    const rpm = await login(h, waiting);
+    const listed = async (s: Session) =>
+      ((await list(s)).body.data as { userId: string }[]).map((r) => r.userId);
+    expect(await listed(rpm)).not.toContain(registered.userId);
+    expect((await approve(rpm, registered.userId)).status).toBe(404);
+    expect(await listed(await as(world.users.rpmDhaka))).not.toContain(registered.userId);
+    for (const who of [world.users.head, world.users.monitoring])
+      expect(await listed(await as(who))).toContain(registered.userId);
+    // once the project is at work the RPM decides it
+    await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [project.id]);
+    expect(await listed(rpm)).toContain(registered.userId);
+    expect((await approve(rpm, registered.userId)).status).toBe(200);
+  });
+
   it('the Dhaka RPM lists and approves a Dhaka registration and gets 404 for a Rangpur one', async () => {
     const dhaka = await registerVolunteer(world.dhaka);
     const rangpur = await registerVolunteer(world.rangpur);

@@ -336,6 +336,36 @@ version in memory by its id after the link's checks of each request; an export's
 the time limit of the list reads; the Media Team's home counts its referrals grouped by project and
 state and its works grouped by stage once per program, in place of reading every referral.
 
+### The volunteer tab inside a person's reach (D-189, BR-324; 2026-11-22)
+
+The volunteer tab no longer shows every volunteer to every official: below the global roles it
+shows the volunteers whose address lies in the areas a person holds on projects at work. The list,
+its counts and its export take the caller's reach as one more condition (`volunteerWhere` in
+`apps/api/src/access/scope.ts`). For the measurement the demo seed gives the Dhaka RPM the Dhaka
+division of a project at work (10,100 of the 50,021 volunteers) and the PM of that project's
+program both of its divisions (16,050); `perf:seed` on a kept data set now runs the seed again, so
+its newer rows reach it.
+
+An area compares the volunteer's four address columns with the caller's locations, which the
+indexes of the tab serve as they serve the area filter. A program or a project was first read as
+"the volunteer's division, district, upazila or union is an area of one of its projects", four
+relation conditions that the count of the applications of those volunteers could only answer by
+joining every application to its owner and the owner's four locations: 695 ms at p95 for the PM.
+The scope's resolution now turns a program or a project into the locations of its projects at work
+once per request (`resolveInstances`), so the PM's filter is the same plain comparison as the
+RPM's. Measured by `perf:lists --only volunteers`, 20 runs each, in ms:
+
+| Case | Head p95 | RPM p95 | PM p95 before | PM p95 after |
+|---|---|---|---|---|
+| first page (25 rows) | 32 | 23 | 21 | 16 |
+| with total | 20 | 33 | 84 | 19 |
+| name search + total | 70 | 34 | 143 | 61 |
+| not blocked + total | 36 | 155 | not measured | not measured |
+| statistics, no filter | 157 | 89 | 695 | 93 |
+
+Every case stays under the 300 ms target. The slowest of the RPM is the list without the blocked
+with its total (155 ms): the blocked ids are excluded by a list in the statement, as before.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

@@ -20,10 +20,14 @@ const principal = (userId: string) => ({ userId }) as Principal;
 
 beforeAll(async () => {
   h = await authHarness();
-  world = await accessWorld(h.db, {
-    staff: async (role) => (await account(h.db, { kind: 'staff', role })).id,
-    volunteerUser: async (role) => (await account(h.db, { kind: 'volunteer', role })).id,
-  });
+  world = await accessWorld(
+    h.db,
+    {
+      staff: async (role) => (await account(h.db, { kind: 'staff', role })).id,
+      volunteerUser: async (role) => (await account(h.db, { kind: 'volunteer', role })).id,
+    },
+    { atWork: true },
+  );
   const ids = async (userId: string) =>
     (await h.db.query('SELECT id FROM volunteers WHERE user_id = $1', [userId])).rows[0]
       .id as string;

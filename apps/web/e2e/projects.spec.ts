@@ -337,6 +337,8 @@ test.describe('programs and project setup', () => {
       .getByRole('article', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম' })
       .getByRole('link', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', exact: true })
       .click();
+    // the pointer rests where the program's card was: a project card under it would turn over
+    await page.mouse.move(0, 0);
     await page
       .getByRole('article', { name: 'শীতবস্ত্র বিতরণ 2026' })
       .getByRole('link', { name: 'শীতবস্ত্র বিতরণ 2026', exact: true })

@@ -7144,14 +7144,16 @@ paths:
     get:
       tags: [volunteers]
       operationId: volunteers.volunteer.list
-      summary: Nationwide volunteer tab with filters (masks per role)
+      summary: Volunteer tab with filters, inside the caller's reach (masks per role)
       description: >-
-        Every volunteer in every state for a holder of volunteer.view_all, newest first (O-67, D-094).
-        The category filter is refused (403) to a caller without the volunteer.rating class. A search
+        The volunteers in every state that a holder of volunteer.view_all reaches, newest first (O-67,
+        D-094, D-189): everyone for an Admin, the Department Head and the Monitoring Team; for the
+        others the volunteers whose address lies in the areas they hold on projects at work (active
+        or closing). The category filter is refused (403) to a caller without the volunteer.rating class. A search
         in digits matches the exact mobile number, and the exact NID only inside the caller's
         volunteer.view_sensitive scope.
       x-permission: volunteer.view_all
-      x-scope: global
+      x-scope: volunteer
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
@@ -7188,11 +7190,11 @@ paths:
       operationId: volunteers.volunteer.statistics
       summary: Counts of the volunteer tab for the filters in use (masks per role)
       description: >-
-        The same filters as the list (O-67): volunteers by account state, the inactive count only with
+        The same filters and the same reach as the list (O-67, D-189): volunteers by account state, the inactive count only with
         the volunteer.rating class, and their applications (all but drafts and deleted ones, approved
         or later, under review).
       x-permission: volunteer.view_all
-      x-scope: global
+      x-scope: volunteer
       x-audit: none
       x-idempotency: none
       x-rate-limit: list

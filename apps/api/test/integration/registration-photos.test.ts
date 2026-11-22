@@ -207,12 +207,24 @@ describe('GET /files/{fileId}/content', () => {
   /** An RPM whose region is the division of a location tree (a project area). */
   async function rpmOf(tree: Awaited<ReturnType<typeof f.locationTree>>) {
     const rpm = await account(h.db, { role: 'regional_program_manager' });
-    const p = await f.project(h.db);
+    // a project at work: only its areas show a person the volunteers living there
+    const p = await f.project(h.db, { status: 'active' });
     await h.db.query(
       'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
       [randomUUID(), p.id, tree.division, rpm.id],
     );
     return rpm;
+  }
+  /** An Official দায়ী with a place in the division on a project at work: no identity class. */
+  async function daeeOf(tree: Awaited<ReturnType<typeof f.locationTree>>) {
+    const daee = await account(h.db, { role: 'official_daee' });
+    const p = await f.project(h.db, { status: 'active' });
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+       VALUES ($1, $2, $3, 'official_daee', $4, $3)`,
+      [randomUUID(), p.id, daee.id, tree.division],
+    );
+    return daee;
   }
 
   const content = (fileId: string, session?: Awaited<ReturnType<typeof login>>) => {
@@ -278,19 +290,26 @@ describe('GET /files/{fileId}/content', () => {
 
   it('keeps the NID photo from an official who reaches the volunteer without the identity class', async () => {
     const { photo, nidPhoto } = await volunteerWithPhotos();
-    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    const daee = await login(h, await daeeOf(loc));
     expect((await content(photo, daee)).status).toBe(200);
     expect((await content(nidPhoto, daee)).status).toBe(404);
   });
 
-  it('keeps the NID photo from an RPM of another region, who still sees the photo', async () => {
+  it('keeps both photos from an RPM of another region, of a project not at work, and of no region', async () => {
     const { photo, nidPhoto } = await volunteerWithPhotos();
     const elsewhere = await login(h, await rpmOf(await f.locationTree(h.db)));
-    expect((await content(photo, elsewhere)).status).toBe(200);
-    expect((await content(nidPhoto, elsewhere)).status).toBe(404);
-    // an RPM with no region at all sees no NID photo either
-    const none = await login(h, await account(h.db, { role: 'regional_program_manager' }));
-    expect((await content(nidPhoto, none)).status).toBe(404);
+    // the region is the volunteer's, but its project is still a draft
+    const waiting = await account(h.db, { role: 'regional_program_manager' });
+    const draft = await f.project(h.db);
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), draft.id, loc.division, waiting.id],
+    );
+    const none = await account(h.db, { role: 'regional_program_manager' });
+    for (const who of [elsewhere, await login(h, waiting), await login(h, none)]) {
+      expect((await content(photo, who)).status).toBe(404);
+      expect((await content(nidPhoto, who)).status).toBe(404);
+    }
   });
 
   it("audits an official's view of an NID photo, not the owner's", async () => {
@@ -327,7 +346,7 @@ describe('GET /files/{fileId}/content', () => {
     expect(audits.rows).toEqual([
       { new: { kind: 'nid_photo', records: [], ownerUserId: owner.id, position: false } },
     ]);
-    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    const daee = await login(h, await daeeOf(loc));
     expect(
       (await request(h.server()).get(`/api/v1/files/${nidPhoto}/download`).set(bearer(daee)))
         .status,
@@ -346,7 +365,7 @@ describe('GET /files/{fileId}/content', () => {
     );
     expect(audits.rows).toEqual([{ new: { ownerUserId: owner.id, metadata: true } }]);
     // an official without the identity class learns nothing of it
-    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    const daee = await login(h, await daeeOf(loc));
     expect(
       (await request(h.server()).get(`/api/v1/files/${nidPhoto}`).set(bearer(daee))).status,
     ).toBe(404);

@@ -32,7 +32,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
 });
 afterAll(async () => h.close());
 

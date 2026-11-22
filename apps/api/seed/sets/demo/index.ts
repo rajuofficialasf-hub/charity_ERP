@@ -9,7 +9,7 @@ import {
 import { type FormField, publishDefinitionSchema } from '@css/shared/forms';
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
-import { workflowVersionOf } from '../base/workflows.js';
+import { readWorkflowTemplates, workflowVersionOf } from '../base/workflows.js';
 import { writeDefinitionRows } from '../../../src/services/forms.js';
 import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
@@ -600,16 +600,97 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         ],
       },
     };
-    for (const [key, settings] of Object.entries(components)) {
-      componentSettingsSchema(key).parse(settings);
-      await ctx.upsert('project_components', {
-        id: seedId(`project-component:WNT:${key}`),
-        project_id: projectId,
-        component_key: key,
-        enabled: true,
-        settings: json(settings),
+    // a project at work beside the draft: only the areas of an active or a closing project show
+    // the people who hold them the volunteers living there, so the two RPMs, the Executive and the
+    // Official দায়ী meet the volunteers of their divisions in the demo
+    const activeSeriesId = seedId('project-series:IFT');
+    await ctx.upsert('project_series', {
+      id: activeSeriesId,
+      program_id: seedId('program:HUM'),
+      code: 'IFT',
+      name_bn: 'ইফতার বিতরণ',
+      name_en: 'Iftar Distribution',
+      ...ctx.audit(),
+    });
+    const activeId = seedId('project:IFT:2026');
+    const distribution = readWorkflowTemplates().find((t) => t.template === 'distribution');
+    await ctx.upsert('projects', {
+      id: activeId,
+      program_id: seedId('program:HUM'),
+      series_id: activeSeriesId,
+      code: 'IFT',
+      year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+      name_bn: 'ইফতার বিতরণ 2026',
+      name_en: 'Iftar Distribution 2026',
+      description: demoName('চালু প্রকল্প, ডেমো ডেটা'),
+      status: 'active',
+      activated_at: SEED_AT,
+      workflow_definition_id: seedId(`workflow:distribution:${workflowVersionOf('distribution')}`),
+      workflow_version: workflowVersionOf('distribution'),
+      // an active project runs on the definition it was activated with
+      workflow_snapshot: json(distribution),
+      per_volunteer_limit: 50,
+      cost_per_beneficiary: '900.00',
+      target_beneficiaries: 1000,
+      ...ctx.audit(),
+    });
+    await ctx.upsert(
+      'id_sequences',
+      { scope_key: `app:${activeId}`, last_value: 0 },
+      { key: ['scope_key'], insertOnly: ['last_value'] },
+    );
+    for (const [rpm, location] of [
+      ['rpm_dhaka', dhaka[0]!.division],
+      ['rpm_rangpur', rangpur[0]!.division],
+    ] as const) {
+      await ctx.upsert('project_areas', {
+        id: seedId(`project-area:IFT:${rpm}`),
+        project_id: activeId,
+        location_id: location,
+        rpm_user_id: userId(rpm),
         ...ctx.audit(),
       });
+    }
+    // the field officials under the Dhaka RPM, each with the whole division
+    for (const [key, role] of [
+      ['executive', 'project_executive'],
+      ['official_daee', 'official_daee'],
+    ] as const) {
+      await ctx.upsert(
+        'project_staff',
+        {
+          id: seedId(`project-staff:IFT:${key}`),
+          project_id: activeId,
+          user_id: userId(key),
+          role_key: role,
+          area_location_id: dhaka[0]!.division,
+          can_view: true,
+          can_edit: true,
+          can_delete: false,
+          granted_by: userId('rpm_dhaka'),
+          ...ctx.audit(),
+        },
+        // a handover or an end of the place in a dev database stays as the person left it
+        { insertOnly: ['user_id', 'area_location_id', 'can_view', 'can_edit', 'can_delete'] },
+      );
+    }
+    for (const [code, id] of [
+      ['WNT', projectId],
+      ['IFT', activeId],
+    ] as const) {
+      for (const [key, settings] of Object.entries(components)) {
+        componentSettingsSchema(key).parse(settings);
+        await ctx.upsert('project_components', {
+          id: seedId(`project-component:${code}:${key}`),
+          project_id: id,
+          component_key: key,
+          enabled: true,
+          settings: json(settings),
+          ...ctx.audit(),
+        });
+      }
     }
 
     // the duplicate pairs: a draft form version of WNT for their applications, the four

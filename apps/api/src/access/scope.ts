@@ -1,3 +1,4 @@
+import { AT_WORK_STATUSES } from '@css/shared/projects';
 import type { Tx } from '../core/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PERMISSION_MARKERS } from '../openapi/drift.js';
@@ -229,6 +230,25 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
   ];
 }
 
+/** The condition of a project at work, as a filter. */
+const atWork = { status: { in: [...AT_WORK_STATUSES] } };
+
+/**
+ * The areas that show volunteers: an area without a project (a panel grant on a location) and the
+ * areas of the projects at work. The areas of a draft, a closed or a cancelled project show
+ * nobody (docs/security/RBAC.md, "Data scopes and their resolution").
+ */
+async function areasAtWork(db: Tx, areas: Area[]): Promise<Area[]> {
+  const ids = [...new Set(areas.flatMap((a) => (a.projectId ? [a.projectId] : [])))];
+  if (!ids.length) return areas;
+  const projects = await db.project.findMany({
+    where: { id: { in: ids }, ...atWork },
+    select: { id: true },
+  });
+  const working = new Set(projects.map((p) => p.id));
+  return areas.filter((a) => a.projectId === null || working.has(a.projectId));
+}
+
 /** The entities a grant limited to the attached house-construction projects reaches. */
 const HOUSE_PROJECT_ENTITIES: ReadonlySet<string> = new Set([
   'beneficiary',
@@ -395,6 +415,27 @@ export async function resolveInstances(
   if (regionProjects.size) inst.areas.push(...(await ownAreas(db, actorId, regionProjects)));
   if (volunteerRegionProjects.size)
     inst.volunteerAreas.push(...(await ownAreas(db, actorId, volunteerRegionProjects)));
+  // volunteers are shown by the areas of the projects at work; every other record of a project
+  // stays with the people who work or worked on it
+  if (entity === 'volunteer') {
+    inst.areas = await areasAtWork(db, inst.areas);
+    // a program or a project stands for the areas of its projects at work, read here once: the
+    // filter then compares plain address columns (docs/testing/PERFORMANCE.md, "The volunteer tab
+    // inside a person's reach")
+    if (inst.programIds.length || inst.projectIds.length)
+      inst.areas.push(
+        ...(await db.projectArea.findMany({
+          where: {
+            project: {
+              OR: [{ programId: { in: inst.programIds } }, { id: { in: inst.projectIds } }],
+              ...atWork,
+            },
+          },
+          select: { projectId: true, locationId: true },
+        })),
+      );
+  }
+  if (entity === 'user') inst.volunteerAreas = await areasAtWork(db, inst.volunteerAreas);
   const revokedPrograms = revokes
     .filter((r) => r.scopeType === 'PROGRAM' && r.scopeRef !== null)
     .map((r) => r.scopeRef as string);
@@ -498,7 +539,6 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
 }
 
 const ADDRESS_COLUMNS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const;
-const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
 
 /** The address columns that name one of the locations, at any level. */
 const addressIn = (locationIds: string[]) =>
@@ -531,10 +571,11 @@ function userOutsideRevoked(i: ScopeInstances): Prisma.UserWhereInput | null {
 /**
  * The volunteers a scope reaches by their address (entity `volunteer`): everyone at GLOBAL; the own
  * row for SELF; for an area (REGION, a split district or a smaller area) the volunteers whose
- * division, district, upazila or union is that location; for PROGRAM and PROJECT the volunteers in
- * the area locations of those projects, never of a revoked one. A pending or unassigned volunteer
- * is on no project, so the address decides. A volunteer whose address lies in a revoked location is
- * left out, whichever grant reaches them.
+ * division, district, upazila or union is that location. The areas of the scope are those of the
+ * projects at work, and a PROGRAM or a PROJECT grant is among them as the areas of its projects at
+ * work, never of a revoked one (`resolveInstances`), so a program or a project that holds no such
+ * area reaches nobody. A pending or unassigned volunteer is on no project, so the address decides.
+ * A volunteer whose address lies in a revoked location is left out, whichever grant reaches them.
  */
 export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const i = scope.instances;
@@ -545,15 +586,6 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   const locations = [...new Set([...i.areas, ...i.volunteerAreas].map((a) => a.locationId))];
   if (locations.length)
     for (const column of ADDRESS_COLUMNS) or.push({ [column]: { in: locations } });
-  const inAreasOf = (area: Prisma.ProjectAreaWhereInput) =>
-    ADDRESS_RELATIONS.map((relation) => ({
-      [relation]: { projectAreasLocation: { some: area } },
-    }));
-  if (i.programIds.length)
-    or.push(
-      ...inAreasOf({ project: { programId: { in: i.programIds } }, ...projectNotRevoked(i) }),
-    );
-  if (i.projectIds.length) or.push(...inAreasOf({ projectId: { in: i.projectIds } }));
   if (!or.length) return { id: { in: [] } };
   return outside ? { AND: [{ OR: or }, outside] } : { OR: or };
 }
