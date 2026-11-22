@@ -22,7 +22,7 @@ import { MatchKeysService, profileKeysWith } from '../../../src/services/match-k
  * become functional.
  */
 export const DEMO_PASSWORD = 'CssDemo2026';
-const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 } as const; // Argon2id, as the API hashes
+export const ARGON2 = { memoryCost: 19456, timeCost: 2, parallelism: 1, algorithm: 2 } as const; // Argon2id, as the API hashes
 
 export interface DemoStaff {
   key: string;
@@ -316,7 +316,7 @@ const MALE = [
 ];
 const FATHERS = ['আব্দুল জব্বার', 'মো. ইউসুফ', 'আলী আকবর', 'কাশেম আলী', 'আব্দুর রশিদ'];
 
-interface UnionRef {
+export interface UnionRef {
   division: string;
   district: string;
   upazila: string;

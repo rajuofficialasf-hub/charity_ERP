@@ -336,7 +336,7 @@ version in memory by its id after the link's checks of each request; an export's
 the time limit of the list reads; the Media Team's home counts its referrals grouped by project and
 state and its works grouped by stage once per program, in place of reading every referral.
 
-### The volunteer tab inside a person's reach (D-189, BR-324; 2026-11-22)
+### The volunteer tab inside a person's reach (D-193, BR-324; 2026-11-22)
 
 The volunteer tab no longer shows every volunteer to every official: below the global roles it
 shows the volunteers whose address lies in the areas a person holds on projects at work. The list,
@@ -366,7 +366,7 @@ RPM's. Measured by `perf:lists --only volunteers`, 20 runs each, in ms:
 Every case stays under the 300 ms target. The slowest of the RPM is the list without the blocked
 with its total (155 ms): the blocked ids are excluded by a list in the statement, as before.
 
-### The beneficiary tab inside a person's reach (D-189, BR-326; 2026-11-22)
+### The beneficiary tab inside a person's reach (D-193, BR-326; 2026-11-22)
 
 Below the global roles the beneficiary tab shows the people with an application in the caller's
 projects, inside the caller's part of each: an area of a project reaches the applications of that

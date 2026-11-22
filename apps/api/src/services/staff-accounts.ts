@@ -33,6 +33,48 @@ import { isGivableOfficialRole, refuseRole } from './registrations.js';
 /** The set-password link: 72 hours, once. */
 export const INVITATION_RULES = { validMs: 72 * 3_600_000 } as const;
 
+/** The address of the set-password page for a link's token. */
+export const invitationLink = (appOrigin: string, token: string) =>
+  `${appOrigin.replace(/\/$/, '')}/invite#${token}`;
+
+/**
+ * Revokes the open link of an account and stores a new one; the token itself is never stored,
+ * only its hash, so the token returned here is the one copy. The admin's screen and the seed of
+ * the department's own officials both make their links here, so there is one way to make a link.
+ */
+export async function createInvitation(
+  tx: Tx,
+  audit: AuditWriter,
+  args: { userId: string; createdBy: string; now: Date; reissued: boolean },
+): Promise<{ token: string; invitationId: string; expiresAt: Date }> {
+  const { userId, createdBy, now, reissued } = args;
+  await tx.accountInvitation.updateMany({
+    where: { userId, usedAt: null, revokedAt: null },
+    data: { revokedAt: now },
+  });
+  const token = randomBytes(32).toString('base64url');
+  const invitationId = uuidv7();
+  const expiresAt = new Date(now.getTime() + INVITATION_RULES.validMs);
+  await tx.accountInvitation.create({
+    data: {
+      id: invitationId,
+      userId,
+      tokenHash: tokenHash(token),
+      expiresAt,
+      createdAt: now,
+      createdBy,
+    },
+  });
+  await audit.record(tx, {
+    action: 'user.invited',
+    entityType: 'user',
+    entityId: userId,
+    actorUserId: createdBy,
+    new: { invitationId, expiresAt: expiresAt.toISOString(), reissued },
+  });
+  return { token, invitationId, expiresAt };
+}
+
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
 /** How far a supervisor chain is followed before it counts as a loop (no real line is this deep). */
@@ -294,33 +336,13 @@ export class StaffAccountsService {
     }
   }
 
-  /** Revokes the open link and stores a new one; the token itself is never stored. */
-  private async issue(tx: Tx, actor: Principal, userId: string, reissued: boolean) {
-    const now = this.clock.now();
-    await tx.accountInvitation.updateMany({
-      where: { userId, usedAt: null, revokedAt: null },
-      data: { revokedAt: now },
+  private issue(tx: Tx, actor: Principal, userId: string, reissued: boolean) {
+    return createInvitation(tx, this.audit, {
+      userId,
+      createdBy: actor.userId,
+      now: this.clock.now(),
+      reissued,
     });
-    const token = randomBytes(32).toString('base64url');
-    const invitationId = uuidv7();
-    const expiresAt = new Date(now.getTime() + INVITATION_RULES.validMs);
-    await tx.accountInvitation.create({
-      data: {
-        id: invitationId,
-        userId,
-        tokenHash: tokenHash(token),
-        expiresAt,
-        createdAt: now,
-        createdBy: actor.userId,
-      },
-    });
-    await this.audit.record(tx, {
-      action: 'user.invited',
-      entityType: 'user',
-      entityId: userId,
-      new: { invitationId, expiresAt: expiresAt.toISOString(), reissued },
-    });
-    return { token, invitationId, expiresAt };
   }
 
   /**
@@ -331,7 +353,7 @@ export class StaffAccountsService {
     userId: string,
     issued: { token: string; invitationId: string; expiresAt: Date },
   ): Promise<InvitationIssued> {
-    const link = `${this.env.APP_ORIGIN.replace(/\/$/, '')}/invite#${issued.token}`;
+    const link = invitationLink(this.env.APP_ORIGIN, issued.token);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { email: true, displayName: true, jobId: true, language: true },

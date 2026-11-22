@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from './env.js';
+import { appOriginOf, DEV_APP_ORIGIN, loadEnv } from './env.js';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
@@ -44,6 +44,18 @@ describe('loadEnv', () => {
       JOBS_INLINE: false,
       SMS_MODE: 'logging',
     });
+  });
+
+  it('writes links for the PWA on a developer computer when no origin is named', () => {
+    expect(loadEnv(base).APP_ORIGIN).toBe(DEV_APP_ORIGIN);
+    expect(DEV_APP_ORIGIN).toBe('http://127.0.0.1:3000');
+  });
+
+  it('reads the origin the seed writes its links with as the API does', () => {
+    expect(appOriginOf('https://erp.example.org')).toBe('https://erp.example.org');
+    expect(appOriginOf(undefined)).toBe(DEV_APP_ORIGIN);
+    expect(appOriginOf('')).toBe(DEV_APP_ORIGIN);
+    expect(() => appOriginOf('not a url')).toThrow();
   });
 
   it('treats an empty value as unset, as in .env.example (JWT_PREVIOUS_SECRET=)', () => {

@@ -908,7 +908,7 @@ components:
         photoFileId: { type: [string, 'null'], format: uuid }
         extraAreas:
           type: array
-          description: The extra areas the person holds now for volunteers, the newest first (D-189, BR-325)
+          description: The extra areas the person holds now for volunteers, the newest first (D-193, BR-325)
           items: { $ref: '#/components/schemas/ExtraAreaRow' }
     ProjectsWork:
       type: object
@@ -1594,7 +1594,7 @@ components:
         An official's own change (D-147, BR-289). The new value is required except for the photo,
         which the own photo upload fills; the workplace is an object with the affiliation and its
         unit; a program of null asks to clear it. The supervisor is not asked for (D-148). The
-        account names no area (D-189, BR-327): an area is never asked for here.
+        account names no area (D-193, BR-327): an area is never asked for here.
       properties:
         field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, photo] }
         newValue:
@@ -6134,7 +6134,7 @@ paths:
         used. A failed email keeps the account (emailed false); the admin copies the link. Errors
         409 user.job_id_taken, registration.account_exists; 422 validation.option_unknown (roleKey,
         homeProgramId), user.supervisor_invalid (supervisorUserId). The account names no area
-        (D-189, BR-327): a body with homeDivisionId is refused (422 validation.failed).
+        (D-193, BR-327): a body with homeDivisionId is refused (422 validation.failed).
       x-permission: user.create
       x-scope: global
       x-audit: user.created
@@ -6401,7 +6401,7 @@ paths:
       description: >-
         An extra area shows an official the volunteers living there whether or not a project of
         theirs is at work there, for every volunteer permission the role holds; it shows no
-        beneficiary and no official (D-189, BR-325). The body names one active division or district,
+        beneficiary and no official (D-193, BR-325). The body names one active division or district,
         or the whole country, never both (422 otherwise). Refused with 403
         `permission.grant_refused` (`params.rule`): `self_change` for the own account,
         `whole_country_top_roles_only` when anyone but an Admin or the Department Head gives the
@@ -7266,7 +7266,7 @@ paths:
       summary: Volunteer tab with filters, inside the caller's reach (masks per role)
       description: >-
         The volunteers in every state that a holder of volunteer.view_all reaches, newest first (O-67,
-        D-094, D-189): everyone for an Admin, the Department Head and the Monitoring Team; for the
+        D-094, D-193): everyone for an Admin, the Department Head and the Monitoring Team; for the
         others the volunteers whose address lies in the areas they hold on projects at work (active
         or closing). The category filter is refused (403) to a caller without the volunteer.rating class. A search
         in digits matches the exact mobile number, and the exact NID only inside the caller's
@@ -7309,7 +7309,7 @@ paths:
       operationId: volunteers.volunteer.statistics
       summary: Counts of the volunteer tab for the filters in use (masks per role)
       description: >-
-        The same filters and the same reach as the list (O-67, D-189): volunteers by account state, the inactive count only with
+        The same filters and the same reach as the list (O-67, D-193): volunteers by account state, the inactive count only with
         the volunteer.rating class, and their applications (all but drafts and deleted ones, approved
         or later, under review).
       x-permission: volunteer.view_all
@@ -12235,7 +12235,7 @@ paths:
       description: >-
         The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
         affiliation and unit, program, supervisor, mobile, email, state, last login,
-        photo and the extra areas held now for volunteers (D-189, BR-325). A volunteer has no official profile (404; their own profile is GET /volunteers/me).
+        photo and the extra areas held now for volunteers (D-193, BR-325). A volunteer has no official profile (404; their own profile is GET /volunteers/me).
       x-permission: authenticated
       x-scope: self
       x-audit: none

@@ -162,6 +162,7 @@ Health and readiness endpoints; login with a dedicated smoke account; one read a
 |---|---|---|
 | Reference seed | Locations, reference lists (O-38), roles and permissions, workflow templates, settings with defaults | every environment except production data import |
 | Demo seed per phase | Demo accounts per role, sample programs and projects, applications in every state | development, staging, UAT |
+| The department's own officials (org set, D-189) | Real officials from a staff list kept outside the repository; set-password links in a file beside the list | the local development database only, after a reset, never beside the demo set and never in a test database |
 | Scenario fixtures | Factories in `packages/shared/testing` building exactly the rows a test needs | unit, integration, API, E2E |
 
 - Deterministic: a fixed random seed, fixed clock in tests, stable UUIDs in fixtures where snapshots depend on them.
