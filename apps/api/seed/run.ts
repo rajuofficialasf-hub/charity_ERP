@@ -7,6 +7,7 @@ import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
+import { DEV_APP_ORIGIN } from '../src/config/env.js';
 import { prismaClientFor } from '../src/core/prisma.service.js';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
 import { json, type TableCounts, SeedContext } from './context.js';
@@ -116,8 +117,8 @@ async function main(): Promise<void> {
     const list = resolve(file);
     const refusal = checkOrgTarget(process.env, REPO_ROOT, list);
     if (refusal) throw new Error(`db:seed refused: ${refusal}`);
-    const appOrigin = process.env.APP_ORIGIN;
-    if (!appOrigin) throw new Error('db:seed refused: APP_ORIGIN is not set (apps/api/.env)');
+    // the address the API itself writes into its links, so the seed's links open the same page
+    const appOrigin = process.env.APP_ORIGIN || DEV_APP_ORIGIN;
     const now = new Date();
     const path = linksFileName(list, now);
     linksPath = path;

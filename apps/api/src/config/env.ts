@@ -11,6 +11,9 @@ const flag = z
  * "Configuration and secrets"). A missing or malformed value stops the process with a clear
  * message. .env.example lists every name with placeholder values only.
  */
+/** The PWA's origin on a developer's computer, when the environment names none. */
+export const DEV_APP_ORIGIN = 'http://127.0.0.1:3000';
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -136,7 +139,7 @@ const envSchema = z
      * The PWA's public origin, written into links sent by email (the set-password link); https in
      * production.
      */
-    APP_ORIGIN: z.url().default('http://127.0.0.1:3000'),
+    APP_ORIGIN: z.url().default(DEV_APP_ORIGIN),
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
     RATE_LIMITS_RELAXED: flag,
     /**
