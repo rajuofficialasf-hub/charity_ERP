@@ -35,14 +35,14 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **R10** A photo uploaded before its size was kept gets its resolution, read once from the stored file, so the photo viewer shows it.
 
 ### Data and clean-up
-- **R11** The locations master is checked against the official BBS geocode list the owner provides: every difference is reported and fixed with the owner's approval, and a union gets its own post code where the official list has one.
+- ~~**R11**~~ (dropped by the owner, 2026-11-22) The locations master is checked against the official BBS geocode list the owner provides: every difference is reported and fixed with the owner's approval, and a union gets its own post code where the official list has one.
 - **R12** The unused column `registration_drafts.reference_lookups` is dropped by a migration with its `down.sql`.
 - **R13** The repeated code the scripted checks list across the admin pages (dialog footers, page headers on one pattern) is moved into shared pieces where the behaviour stays the same and tests prove it.
 - **R14** Every entry of "Known issues" in `docs/STATUS.md` is checked against the code: a fixed one is removed with the change that fixed it named, an open one stays with what it waits for, and the deliberate decisions move under "Decided to leave as is". The small gallery change one entry waits for (`PageBand` missing from the asf gallery, T1.9b) is made here.
 - **R15** The officials' registrations, the volunteers' edit requests and the officials' own requests on the registrations page page past their first 100 rows, as the other lists do.
 
 ## Scope
-- In: R1 to R15.
+- In: R1 to R15, without R11 (dropped).
 - Out (not now): the preparation for production (the SMS provider, the review of the notification texts, the production storage and the MinIO conditions, a shared store for several API processes, the held `@swc/core`); the work waiting for the pilot's load test (the login limit behind one address, the public link's per-IP limit, the program cards' speed); the decisions the owner already made to leave as they are (the lookup limit's two answers, the phone notice on the other admin pages, the photo's own page with one photo, the banner's small photo, the old projects' workflow snapshots); the owner's own clean-up of the retired role `implementer` in the development database; the audit exception E-002, which is reviewed by its expiry.
 
 ## Key decisions
@@ -50,7 +50,8 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **A GLOBAL-scope permission from the panel counts as a global role for the password** (the owner: "হ্যাঁ, পরের লগইনে বদলাতে বাধ্য", then, once research showed no role is given later, "প্যানেলের সব-অঞ্চল অনুমতিতেও ১২ অক্ষর"). Governs R5.
 - **The own profile's change of several details is all or nothing, and leaving the edit mode asks first** (the owner: "সব একসঙ্গে, আর সতর্ক করো"). Governs R6 and R7.
 - **The preparation for production and the load-test work stay out** (the owner's choice of 2026-11-18). Governs Scope.
-- **The locations check and the repeated code clean-up stay in** (the owner left them in). Governs R11 and R13.
+- **The repeated code clean-up stays in** (the owner left it in), and `jscpd` is downloaded once for it (the owner: "হ্যাঁ, ডাউনলোড করো", 2026-11-22). Governs R13.
+- **The locations check is dropped** (the owner, 2026-11-22: "U16 বাদ দিন"): the locations master stays as it is. Governs R11.
 - **A flaky test is fixed at its cause, never by a retry** (`docs/testing/TEST_STRATEGY.md`). Governs R3.
 - **Coverage is reported on develop only** (the owner: "কভারেজ শুধু develop-এ"), so a pull request's run stays near 19 minutes. Governs R2 and R4.
 - **The plan review's security hardening is added whole** (the owner: "সব যোগ করো"): the profile batch takes only the allowed details, a bounded list and a key scoped to the caller, and never echoes a value; only a caller with GLOBAL reach gives a GLOBAL grant, a revoke is ended only by a caller whose reach covers it, and the pickers list only the caller's own programs, projects and places; a GLOBAL grant holds an open session to the password change too; the E2E job of a pull request holds no secret; the size backfill skips oversized files; `jscpd` runs at a pinned version without secrets. Governs R2, R5, R6, R9, R10, R13.
@@ -62,7 +63,6 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 
 ## Open questions
 - **R4:** the coverage minimums per package (lines and branches). Until the owner sets them, CI reports coverage without failing.
-- **R11:** the official BBS geocode list (the file the owner gives). Until it comes, R11 waits and the rest goes ahead.
 
 ## Technical decisions
 - **Stack profile unchanged** (`CLAUDE.md`, ST-40 to ST-45): no new runtime dependency. The repeated code is found with `jscpd` run once through `pnpm dlx` at a pinned version, with an environment that holds no `.env` value or token (NE-CFG-02), and is not added to the repository.
@@ -323,7 +323,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** dropped (the owner, 2026-11-22: "U16 বাদ দিন"; the locations master stays as it is)
 
 ## Checkpoints
 - **Mode:** grouped (one by one 0, grouped 14, all at once 1; one by one's 5 moved to grouped since N is over 4)
@@ -335,8 +335,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **C5** after U11: the permission panel (permissions)
 - **C6** after U12: a job that reads the stored files (file storage)
 - **C7** after U13: a migration
-- **C8** after U17 (U14, U15, U17): the paging, the clean-up and the status; U17 comes before U16 on purpose, since U16 waits for the owner's file
-- **C9** after U16: the locations check, once the owner's file is in (end)
+- **C8** after U17 (U14, U15, U17): the paging, the clean-up and the status (end; U16 was dropped)
 
 ## Verification
 - `pnpm lint`, `pnpm typecheck`, `pnpm docs:check`, `pnpm i18n:check`
@@ -351,7 +350,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - U13: the `down.sql` restores the column with its default and check.
 
 ## Progress
-- **Branch:** U3 ships alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
+- **Branch:** U4 to U17 on `fix/open-issues-rest` from develop at b3c83378 (the owner, 2026-11-22: every remaining unit before the UAT); U3 shipped alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
 - **Next:** U4 (characterize first: a refresh in flight at the sign-out), then U5, then C2
 - **Reviewed through:** C1 at fb6d6e34 (U1 and U2 went through the pull request's own six checks and develop's run after the merge, all green; no reviewer run: two small units, one a workflow change)
 - **Uncommitted:** —
