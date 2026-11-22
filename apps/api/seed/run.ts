@@ -4,7 +4,7 @@
 // Never for production: the guard refuses NODE_ENV=production and any database that is not
 // css_erp_dev* / css_erp_test*; every run leaves a seed marker that the production start guard refuses.
 import 'dotenv/config';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
 import { prismaClientFor } from '../src/core/prisma.service.js';
@@ -13,7 +13,8 @@ import { json, type TableCounts, SeedContext } from './context.js';
 import { readPermissionsFile } from './sets/base/access.js';
 import { seedBase } from './sets/base/index.js';
 import { DEMO_PROGRAMS, seedDemo } from './sets/demo/index.js';
-import { type OrgLink, type OrgOptions, seedOrg } from './sets/org/index.js';
+import { type OrgOptions, seedOrg } from './sets/org/index.js';
+import { removeLinksFile, writeLinksFile } from './sets/org/links-file.js';
 import { readStaffList, type StaffListRow } from './sets/org/staff-file.js';
 import { checkOrgTarget, linksFileName } from './sets/org/target.js';
 import { REPO_ROOT } from './sets/util.js';
@@ -56,6 +57,12 @@ export async function runSeed(
 ): Promise<SeedReport> {
   const guard = checkDestructiveDbAccess(env);
   if (!guard.allowed) throw new Error(`db:seed refused: ${guard.reason}`);
+  // the demo accounts never join the department's own officials: their passwords are public and
+  // they would take over the programs' PMs
+  if (sets.includes('demo') && (await prisma.setting.count({ where: { key: 'seed.marker.org' } })))
+    throw new Error(
+      'db:seed refused: this database holds the department’s own officials; reset it before loading the demo set',
+    );
   const ctx = new SeedContext(prisma);
   for (const set of sets) {
     if (set === 'org') {
@@ -85,7 +92,7 @@ export async function runSeed(
 }
 
 /** The officials of the staff list, or the run stopped with every problem by line and column. */
-function staffListOf(file: string): StaffListRow[] {
+export function staffListOf(file: string): StaffListRow[] {
   const permissions = readPermissionsFile();
   const { rows, problems } = readStaffList(readFileSync(file, 'utf8'), {
     roles: Object.entries(permissions.roles)
@@ -99,15 +106,6 @@ function staffListOf(file: string): StaffListRow[] {
     throw new Error(`the staff list has ${problems.length} problem(s); nothing was written`);
   }
   return rows;
-}
-
-/** The links as a tab-separated file, created new (never over another file). */
-function writeLinksFile(path: string, links: OrgLink[]): void {
-  const lines = [
-    ['job_id', 'name', 'role', 'link', 'expires_at'].join('\t'),
-    ...links.map((l) => [l.jobId, l.name, l.roleKey, l.link, l.expiresAt].join('\t')),
-  ];
-  writeFileSync(path, `${lines.join('\n')}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
 }
 
 async function main(): Promise<void> {
@@ -131,7 +129,14 @@ async function main(): Promise<void> {
   // runSeed refuses a database outside the guard before the client opens a connection
   const prisma = prismaClientFor(process.env.DATABASE_URL ?? '');
   try {
-    const report = await runSeed(prisma, sets, process.env, org);
+    let report: SeedReport;
+    try {
+      report = await runSeed(prisma, sets, process.env, org);
+    } catch (error) {
+      // a run that failed after writing its links stored none of their tokens
+      if (linksPath) removeLinksFile(linksPath);
+      throw error;
+    }
     console.warn(
       `db:seed (${report.database}) sets ${report.sets.join(', ')}: ${JSON.stringify(report.totals)}`,
     );

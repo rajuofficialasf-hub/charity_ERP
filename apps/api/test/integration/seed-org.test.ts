@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext, seedId } from '../../seed/context.js';
+import { runSeed } from '../../seed/run.js';
 import { SYSTEM_ACTOR_ID } from '../../seed/sets/base/index.js';
 import { type OrgLink, seedOrg } from '../../seed/sets/org/index.js';
 import type { StaffListRow } from '../../seed/sets/org/staff-file.js';
@@ -10,7 +11,6 @@ import { type AuthHarness, authHarness, PASSWORD } from './support/auth-app.js';
 // here is made up; the real list stays outside the repository.
 let h: AuthHarness;
 const api = () => request(h.server());
-const NOW = new Date('2026-11-22T06:00:00Z');
 const ORIGIN = 'http://127.0.0.1:3000';
 
 const row = (over: Partial<StaffListRow> & Pick<StaffListRow, 'jobId'>): StaffListRow => ({
@@ -43,7 +43,8 @@ async function run(list = LIST, written: OrgLink[][] = []) {
   ctx.actorId = SYSTEM_ACTOR_ID;
   return seedOrg(ctx, list, {
     appOrigin: ORIGIN,
-    now: NOW,
+    // the links are issued on the app's own clock, so the set-password page reads them as open
+    now: h.clock.now(),
     writeLinks: (links) => {
       written.push(links);
     },
@@ -71,7 +72,7 @@ beforeAll(async () => {
 afterAll(async () => h.close());
 
 describe('the org seed set', () => {
-  it('makes pending officials with their roles, designations, programs and supervisors, and the programs their PM', async () => {
+  it('makes pending officials with their roles, designations, programs and supervisors, the programs their PM, and the list Admin the Main Admin', async () => {
     const written: OrgLink[][] = [];
     await run(LIST, written);
     const { rows } = await h.db.query(
@@ -117,9 +118,7 @@ describe('the org seed set', () => {
       { code: 'UCD', pm: null },
     ]);
     expect(written).toHaveLength(1);
-  });
-
-  it('makes the list Admin the Main Admin where the database has none', async () => {
+    // a fresh database has no Main Admin: the list's first Admin becomes it
     const owner = await h.db.query(`SELECT job_id FROM users WHERE is_system_owner`);
     expect(owner.rows).toEqual([{ job_id: 'ORG-2' }]);
   });
@@ -143,7 +142,9 @@ describe('the org seed set', () => {
       'roleKey',
     ]);
     expect(links[0]!.link.startsWith(`${ORIGIN}/invite#`)).toBe(true);
-    expect(links[0]!.expiresAt).toBe('2026-11-25T06:00:00.000Z');
+    expect(links[0]!.expiresAt).toBe(
+      new Date(h.clock.now().getTime() + 72 * 3_600_000).toISOString(),
+    );
     const checked = await api()
       .post('/api/v1/auth/invitations/check')
       .send({ token: tokenOf(links[3]!.link) });
@@ -208,7 +209,7 @@ describe('the org seed set', () => {
     await expect(
       seedOrg(ctx, extra, {
         appOrigin: ORIGIN,
-        now: NOW,
+        now: h.clock.now(),
         writeLinks: () => {
           throw new Error('disk full');
         },
@@ -219,9 +220,27 @@ describe('the org seed set', () => {
   });
 
   it('makes no new Main Admin where the database has one', async () => {
-    await run([LIST[0]!, row({ jobId: 'ORG-9', roleKey: 'admin', supervisorJobId: 'ORG-1' })]);
+    // the database never lets go of its Main Admin, so the first run's stays
+    await run();
+    await run([LIST[0]!, row({ jobId: 'ORG-21', roleKey: 'admin', supervisorJobId: 'ORG-1' })]);
     const owner = await h.db.query(`SELECT job_id FROM users WHERE is_system_owner`);
     expect(owner.rows).toEqual([{ job_id: 'ORG-2' }]);
+  });
+
+  it('keeps the demo set out of a database that holds the department’s own officials', async () => {
+    await h.db.query(
+      `INSERT INTO settings (key, value) VALUES ('seed.marker.org', '{"version":1}'::jsonb)`,
+    );
+    try {
+      await expect(
+        runSeed(h.container.prisma, ['demo'], {
+          NODE_ENV: 'test',
+          DATABASE_URL: h.container.env.DATABASE_URL,
+        }),
+      ).rejects.toThrow(/own officials; reset it/);
+    } finally {
+      await h.db.query(`DELETE FROM settings WHERE key = 'seed.marker.org'`);
+    }
   });
 
   it('refuses a database that holds the demo set', async () => {

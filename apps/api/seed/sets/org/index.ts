@@ -70,8 +70,8 @@ export async function seedOrg(ctx: SeedContext, rows: StaffListRow[], options: O
           language: 'bn',
           // written when the account is made, never after: the flag moves by the owner transfer alone
           isSystemOwner: !hasOwner && r.jobId === firstAdmin,
-          createdBy: ctx.actorId,
-          updatedBy: ctx.actorId,
+          createdBy: actor,
+          updatedBy: actor,
         },
       });
     }
@@ -111,7 +111,7 @@ export async function seedOrg(ctx: SeedContext, rows: StaffListRow[], options: O
         id: seedId(`user-role:${userId(r.jobId)}:${r.roleKey}`),
         user_id: userId(r.jobId),
         role_key: r.roleKey,
-        granted_by: ctx.actorId,
+        granted_by: actor,
         granted_at: SEED_AT,
       });
     }

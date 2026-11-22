@@ -8,22 +8,22 @@ import { checkOrgTarget, linksFileName } from './target.js';
 const REPO = join('D:', 'repo');
 const OUTSIDE = join('D:', 'own-data', 'staff.tsv');
 const env = (url: string) => ({ DATABASE_URL: url });
-const DEV = 'postgresql://css:css@localhost:5433/css_erp_dev';
+const DEV = 'postgresql://localhost:5433/css_erp_dev';
 
 describe('checkOrgTarget', () => {
   it('accepts the local development database and a list outside the repository', () => {
     expect(checkOrgTarget(env(DEV), REPO, OUTSIDE)).toBeNull();
     expect(
-      checkOrgTarget(env('postgresql://css:css@127.0.0.1:5433/css_erp_dev'), REPO, OUTSIDE),
+      checkOrgTarget(env('postgresql://127.0.0.1:5433/css_erp_dev'), REPO, OUTSIDE),
     ).toBeNull();
   });
 
   it('refuses a test database, a non-local host and production', () => {
+    expect(checkOrgTarget(env('postgresql://localhost:5433/css_erp_test'), REPO, OUTSIDE)).toMatch(
+      /css_erp_dev/,
+    );
     expect(
-      checkOrgTarget(env('postgresql://css:css@localhost:5433/css_erp_test'), REPO, OUTSIDE),
-    ).toMatch(/css_erp_dev/);
-    expect(
-      checkOrgTarget(env('postgresql://css:css@db.example.org:5432/css_erp_dev'), REPO, OUTSIDE),
+      checkOrgTarget(env('postgresql://db.example.org:5432/css_erp_dev'), REPO, OUTSIDE),
     ).toMatch(/this computer/);
     expect(checkOrgTarget({ ...env(DEV), NODE_ENV: 'production' }, REPO, OUTSIDE)).toMatch(
       /production/,
@@ -35,11 +35,15 @@ describe('checkOrgTarget', () => {
       /outside the repository/,
     );
     expect(checkOrgTarget(env(DEV), REPO, REPO)).toMatch(/outside the repository/);
+    // a folder whose name starts with two dots is still inside
+    expect(checkOrgTarget(env(DEV), REPO, join(REPO, '..data', 'staff.tsv'))).toMatch(
+      /outside the repository/,
+    );
   });
 
-  it('names a new links file beside the list by date and time', () => {
-    expect(linksFileName(OUTSIDE, new Date(2026, 10, 22, 9, 5))).toBe(
-      join('D:', 'own-data', 'invitations-20261122-0905.tsv'),
+  it('names a new links file beside the list by date and time to the second', () => {
+    expect(linksFileName(OUTSIDE, new Date(2026, 10, 22, 9, 5, 7))).toBe(
+      join('D:', 'own-data', 'invitations-20261122-090507.tsv'),
     );
   });
 });
