@@ -58,6 +58,10 @@
 .admin-permission-card .ui-person-name {
   white-space: normal;
 }
+/* a permission by its name, its code beside it in the secondary colour */
+.admin-permission-name code {
+  color: var(--color-text-secondary);
+}
 .admin-error {
   margin: var(--space-2) 0 0;
   color: var(--color-status-danger);

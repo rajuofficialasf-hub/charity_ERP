@@ -26,6 +26,29 @@ type Row = { permission: string; scopeType: string; source: string; grantId?: st
 
 let effective: Row[];
 let lastGrant: Record<string, unknown> | null;
+let overrides: Record<string, unknown>[];
+const PROJECT = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a55';
+const DHAKA = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a77';
+const HEAD_USER = {
+  id: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a11',
+  displayName: 'ডিপার্টমেন্ট হেড (নমুনা)',
+};
+/** A live panel override as the API lists it. */
+const override = (over: Record<string, unknown> = {}) => ({
+  id: GRANT_ID,
+  permission: 'permission.view',
+  title: { bn: 'কার কী পারমিশন আছে দেখা', en: 'View who holds which permissions' },
+  effect: 'grant',
+  scopeType: 'GLOBAL',
+  scopeRef: null,
+  scopeName: null,
+  condition: null,
+  reason: 'নজরদারির সহায়তা',
+  expiresAt: null,
+  grantedAt: '2026-11-20T04:00:00.000Z',
+  grantedBy: HEAD_USER,
+  ...over,
+});
 
 function catalogue() {
   server.use(
@@ -72,7 +95,44 @@ function catalogue() {
     http.get('*/api/v1/users/:userId/effective-permissions', () =>
       HttpResponse.json({ data: effective, meta }),
     ),
+    http.get('*/api/v1/users/:userId/permission-overrides', () =>
+      HttpResponse.json({ data: overrides, meta }),
+    ),
+    http.get('*/api/v1/projects', () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: PROJECT,
+            code: 'WC',
+            year: 2026,
+            sessionLabel: '2026',
+            name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+            status: 'active',
+          },
+        ],
+        meta: { nextCursor: null, prevCursor: null },
+      }),
+    ),
+    http.get('*/api/v1/locations', ({ request }) =>
+      HttpResponse.json({
+        data: new URL(request.url).searchParams.get('parentId')
+          ? []
+          : [{ id: DHAKA, name: { bn: 'ঢাকা', en: 'Dhaka' }, postCode: null }],
+        meta,
+      }),
+    ),
   );
+}
+
+/** Adds a permission to the dialog's list by a part of its name. */
+async function addPermission(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+  text: string,
+  option: RegExp,
+) {
+  await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন যোগ করুন/ }), text);
+  await user.click(await screen.findByRole('option', { name: option }));
 }
 
 const renderPanel = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/permissions') => {
@@ -104,6 +164,7 @@ beforeEach(() => {
   resetClientForTests();
   effective = [{ permission: 'application.review', scopeType: 'REGION', source: 'role_default' }];
   lastGrant = null;
+  overrides = [];
   catalogue();
 });
 
@@ -128,6 +189,8 @@ describe('permission panel', () => {
     await chooseExecutive(user);
     const section = await screen.findByRole('region', { name: 'কার্যকর পারমিশন' });
     expect(within(section).getByRole('heading', { name: 'মডিউল M08' })).toBeInTheDocument();
+    // each permission by its name, with its code beside it
+    expect(within(section).getAllByText('আবেদন রিভিউ করা').length).toBeGreaterThan(0);
     expect(within(section).getAllByText('application.review').length).toBeGreaterThan(0);
     expect(within(section).getAllByText('রোলের ডিফল্ট').length).toBeGreaterThan(0);
     expect(within(section).getAllByText('রিজিওন (REGION)').length).toBeGreaterThan(0);
@@ -135,19 +198,18 @@ describe('permission panel', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('grants a permission with scope and reason, then shows the panel row', async () => {
+  it('gives several permissions by name on a project chosen by name, then lists what is given', async () => {
     const user = userEvent.setup();
     server.use(
       http.post('*/api/v1/permission-grants', async ({ request }) => {
         lastGrant = (await request.json()) as Record<string, unknown>;
-        effective = [
-          ...effective,
-          {
-            permission: 'permission.view',
-            scopeType: 'GLOBAL',
-            source: 'panel_grant',
-            grantId: GRANT_ID,
-          },
+        overrides = [
+          override({
+            scopeType: 'PROJECT',
+            scopeRef: PROJECT,
+            scopeName: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+            reason: 'Monitoring help',
+          }),
         ];
         return HttpResponse.json({ data: [{ id: GRANT_ID }], meta }, { status: 201 });
       }),
@@ -156,26 +218,43 @@ describe('permission panel', () => {
     await chooseExecutive(user);
     await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
-    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
-    await user.click(await screen.findByRole('option', { name: 'permission.view' }));
+    // found by the Bengali name, and the code beside it
+    await addPermission(user, dialog, 'কার কী', /^কার কী পারমিশন আছে দেখা · permission\.view$/);
+    await addPermission(user, dialog, 'রিভিউ', /^আবেদন রিভিউ করা · application\.review$/);
+    const chosen = within(dialog).getByRole('list', { name: 'বাছাই করা পারমিশন' });
+    expect(within(chosen).getAllByRole('listitem')).toHaveLength(2);
+    // one taken out again, and added back
+    await user.click(within(chosen).getByRole('button', { name: 'আবেদন রিভিউ করা বাদ দিন' }));
+    expect(within(chosen).getAllByRole('listitem')).toHaveLength(1);
+    await addPermission(user, dialog, 'রিভিউ', /^আবেদন রিভিউ করা · application\.review$/);
     await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
-    await user.click(await screen.findByRole('option', { name: 'সারা দেশ (GLOBAL)' }));
+    await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট (PROJECT)' }));
+    const submit = within(dialog).getByRole('button', { name: 'দিন' });
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Monitoring help');
-    await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
+    // a project scope names the project: no id is typed
+    expect(submit).toBeDisabled();
+    expect(within(dialog).queryByRole('textbox', { name: /আইডি/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /প্রকল্প/ }));
+    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ · 2026 (WC)' }));
+    expect(submit).toBeEnabled();
+    await user.click(submit);
     expect(await screen.findByText('পারমিশন দেওয়া হয়েছে')).toBeInTheDocument();
     expect(lastGrant).toEqual({
       userId: EXECUTIVE.id,
-      permissions: ['permission.view'],
+      permissions: ['permission.view', 'application.review'],
       effect: 'grant',
-      scopeType: 'GLOBAL',
+      scopeType: 'PROJECT',
+      scopeRef: PROJECT,
       reason: 'Monitoring help',
     });
-    expect((await screen.findAllByText('প্যানেল')).length).toBeGreaterThan(0);
-  }, 15_000);
+    const given = await screen.findByRole('region', { name: 'যা দেওয়া আছে' });
+    const row = (await within(given).findByText('কার কী পারমিশন আছে দেখা')).closest('li')!;
+    expect(within(row).getByText('প্রজেক্ট (PROJECT): শীতবস্ত্র বিতরণ')).toBeInTheDocument();
+    expect(within(row).getByText('কারণ: Monitoring help')).toBeInTheDocument();
+  }, 20_000);
 
-  it('withholds a permission at a named scope until a date, and starts empty again', async () => {
+  it('takes a permission away in a region chosen by name until a date, and starts empty again', async () => {
     const user = userEvent.setup();
-    const REGION = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a77';
     server.use(
       http.post('*/api/v1/permission-grants', async ({ request }) => {
         lastGrant = (await request.json()) as Record<string, unknown>;
@@ -188,14 +267,15 @@ describe('permission panel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     await user.click(within(dialog).getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' }));
     const submit = within(dialog).getByRole('button', { name: 'সরিয়ে নিন' });
-    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'application');
-    await user.click(await screen.findByRole('option', { name: 'application.review' }));
+    await addPermission(user, dialog, 'application', /^আবেদন রিভিউ করা · application\.review$/);
     await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
     await user.click(await screen.findByRole('option', { name: 'রিজিওন (REGION)' }));
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), ' Not here ');
-    // a scope of a region names the region
+    // a scope of a region names the division, chosen from the address list
     expect(submit).toBeDisabled();
-    await user.type(within(dialog).getByRole('textbox', { name: /স্কোপের আইডি/ }), ` ${REGION} `);
+    expect(within(dialog).queryByRole('combobox', { name: /জেলা/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /বিভাগ/ }));
+    await user.click(await screen.findByRole('option', { name: 'ঢাকা' }));
     expect(submit).toBeEnabled();
     const date = within(dialog).getByRole('group', { name: /^মেয়াদ শেষের তারিখ/ });
     await user.click(within(date).getAllByRole('spinbutton')[0]!);
@@ -207,7 +287,7 @@ describe('permission panel', () => {
       permissions: ['application.review'],
       effect: 'revoke',
       scopeType: 'REGION',
-      scopeRef: REGION,
+      scopeRef: DHAKA,
       reason: 'Not here',
       expiresAt: '2026-12-31T23:59:59+06:00',
     });
@@ -215,7 +295,9 @@ describe('permission panel', () => {
     const again = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     expect(within(again).getByRole('radio', { name: 'পারমিশন দেওয়া' })).toBeChecked();
     expect(within(again).getByRole('textbox', { name: /কারণ/ })).toHaveValue('');
-    expect(within(again).queryByRole('textbox', { name: /স্কোপের আইডি/ })).not.toBeInTheDocument();
+    expect(
+      within(again).queryByRole('list', { name: 'বাছাই করা পারমিশন' }),
+    ).not.toBeInTheDocument();
   }, 20_000);
 
   it('shows the message of a refused change', async () => {
@@ -240,8 +322,7 @@ describe('permission panel', () => {
     await chooseExecutive(user);
     await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
-    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
-    await user.click(await screen.findByRole('option', { name: 'permission.view' }));
+    await addPermission(user, dialog, 'permission', /permission\.view$/);
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Trying it');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
     expect(
@@ -249,70 +330,110 @@ describe('permission panel', () => {
     ).toBeInTheDocument();
   });
 
-  it('ends a panel grant with a reason', async () => {
+  it('withdraws a permission given in the panel with a reason', async () => {
     const user = userEvent.setup();
-    effective = [
-      {
-        permission: 'permission.view',
-        scopeType: 'GLOBAL',
-        source: 'panel_grant',
-        grantId: GRANT_ID,
-      },
-    ];
+    overrides = [override()];
     let ended: unknown = null;
     server.use(
       http.post('*/api/v1/permission-grants/:grantId/revoke', async ({ params, request }) => {
         ended = { id: params.grantId, ...((await request.json()) as object) };
-        effective = [];
+        overrides = [];
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderPanel(HEAD);
     await chooseExecutive(user);
+    const given = await screen.findByRole('region', { name: 'যা দেওয়া আছে' });
     await user.click(
-      (await screen.findAllByRole('button', { name: 'permission.view প্রত্যাহার' }))[0]!,
+      await within(given).findByRole('button', { name: 'কার কী পারমিশন আছে দেখা প্রত্যাহার' }),
     );
     const dialog = await screen.findByRole('alertdialog', { name: 'পারমিশন প্রত্যাহার' });
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'No longer needed');
     await user.click(within(dialog).getByRole('button', { name: 'প্রত্যাহার করুন' }));
     expect(await screen.findByText('পারমিশন প্রত্যাহার করা হয়েছে')).toBeInTheDocument();
     expect(ended).toEqual({ id: GRANT_ID, reason: 'No longer needed' });
+    expect(
+      await within(given).findByText('প্যানেল থেকে আলাদা করে কিছু দেওয়া নেই।'),
+    ).toBeInTheDocument();
   });
 
-  it('shows why ending a grant failed, inside the dialog', async () => {
+  it('lists what is taken away with who, when and why, and gives it back with a reason', async () => {
     const user = userEvent.setup();
-    effective = [
-      {
-        permission: 'permission.view',
-        scopeType: 'GLOBAL',
-        source: 'panel_grant',
-        grantId: GRANT_ID,
-      },
+    overrides = [
+      override({
+        permission: 'application.review',
+        title: { bn: 'আবেদন রিভিউ করা', en: 'Review applications' },
+        effect: 'revoke',
+        scopeType: 'PROJECT',
+        scopeRef: PROJECT,
+        scopeName: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+        reason: 'এই প্রকল্পে নয়',
+        expiresAt: '2026-12-31T17:59:59.000Z',
+      }),
     ];
+    let ended: unknown = null;
+    server.use(
+      http.post('*/api/v1/permission-grants/:grantId/revoke', async ({ params, request }) => {
+        ended = { id: params.grantId, ...((await request.json()) as object) };
+        overrides = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { container } = renderPanel(HEAD);
+    await chooseExecutive(user);
+    const taken = await screen.findByRole('region', { name: 'যা সরিয়ে নেওয়া আছে' });
+    const row = (await within(taken).findByText('আবেদন রিভিউ করা')).closest('li')!;
+    expect(within(row).getByText('application.review')).toBeInTheDocument();
+    expect(within(row).getByText('প্রজেক্ট (PROJECT): শীতবস্ত্র বিতরণ')).toBeInTheDocument();
+    expect(within(row).getByText(/^ডিপার্টমেন্ট হেড \(নমুনা\) করেছেন, /)).toBeInTheDocument();
+    expect(within(row).getByText('কারণ: এই প্রকল্পে নয়')).toBeInTheDocument();
+    expect(within(row).getByText(/^মেয়াদ .+ পর্যন্ত$/)).toBeInTheDocument();
+    expect(
+      within(await screen.findByRole('region', { name: 'যা দেওয়া আছে' })).getByText(
+        'প্যানেল থেকে আলাদা করে কিছু দেওয়া নেই।',
+      ),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+    await user.click(within(row).getByRole('button', { name: 'আবেদন রিভিউ করা ফিরিয়ে দিন' }));
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'সরিয়ে নেওয়া পারমিশন ফিরিয়ে দিন',
+    });
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Needed again');
+    await user.click(within(dialog).getByRole('button', { name: 'ফিরিয়ে দিন' }));
+    expect(await screen.findByText('পারমিশন ফিরিয়ে দেওয়া হয়েছে')).toBeInTheDocument();
+    expect(ended).toEqual({ id: GRANT_ID, reason: 'Needed again' });
+  }, 20_000);
+
+  it('shows why ending an override failed, inside the dialog', async () => {
+    const user = userEvent.setup();
+    overrides = [override()];
     server.use(
       http.post('*/api/v1/permission-grants/:grantId/revoke', () =>
         HttpResponse.json(
           {
             error: {
-              code: 'permission.not_found',
-              messageKey: 'errors.permission.not_found',
-              message: 'পাওয়া যায়নি।',
+              code: 'permission.grant_refused',
+              messageKey: 'errors.permission.grant_refused',
+              message: 'এই পারমিশন পরিবর্তন অনুমোদিত নয়।',
+              params: { rule: 'key_permission_admin_only' },
               requestId: 'req_test',
             },
           },
-          { status: 404 },
+          { status: 403 },
         ),
       ),
     );
     renderPanel(HEAD);
     await chooseExecutive(user);
     await user.click(
-      (await screen.findAllByRole('button', { name: 'permission.view প্রত্যাহার' }))[0]!,
+      await screen.findByRole('button', { name: 'কার কী পারমিশন আছে দেখা প্রত্যাহার' }),
     );
     const dialog = await screen.findByRole('alertdialog', { name: 'পারমিশন প্রত্যাহার' });
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'No longer needed');
     await user.click(within(dialog).getByRole('button', { name: 'প্রত্যাহার করুন' }));
-    expect(await within(dialog).findByText('পাওয়া যায়নি।')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('এই পারমিশন পরিবর্তন অনুমোদিত নয়।'),
+    ).toBeInTheDocument();
   });
 
   it('shows a field error at its field and an unshown one above the form', async () => {
@@ -350,8 +471,7 @@ describe('permission panel', () => {
     await chooseExecutive(user);
     await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
-    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
-    await user.click(await screen.findByRole('option', { name: 'permission.view' }));
+    await addPermission(user, dialog, 'permission', /permission\.view$/);
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Long reason');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
     expect(await within(dialog).findByText('লেখা অনেক লম্বা।')).toBeInTheDocument();

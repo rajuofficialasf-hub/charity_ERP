@@ -44,9 +44,9 @@ export function AddressFields({
   labelSuffix?: string;
   /**
    * How many levels are offered (a filter that may not use the union stops at the upazila; a
-   * project area is a division or a district).
+   * project area is a division or a district; a division alone for a scope of the region).
    */
-  levels?: 2 | 3 | 4;
+  levels?: 1 | 2 | 3 | 4;
 }) {
   const t = useTranslations('registration.form');
   const locale = useLocale();

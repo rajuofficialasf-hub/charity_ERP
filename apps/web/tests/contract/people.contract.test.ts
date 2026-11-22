@@ -11,6 +11,7 @@ import {
   invitationIssuedSchema,
   organogramSchema,
   panelUserSchema,
+  permissionOverrideSchema,
   pendingRegistrationSchema,
   permissionSchema,
   registrationDetailSchema,
@@ -430,6 +431,17 @@ describe.skipIf(!contractBase())('the permission panel and the handover', () => 
       (p) => p.permission === GRANTED_PERMISSION && p.source === 'panel_grant',
     );
     expect(grant?.grantId).toBeDefined();
+    // the region of the grant by name, and the override with who, when and why
+    expect(grant?.scopeName?.bn).toBeTruthy();
+    const overrides = expectContract(
+      await call(head, 'GET', `/users/${userId}/permission-overrides`),
+      200,
+      z.array(permissionOverrideSchema),
+    );
+    expect(overrides.find((o) => o.id === grant!.grantId)).toMatchObject({
+      effect: 'grant',
+      reason: REASON,
+    });
     expectStatus(
       await call(head, 'POST', `/permission-grants/${grant!.grantId}/revoke`, { reason: REASON }),
       204,

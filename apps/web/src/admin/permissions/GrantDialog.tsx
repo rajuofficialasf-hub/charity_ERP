@@ -1,4 +1,5 @@
-import { SCOPE_TYPES, type ScopeTypeName } from '@css/shared/access';
+import { PERMISSIONS_PER_REQUEST, SCOPE_TYPES, type ScopeTypeName } from '@css/shared/access';
+import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
   Button,
@@ -7,41 +8,44 @@ import {
   Form,
   FormDateField,
   FormTextField,
+  IconButton,
   RadioGroup,
   SelectField,
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { useTranslations } from 'use-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { api } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import type { PanelUser } from '../UserSearch';
 import { permissionCatalogue } from './EffectivePermissions';
+import { ScopePicker } from './ScopePicker';
 
 type Effect = 'grant' | 'revoke';
 /**
  * Scopes without a reference (docs/security/RBAC.md, "Data scopes and their resolution"); every
- * other scope names a program, project or location.
+ * other scope names a program, project or location, chosen by name.
  */
 const UNBOUND: readonly ScopeTypeName[] = ['GLOBAL', 'SELF', 'ASSIGNED'];
 
 /**
- * A permission, a reason of three letters at least and, for a scope that names something, its
- * id; the server checks the rest. `expiresAt` holds the last day, sent as its end in Dhaka.
+ * One permission at least and twenty at most, a reason of three letters at least and, for a scope
+ * that names something, the one chosen; the server checks the rest. `expiresAt` holds the last
+ * day, sent as its end in Dhaka.
  */
 const GRANT_SCHEMA = z
   .object({
     effect: z.enum(['grant', 'revoke']),
-    permission: z.string().nullable(),
+    permissions: z.array(z.string()).max(PERMISSIONS_PER_REQUEST),
     scopeType: z.enum(SCOPE_TYPES),
     scopeRef: z.string(),
     reason: z.string(),
     expiresAt: z.string(),
   })
   .superRefine((v, ctx) => {
-    if (v.permission === null)
-      ctx.addIssue({ code: 'custom', path: ['permission'], message: 'validation.required' });
+    if (v.permissions.length === 0)
+      ctx.addIssue({ code: 'custom', path: ['permissions'], message: 'validation.required' });
     if (!UNBOUND.includes(v.scopeType) && !v.scopeRef.trim())
       ctx.addIssue({ code: 'custom', path: ['scopeRef'], message: 'validation.required' });
     if (v.reason.trim().length < 3)
@@ -50,7 +54,7 @@ const GRANT_SCHEMA = z
 type GrantFields = z.infer<typeof GRANT_SCHEMA>;
 const EMPTY: GrantFields = {
   effect: 'grant',
-  permission: null,
+  permissions: [],
   scopeType: 'GLOBAL',
   scopeRef: '',
   reason: '',
@@ -58,8 +62,10 @@ const EMPTY: GrantFields = {
 };
 
 /**
- * Grant or remove a permission for one user at a scope, with a reason and an optional expiry
- * (POST /permission-grants). A refused change shows the server's message.
+ * Gives or takes away one or more permissions for one user at a scope, under one reason and an
+ * optional expiry (POST /permission-grants; docs/ui/SCREENS.md "Permission panel"): each permission
+ * found by its Bengali or English name or its code, the scope's program, project or place chosen
+ * by name. A refused change shows the server's message, and nothing of it is written.
  */
 export function GrantDialog({
   user,
@@ -75,6 +81,7 @@ export function GrantDialog({
   const t = useTranslations('admin.permissions');
   const tc = useTranslations('common.action');
   const ts = useTranslations('common.state.error');
+  const locale = useLocale() as Locale;
   const form = useForm<GrantFields>({
     resolver: useSchemaResolver(GRANT_SCHEMA),
     defaultValues: EMPTY,
@@ -90,6 +97,10 @@ export function GrantDialog({
     queryFn: permissionCatalogue,
     enabled: open,
   });
+  const nameOf = (code: string) => {
+    const def = permissions.data?.find((p) => p.name === code);
+    return def ? localized(def.title, locale) : code;
+  };
 
   const save = async (v: GrantFields) => {
     try {
@@ -97,10 +108,10 @@ export function GrantDialog({
         method: 'POST',
         body: {
           userId: user.id,
-          permissions: [v.permission],
+          permissions: v.permissions,
           effect: v.effect,
           scopeType: v.scopeType,
-          ...(UNBOUND.includes(v.scopeType) ? {} : { scopeRef: v.scopeRef.trim() }),
+          ...(UNBOUND.includes(v.scopeType) ? {} : { scopeRef: v.scopeRef }),
           reason: v.reason.trim(),
           ...(v.expiresAt ? { expiresAt: `${v.expiresAt}T23:59:59+06:00` } : {}),
         },
@@ -160,17 +171,48 @@ export function GrantDialog({
         />
         <Controller
           control={form.control}
-          name="permission"
+          name="permissions"
           render={({ field, fieldState }) => (
-            <Combobox
-              label={t('dialog.permission')}
-              required
-              options={(permissions.data ?? []).map((p) => ({ value: p.name, label: p.name }))}
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={fieldState.error?.message}
-            />
+            <div className="admin-panel-section">
+              <Combobox
+                // a new box after each choice, so its text is empty for the next one
+                key={field.value.join('|')}
+                label={t('dialog.add')}
+                hint={t('dialog.add_hint')}
+                // each choice joins the list below, and the box is free for the next one
+                value={null}
+                onChange={(code) => {
+                  if (
+                    code &&
+                    !field.value.includes(code) &&
+                    field.value.length < PERMISSIONS_PER_REQUEST
+                  )
+                    field.onChange([...field.value, code]);
+                }}
+                onBlur={field.onBlur}
+                options={(permissions.data ?? [])
+                  .filter((p) => !field.value.includes(p.name))
+                  .map((p) => ({
+                    value: p.name,
+                    label: `${localized(p.title, locale)} · ${p.name}`,
+                  }))}
+                error={fieldState.error ? t('dialog.none_chosen') : undefined}
+              />
+              {field.value.length > 0 && (
+                <ul className="admin-plain-list" aria-label={t('dialog.chosen')}>
+                  {field.value.map((code) => (
+                    <li key={code} className="admin-permission-name">
+                      <span>{nameOf(code)}</span> <code>{code}</code>{' '}
+                      <IconButton
+                        icon="close"
+                        label={t('dialog.remove', { permission: nameOf(code) })}
+                        onClick={() => field.onChange(field.value.filter((c) => c !== code))}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         />
         <Controller
@@ -181,7 +223,12 @@ export function GrantDialog({
               label={t('dialog.scope')}
               required
               value={field.value}
-              onChange={(id) => id && field.onChange(id as ScopeTypeName)}
+              onChange={(id) => {
+                if (!id) return;
+                // the instance belongs to the type it was chosen for
+                field.onChange(id as ScopeTypeName);
+                form.setValue('scopeRef', '');
+              }}
               options={SCOPE_TYPES.map((s) => ({ value: s, label: t(`scope.${s}`) }))}
               searchable={false}
               error={fieldState.error?.message}
@@ -189,11 +236,17 @@ export function GrantDialog({
           )}
         />
         {values.scopeType && !UNBOUND.includes(values.scopeType) && (
-          <FormTextField
+          <Controller
+            control={form.control}
             name="scopeRef"
-            label={t('dialog.scope_ref')}
-            hint={t('dialog.scope_ref_hint')}
-            required
+            render={({ field, fieldState }) => (
+              <ScopePicker
+                key={values.scopeType}
+                scopeType={values.scopeType!}
+                onChange={field.onChange}
+                error={fieldState.error ? t('dialog.ref_required') : undefined}
+              />
+            )}
           />
         )}
         <FormTextField

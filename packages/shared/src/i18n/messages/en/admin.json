@@ -46,7 +46,16 @@
       "expires": "Expiry date",
       "expires_hint": "Leave empty for no expiry.",
       "submit_grant": "Grant",
-      "submit_revoke": "Remove"
+      "submit_revoke": "Remove",
+      "add": "Add a permission",
+      "add_hint": "Search by the name or the code; up to 20 at once.",
+      "chosen": "Chosen permissions",
+      "none_chosen": "Choose at least one permission.",
+      "remove": "Remove {permission}",
+      "program": "Program",
+      "project": "Project",
+      "place_required": "Choose the area.",
+      "ref_required": "Choose which one."
     },
     "granted": "Permission granted",
     "removed": "Permission removed",
@@ -63,7 +72,24 @@
     "rule": {
       "title": "Only what is needed",
       "body": "Grant only what the work needs. Keep the permission to see NIDs and personal documents separate and narrow."
-    }
+    },
+    "overrides": {
+      "title": "Set apart in the panel",
+      "given": "Given",
+      "taken": "Taken away",
+      "given_none": "Nothing is given apart in the panel.",
+      "taken_none": "Nothing is taken away in the panel.",
+      "by": "By {name}, {date}",
+      "reason": "Reason: {reason}",
+      "until": "Until {date}",
+      "where": "{scope}: {name}"
+    },
+    "lift": "Give back",
+    "lift_label": "Give back {permission}",
+    "lift_title": "Give a permission back",
+    "lift_body": "This permission taken away takes effect again: {permission}",
+    "lift_confirm": "Give back",
+    "lifted": "The permission has been given back"
   },
   "registrations": {
     "title": "Registrations",

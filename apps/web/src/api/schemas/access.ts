@@ -1,5 +1,6 @@
 import {
   effectivePermissionSchema,
+  permissionOverrideSchema,
   permissionSchema,
   roleHistoryRowSchema,
   roleSchema,
@@ -7,7 +8,13 @@ import {
 import { z } from 'zod';
 
 /** The permission catalogue, the roles and one user's effective permissions, as shared. */
-export { effectivePermissionSchema, permissionSchema, roleHistoryRowSchema, roleSchema };
+export {
+  effectivePermissionSchema,
+  permissionOverrideSchema,
+  permissionSchema,
+  roleHistoryRowSchema,
+  roleSchema,
+};
 
 /** A user as the permission panel and the handover page find them (`GET /users`). */
 export const panelUserSchema = z.object({
