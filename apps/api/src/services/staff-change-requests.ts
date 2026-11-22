@@ -81,8 +81,8 @@ type Person = {
 };
 
 /**
- * The person's value of a field now, in the shape a request carries. A request still waiting for
- * a detail that is no longer asked for (the area an account once named) has no value to show.
+ * The person's value of a field now, in the shape a request carries. A waiting request for a
+ * detail that is not asked for (a supervisor, an area of the account) has no value to show.
  */
 function currentValue(person: Person, field: StaffEditField, photo: string | null): unknown {
   switch (field) {

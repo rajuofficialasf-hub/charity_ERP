@@ -147,7 +147,7 @@ describe('an area revoke against a broader grant', () => {
 
   it('leaves out the volunteers living there, and no official: an account names no area', async () => {
     const { monitoring } = world.users;
-    // a division still stored on an account from before is not read any more
+    // a division stored on an account is not read: an official's area comes from the projects
     const official = async (stored: string | null) => {
       const id = await f.user(h.db);
       await grantRole(h.db, id, 'project_executive');

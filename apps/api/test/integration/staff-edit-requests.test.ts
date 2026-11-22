@@ -218,7 +218,7 @@ describe('who decides', () => {
 
   it('refuses to apply a detail that is no longer asked for, and lets it be refused', async () => {
     const s = await head();
-    // a supervisor, and a home division from before the account stopped naming an area
+    // neither a supervisor nor an area of the account is asked for; a stored request for one waits
     for (const field of ['supervisorUserId', 'homeDivisionId']) {
       const rpm = await official();
       const [row] = (
@@ -231,7 +231,12 @@ describe('who decides', () => {
       ).rows as { id: string }[];
       const listed = await waiting(s);
       expect(listed.status, field).toBe(200);
-      expect(listed.body.data.map((r: { id: string }) => r.id)).toContain(row!.id);
+      // listed with empty values, read as they were stored
+      expect(listed.body.data.find((r: { id: string }) => r.id === row!.id)).toMatchObject({
+        field,
+        newValue: null,
+        currentValue: null,
+      });
       const approved = await decide(s, row!.id, { decision: 'approve' });
       expect(approved.status, field).toBe(409);
       const refused = await decide(s, row!.id, { decision: 'reject', reason: 'আর চাওয়া যায় না' });

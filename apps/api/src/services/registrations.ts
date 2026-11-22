@@ -161,6 +161,8 @@ export function changeView(row: ChangeRow, withValue: boolean) {
 /**
  * The address, the bank details and the other objects of a volunteer, and an official's workplace
  * and references (a reference may be null), are stored as JSON text; every other field as the text.
+ * A home division is no longer asked for (docs/BUSINESS_RULES.md, "An official's account names the
+ * program"), and a request for one that still waits is read the way it was stored.
  */
 export const OBJECT_FIELDS = new Set([
   'address',
@@ -171,6 +173,7 @@ export const OBJECT_FIELDS = new Set([
   'permanentAddress',
   'workplace',
   'homeProgramId',
+  'homeDivisionId',
   'supervisorUserId',
 ]);
 function storedValue(field: string, text: string): unknown {

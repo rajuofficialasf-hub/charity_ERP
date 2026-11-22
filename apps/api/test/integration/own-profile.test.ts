@@ -57,7 +57,7 @@ describe('GET /me/profile', () => {
     await h.db.query(
       `UPDATE users SET designation = 'আঞ্চলিক ব্যবস্থাপক', job_id = 'CSS-0042', affiliation = 'department',
          home_program_id = $2, home_division_id = $3, supervisor_user_id = $4 WHERE id = $1`,
-      // a division stored on the account from before is not read any more
+      // a division stored on the account is not read: an official's area comes from the projects
       [me.id, program, tree.division, supervisor.id],
     );
     const photo = await staffPhoto(me.id);
