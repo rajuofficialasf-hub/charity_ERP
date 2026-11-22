@@ -3,8 +3,11 @@ export function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
-/** Minimal RFC 4180 CSV reading and writing for the locations master (UTF-8, comma, quotes). */
-export function parseCsv(text: string): string[][] {
+/**
+ * Minimal RFC 4180 CSV reading and writing for the locations master and the seed's own lists
+ * (UTF-8, quotes; a comma by default, a tab for a list copied out of a spreadsheet).
+ */
+export function parseCsv(text: string, delimiter: ',' | '\t' = ','): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -19,7 +22,7 @@ export function parseCsv(text: string): string[][] {
       } else if (c === '"') quoted = false;
       else cell += c;
     } else if (c === '"') quoted = true;
-    else if (c === ',') {
+    else if (c === delimiter) {
       row.push(cell);
       cell = '';
     } else if (c === '\n' || c === '\r') {
@@ -43,8 +46,11 @@ export function toCsv(rows: string[][]): string {
 }
 
 /** Rows as objects keyed by the header row. */
-export function parseCsvRecords(text: string): Record<string, string>[] {
-  const [header, ...rows] = parseCsv(text);
+export function parseCsvRecords(
+  text: string,
+  delimiter: ',' | '\t' = ',',
+): Record<string, string>[] {
+  const [header, ...rows] = parseCsv(text, delimiter);
   if (!header) return [];
   return rows.map((r) => Object.fromEntries(header.map((h, i) => [h, r.at(i) ?? ''])));
 }
