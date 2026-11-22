@@ -61,6 +61,8 @@ export async function seedOrgVolunteers(
   options: { actor: string; homes: VolunteerHome[]; demoHash: string | null },
 ): Promise<void> {
   if (volunteers.length === 0) return;
+  if (options.homes.length === 0)
+    throw new Error('the volunteers need the locations: run pnpm db:load-locations first');
   // a mobile is one account: one held by an account this set did not make stops the whole run
   const taken = await ctx.db.user.findMany({
     where: { mobile: { in: volunteers.map((v) => v.mobile) } },
