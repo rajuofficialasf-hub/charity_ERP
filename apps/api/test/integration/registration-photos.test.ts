@@ -296,14 +296,20 @@ describe('GET /files/{fileId}/content', () => {
   });
 
   it('keeps both photos from an RPM of another region, of a project not at work, and of no region', async () => {
-    const { photo, nidPhoto } = await volunteerWithPhotos();
+    const { owner, photo, nidPhoto } = await volunteerWithPhotos();
     const elsewhere = await login(h, await rpmOf(await f.locationTree(h.db)));
-    // the region is the volunteer's, but its project is still a draft
+    // the region is the volunteer's, but its project is still a draft, though the volunteer is
+    // already assigned to it
     const waiting = await account(h.db, { role: 'regional_program_manager' });
     const draft = await f.project(h.db);
     await h.db.query(
       'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
       [randomUUID(), draft.id, loc.division, waiting.id],
+    );
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by)
+       SELECT $1, $2, v.id, $3, 'application_distribution', $4 FROM volunteers v WHERE v.user_id = $5`,
+      [randomUUID(), draft.id, loc.division, waiting.id, owner.id],
     );
     const none = await account(h.db, { role: 'regional_program_manager' });
     for (const who of [elsewhere, await login(h, waiting), await login(h, none)]) {
