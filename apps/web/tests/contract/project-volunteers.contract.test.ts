@@ -72,16 +72,27 @@ describe.skipIf(!contractBase())('the volunteers of a project', () => {
 
     const official = await newOfficial('project_executive');
     const pm = await signIn(PM_HUM);
-    must(
+    const placed = must(
       await call(pm, 'POST', `/projects/${projectId}/staff`, {
         userId: official.userId,
         roleKey: 'project_executive',
         areaLocationId: places.division,
+        districtIds: [],
       }),
       201,
       'staff',
       z.array(staffAccessSchema),
     );
+    // the region's RPM gives the place a district of the area, as the setup screen sends it
+    const place = placed.data.find((s) => s.userId === official.userId)!;
+    const inDistrict = expectContract(
+      await call(rpm, 'PUT', `/project-staff/${place.id}/districts`, {
+        districtIds: [places.district],
+      }),
+      200,
+      z.array(staffAccessSchema),
+    );
+    expect(inDistrict.find((s) => s.id === place.id)?.districtIds).toEqual([places.district]);
     // the app reads nothing from the answer and reads the staff list again
     expectStatus(
       await call(rpm, 'POST', `/projects/${projectId}/grants`, {

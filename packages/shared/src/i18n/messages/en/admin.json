@@ -889,6 +889,7 @@
       "rpm_hint": "Pick from the list or search by name; the list holds Regional Program Managers only.",
       "no_staff": "No staff access yet.",
       "whole_project": "Whole project",
+      "whole_area": "Whole area",
       "access": {
         "view": "View",
         "edit": "Edit",
@@ -902,6 +903,9 @@
       "staff_role": "Role",
       "staff_area": "Area",
       "staff_area_hint": "Leave empty for the whole project.",
+      "staff_districts": "Districts",
+      "staff_districts_hint": "With no district chosen, the access covers the whole area.",
+      "change_districts": "Change the districts of {name}",
       "role": {
         "project_executive": "Project Executive",
         "official_daee": "Official দায়ী"
