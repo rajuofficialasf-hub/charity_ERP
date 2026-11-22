@@ -80,7 +80,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 - **Depends on:** U2
 - **Size:** S
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ## Checkpoints
 - **Mode:** all at once (one by one 3, grouped 3, all at once 9)
@@ -103,7 +103,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 ## Progress
 - **Branch:** `chore/org-volunteers-seed`
 - **Updated:** 2026-11-22 13:10
-- **Next:** U3, load the owner's volunteers into css_erp_dev
+- **Next:** checkpoint C1 (test and review), then finish
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH. U2: a new volunteer takes the next free sample NID and keeps it on reruns (an index by list order would collide when the list grows); the placeholders are insert-only so details edited in the app stay.
+- **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH. U2: a new volunteer takes the next free sample NID and keeps it on reruns (an index by list order would collide when the list grows); the placeholders are insert-only so details edited in the app stay. U3: css_erp_dev holds the owner's 20 volunteers (active, approved, general, fake-range NIDs, one home) beside the 35 officials; one volunteer signed in by mobile with the demo password in the browser.
