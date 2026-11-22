@@ -87,7 +87,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Depends on:** U2
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U4. The department's list in the dev database
 - **Goal:** the owner's list, with the corrections of 2026-11-22, loaded into css_erp_dev in place of the demo set.
@@ -127,8 +127,8 @@ The owner wants to try the app with the department's own people. The demo set is
 
 ## Progress
 - **Branch:** `chore/org-staff-seed`
-- **Updated:** 2026-11-22 13:10
-- **Next:** U3, the documents (CLAUDE.md commands, README dev data, DEMO_ACCOUNTS, TEST_STRATEGY, STATUS)
+- **Updated:** 2026-11-22 13:25
+- **Next:** U4, reset css_erp_dev and load the owner's prepared list (`pnpm db:reset`, `pnpm db:migrate`, `pnpm db:load-locations`, `pnpm db:seed --set org --file <owner folder>/staff.tsv`), then check the counts
 - **Reviewed through:** C2 at 4a02836d
 - **Uncommitted:** none
 - **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it. C2 review: the demo set refuses an org database (`seed.marker.org`); the links file is restricted to the current user on Windows with icacls, named to the second, and removed when the run fails; `isInside` follows real paths; the betterleaks hits on test database URLs were placeholders, now without credentials; `invitationLink` is covered by the org and staff-account integration tests. The database never lets go of its Main Admin (a trigger), so tests cannot clear the flag.
