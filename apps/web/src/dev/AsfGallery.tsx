@@ -574,6 +574,13 @@ export function AsfGallery() {
               value={district}
               onChange={setDistrict}
             />
+            {/* a list opened in the sheet stays in it and scrolls with it on a phone */}
+            <Combobox
+              label={t('overlay.drawerSearch')}
+              options={districts}
+              value={district}
+              onChange={(next) => setDistrict(next ?? '')}
+            />
           </Drawer>
           <PhotoViewer
             open={open === 'photos'}
