@@ -21,45 +21,45 @@ const HEAD = 'T-1,Test Head,01700000901,head@example.test,Head,Department Head,,
 const PM = 'T-2,Test PM,01700000902,pm@example.test,PM,program_manager,UCD,T-1';
 const EXEC = 'T-3,Test Executive,,exec@example.test,Executive,প্রজেক্ট এক্সিকিউটিভ,,T-2';
 
+const EXPECTED = [
+  {
+    line: 2,
+    jobId: 'T-1',
+    name: 'Test Head',
+    mobile: '01700000901',
+    email: 'head@example.test',
+    designation: 'Head',
+    roleKey: 'department_head',
+    programCode: null,
+    supervisorJobId: null,
+  },
+  {
+    line: 3,
+    jobId: 'T-2',
+    name: 'Test PM',
+    mobile: '01700000902',
+    email: 'pm@example.test',
+    designation: 'PM',
+    roleKey: 'program_manager',
+    programCode: 'UCD',
+    supervisorJobId: 'T-1',
+  },
+  {
+    line: 4,
+    jobId: 'T-3',
+    name: 'Test Executive',
+    mobile: null,
+    email: 'exec@example.test',
+    designation: 'Executive',
+    roleKey: 'project_executive',
+    programCode: null,
+    supervisorJobId: 'T-2',
+  },
+];
+
 describe('readStaffList', () => {
   it('gives one row per official with the role key, program code and supervisor job ID', () => {
-    const { rows, problems } = readStaffList(list(HEAD, PM, EXEC), NAMES);
-    expect(problems).toEqual([]);
-    expect(rows).toEqual([
-      {
-        line: 2,
-        jobId: 'T-1',
-        name: 'Test Head',
-        mobile: '01700000901',
-        email: 'head@example.test',
-        designation: 'Head',
-        roleKey: 'department_head',
-        programCode: null,
-        supervisorJobId: null,
-      },
-      {
-        line: 3,
-        jobId: 'T-2',
-        name: 'Test PM',
-        mobile: '01700000902',
-        email: 'pm@example.test',
-        designation: 'PM',
-        roleKey: 'program_manager',
-        programCode: 'UCD',
-        supervisorJobId: 'T-1',
-      },
-      {
-        line: 4,
-        jobId: 'T-3',
-        name: 'Test Executive',
-        mobile: null,
-        email: 'exec@example.test',
-        designation: 'Executive',
-        roleKey: 'project_executive',
-        programCode: null,
-        supervisorJobId: 'T-2',
-      },
-    ]);
+    expect(readStaffList(list(HEAD, PM, EXEC), NAMES)).toEqual({ rows: EXPECTED, problems: [] });
   });
 
   it('matches a program by its code, English name or Bengali name, in any letter case', () => {
@@ -94,7 +94,53 @@ describe('readStaffList', () => {
 
   it('reads a tab-separated list with a byte order mark like a comma-separated one', () => {
     const tabbed = '﻿' + list(HEAD, PM, EXEC).replace(/,/g, '\t');
-    expect(readStaffList(tabbed, NAMES)).toEqual(readStaffList(list(HEAD, PM, EXEC), NAMES));
+    expect(readStaffList(tabbed, NAMES)).toEqual({ rows: EXPECTED, problems: [] });
+  });
+
+  it('reads a header copied with stray spaces', () => {
+    const padded = list(HEAD, PM, EXEC).replace(HEADER, HEADER.split(',').join(' , '));
+    expect(readStaffList(padded, NAMES)).toEqual({ rows: EXPECTED, problems: [] });
+  });
+
+  it('names the line of the file even after a blank line', () => {
+    const { problems } = readStaffList(
+      [HEADER, HEAD, '', '', 'T-2,No Role,,x@example.test,X,Chief,,T-1'].join('\n'),
+      NAMES,
+    );
+    expect(problems).toEqual([{ line: 5, field: 'role', reason: 'unknown' }]);
+  });
+
+  it('says a list with only its header has no rows', () => {
+    expect(readStaffList(HEADER, NAMES)).toEqual({
+      rows: [],
+      problems: [{ line: 2, field: 'job_id', reason: 'no_rows' }],
+    });
+  });
+
+  it('finds a loop in the organogram', () => {
+    const { problems } = readStaffList(
+      list(
+        HEAD,
+        'T-2,A,,a@example.test,X,project_executive,,T-3',
+        'T-3,B,,b@example.test,X,project_executive,,T-2',
+      ),
+      NAMES,
+    );
+    expect(problems).toEqual([
+      { line: 3, field: 'supervisor_job_id', reason: 'cycle' },
+      { line: 4, field: 'supervisor_job_id', reason: 'cycle' },
+    ]);
+  });
+
+  it('stops when two roles share a name, as the match would depend on their order', () => {
+    const clash: StaffListNames = {
+      roles: [
+        { key: 'program_manager', names: ['Manager'] },
+        { key: 'project_executive', names: ['manager'] },
+      ],
+      programs: [],
+    };
+    expect(() => readStaffList(list(HEAD), clash)).toThrow(/two entries share the name/);
   });
 
   it('reports every problem of the list at once, by line and field, and keeps no row', () => {

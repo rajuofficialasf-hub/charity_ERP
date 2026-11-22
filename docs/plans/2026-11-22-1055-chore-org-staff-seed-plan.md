@@ -127,8 +127,8 @@ The owner wants to try the app with the department's own people. The demo set is
 
 ## Progress
 - **Branch:** `chore/org-staff-seed`
-- **Updated:** 2026-11-22 11:40
-- **Next:** checkpoint C1 (test and review of U1), then U2 starting with `createInvitation` in staff-accounts.ts
-- **Reviewed through:** none
+- **Updated:** 2026-11-22 12:00
+- **Next:** U2, starting with `createInvitation` in staff-accounts.ts
+- **Reviewed through:** C1 (fixes committed right after this note)
 - **Uncommitted:** none
-- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`/c/Users/ASUS/AppData/Roaming/fnm/aliases/default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows).
+- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%nmliasesdefault`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows).
