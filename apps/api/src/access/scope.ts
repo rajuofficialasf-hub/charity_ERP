@@ -188,7 +188,10 @@ const unique = <T>(values: T[], key: (v: T) => string) => [
   ...new Map(values.map((v) => [key(v), v])).values(),
 ];
 
-/** The caller's own areas (RPM of a project area, or staff with an area) in the given projects. */
+/**
+ * The caller's own areas in the given projects: the areas an RPM holds, and for a staff place its
+ * districts where it has any, else its whole area.
+ */
 async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>): Promise<Area[]> {
   const all = inProjects.has(null);
   const only = [...inProjects].filter((p): p is string => p !== null);
@@ -200,12 +203,20 @@ async function ownAreas(db: Tx, actorId: string, inProjects: Set<string | null>)
     }),
     db.projectStaff.findMany({
       where: { userId: actorId, endedAt: null, areaLocationId: { not: null }, ...projectFilter },
-      select: { projectId: true, areaLocationId: true },
+      select: {
+        projectId: true,
+        areaLocationId: true,
+        districts: { where: { endedAt: null }, select: { locationId: true } },
+      },
     }),
   ]);
   return [
     ...areas,
-    ...staff.map((s) => ({ projectId: s.projectId, locationId: s.areaLocationId! })),
+    ...staff.flatMap((s) =>
+      (s.districts.length ? s.districts.map((d) => d.locationId) : [s.areaLocationId!]).map(
+        (locationId) => ({ projectId: s.projectId, locationId }),
+      ),
+    ),
   ];
 }
 

@@ -3316,18 +3316,38 @@ components:
         userId: { type: string, format: uuid }
         roleKey: { type: string, enum: [project_executive, official_daee] }
         areaLocationId: { type: string, format: uuid }
+        districtIds:
+          description: Districts inside the area; left out or empty, the place holds the whole area.
+          type: array
+          maxItems: 64
+          default: []
+          items: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
         canDelete: { type: boolean, default: false }
+    StaffDistricts:
+      description: The districts of a staff place, replaced as a whole; an empty list gives the whole area back.
+      type: object
+      additionalProperties: false
+      required: [districtIds]
+      properties:
+        districtIds:
+          type: array
+          maxItems: 64
+          items: { type: string, format: uuid }
     StaffAssignment:
       type: object
-      required: [id, userId, displayName, roleKey, areaLocationId, canView, canEdit, canDelete, extraPermissions, endedAt]
+      required: [id, userId, displayName, roleKey, areaLocationId, districtIds, canView, canEdit, canDelete, extraPermissions, endedAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         roleKey: { type: string }
         areaLocationId: { type: [string, 'null'], format: uuid }
+        districtIds:
+          description: The districts of the place inside its area; none means the whole area.
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
         canView: { type: boolean }
         canEdit: { type: boolean }
         canDelete: { type: boolean }
@@ -9481,6 +9501,38 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-staff/{assignmentId}/districts:
+    parameters:
+      - $ref: '#/components/parameters/AssignmentId'
+    put:
+      tags: [projects]
+      operationId: projects.staff.setDistricts
+      summary: Replace the districts of a staff member's place inside its area; none gives the whole area back
+      description: >-
+        Each district must be a district of the place's area (422 otherwise). The change is a
+        permission change of the person: it is audited on the person and the project, and the
+        person's sessions refresh. An RPM changes only the places of its own areas.
+      x-permission: project.staff_access.manage
+      x-scope: project
+      x-audit: permission_change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffDistricts' }
+      responses:
+        '200':
+          description: The staff of the project
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /project-staff/{assignmentId}/end:
     parameters:

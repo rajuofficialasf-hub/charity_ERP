@@ -140,7 +140,7 @@ Every unit keeps the existing tests and E2E specs green: where a narrower reach 
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** migrations, auth and permissions
-- **Status:** todo
+- **Status:** done
 
 ### U3. The reach of the volunteer tab
 - **Goal:** an official sees the volunteers of the areas of their projects at work, and the registration of a new volunteer follows the same reach.
@@ -289,8 +289,8 @@ One pull request into `develop` after C7, because the narrower reach (U3, U5) wi
 
 ## Progress
 - **Branch:** `feat/area-scoped-people`
-- **Updated:** 2026-11-19
-- **Next:** U2: several districts for a staff place, starting with the migration and its test in `apps/api/test/integration/migrations.test.ts`
+- **Updated:** 2026-11-22
+- **Next:** checkpoint C1 over U1 and U2, then U3: the reach of the volunteer tab, starting with `apps/api/test/integration/volunteer-list.test.ts`
 - **Reviewed through:** none yet (C1 follows U2)
 - **Uncommitted:** none
-- **Notes:** the decision is D-189; the new rules are BR-324 to BR-327. The second part of the Admin role plan (`docs/plans/2026-11-19-1000-feat-admin-role-and-permissions-plan.md`, units 7 to 10) waits for this plan, on the owner's word.
+- **Notes:** U2: a district that is taken from a place is ended (`ended_at`), never deleted; the districts are replaced with a new operation, `PUT /project-staff/{assignmentId}/districts`, since a staff place had no update before; the reach of a place is tested through `AccessService.scopeOfUser` in `project-setup.test.ts`. The decision is D-189; the new rules are BR-324 to BR-327. The second part of the Admin role plan (`docs/plans/2026-11-19-1000-feat-admin-role-and-permissions-plan.md`, units 7 to 10) waits for this plan, on the owner's word.

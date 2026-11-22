@@ -11,6 +11,7 @@ import {
   type SetupField,
   STAFF_ACCESS_ROLES,
   type StaffCreate,
+  type StaffDistricts,
   type Syllabus,
 } from '@css/shared/projects';
 import type { AccessService } from '../access/service.js';
@@ -527,9 +528,42 @@ export class ProjectSetupService {
         canDelete: true,
         extraPermissions: true,
         user: { select: { displayName: true } },
+        districts: {
+          where: { endedAt: null },
+          orderBy: { locationId: 'asc' },
+          select: { locationId: true },
+        },
       },
     });
-    return rows.map(({ user, ...s }) => ({ ...s, displayName: user.displayName, endedAt: null }));
+    return rows.map(({ user, districts, ...s }) => ({
+      ...s,
+      districtIds: districts.map((d) => d.locationId),
+      displayName: user.displayName,
+      endedAt: null,
+    }));
+  }
+
+  /**
+   * The districts of a staff place must lie inside its area (docs/security/RBAC.md, "Data scopes
+   * and their resolution"): each a district whose parent is the area, and none without an area.
+   */
+  private async assertDistricts(
+    db: Tx,
+    areaLocationId: string | null | undefined,
+    districtIds: readonly string[],
+  ): Promise<string[]> {
+    const wanted = [...new Set(districtIds)];
+    if (!wanted.length) return wanted;
+    const inside = areaLocationId
+      ? await db.location.count({
+          where: { id: { in: wanted }, level: 'district', parentId: areaLocationId },
+        })
+      : 0;
+    if (inside !== wanted.length)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'districtIds', code: 'validation.option_unknown' },
+      ]);
+    return wanted;
   }
 
   async addStaff(viewer: ProjectViewer, projectId: string, body: StaffCreate) {
@@ -560,6 +594,7 @@ export class ProjectSetupService {
         });
         if (!holds || !(STAFF_ACCESS_ROLES as readonly string[]).includes(body.roleKey))
           throw new ApiError('project.staff_role_required', 422);
+        const districtIds = await this.assertDistricts(tx, body.areaLocationId, body.districtIds);
         const id = uuidv7();
         await tx.projectStaff.create({
           data: {
@@ -576,7 +611,17 @@ export class ProjectSetupService {
             updatedBy: actor,
           },
         });
-        const change = { projectId, staffAccess: { id, ...body } };
+        if (districtIds.length)
+          await tx.projectStaffDistrict.createMany({
+            data: districtIds.map((locationId) => ({
+              id: uuidv7(),
+              projectStaffId: id,
+              locationId,
+              createdBy: actor,
+              updatedBy: actor,
+            })),
+          });
+        const change = { projectId, staffAccess: { id, ...body, districtIds } };
         await this.versions.bump(tx, body.userId, { action: 'permission_change', new: change });
         // the project's own audit trail shows who got access too
         await this.audit.record(tx, {
@@ -591,6 +636,70 @@ export class ProjectSetupService {
       if (isUniqueViolation(error)) throw new ApiError('project.staff_exists', 409);
       throw error;
     }
+  }
+
+  /**
+   * Replaces the districts of a staff place: the ones left out are ended, the new ones start, and
+   * an empty list gives the whole area back. It changes whom the person reaches, so it is a
+   * permission change of that person, audited on the person and on the project; an RPM changes
+   * only the places of its own areas.
+   */
+  async replaceStaffDistricts(viewer: ProjectViewer, assignmentId: string, body: StaffDistricts) {
+    const actor = viewer.principal.userId;
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.projectStaff.findUnique({
+        where: { id: assignmentId },
+        select: { projectId: true },
+      });
+      if (!found) throw new ApiError('permission.not_found', 404);
+      const project = await this.writable(tx, viewer, found.projectId, 'staff');
+      const place = await tx.projectStaff.findFirst({
+        where: { id: assignmentId, endedAt: null },
+        select: {
+          userId: true,
+          areaLocationId: true,
+          districts: { where: { endedAt: null }, select: { id: true, locationId: true } },
+        },
+      });
+      if (!place) throw new ApiError('permission.not_found', 404);
+      if (!this.programLevel(viewer, project.programId)) {
+        const own = this.ownAreas(viewer, found.projectId);
+        if (!place.areaLocationId || !own.has(place.areaLocationId)) this.refuse(viewer);
+      }
+      const wanted = await this.assertDistricts(tx, place.areaLocationId, body.districtIds);
+      const held = place.districts.map((d) => d.locationId);
+      const gone = place.districts.filter((d) => !wanted.includes(d.locationId));
+      const added = wanted.filter((locationId) => !held.includes(locationId));
+      if (gone.length)
+        await tx.projectStaffDistrict.updateMany({
+          where: { id: { in: gone.map((d) => d.id) }, endedAt: null },
+          data: { endedAt: new Date(), updatedBy: actor },
+        });
+      if (added.length)
+        await tx.projectStaffDistrict.createMany({
+          data: added.map((locationId) => ({
+            id: uuidv7(),
+            projectStaffId: assignmentId,
+            locationId,
+            createdBy: actor,
+            updatedBy: actor,
+          })),
+        });
+      const change = {
+        old: { projectId: found.projectId, staffAccess: { id: assignmentId, districtIds: held } },
+        new: { projectId: found.projectId, staffAccess: { id: assignmentId, districtIds: wanted } },
+      };
+      // the person's sessions refresh only when the districts did change
+      if (gone.length || added.length)
+        await this.versions.bump(tx, place.userId, { action: 'permission_change', ...change });
+      await this.audit.record(tx, {
+        action: 'permission_change',
+        entityType: 'project',
+        entityId: found.projectId,
+        ...change,
+      });
+      return this.readStaff(tx, found.projectId);
+    });
   }
 
   /**

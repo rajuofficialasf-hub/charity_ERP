@@ -511,6 +511,19 @@ Constraints: UNIQUE (project_id, location_id, rpm_user_id). Indexes: (rpm_user_i
 
 Constraints: partial UNIQUE (project_id, user_id) WHERE ended_at IS NULL. Index: (user_id) WHERE ended_at IS NULL.
 
+### project_staff_districts
+The districts of a staff place inside its area (D-189, BR-324): an RPM gives a Project Executive or an Official দায়ী one or several districts of the place's `area_location_id`. A place without a live row holds its whole area. A district taken away is ended, never deleted.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| project_staff_id | uuid | no | — | FK project_staff |
+| location_id | uuid | no | — | FK locations; a district whose parent is the place's area (checked by the service) |
+| ended_at | timestamptz | yes | — | set when the district is taken from the place |
+| [A] | | | | |
+
+Constraints: partial UNIQUE (project_staff_id, location_id) WHERE ended_at IS NULL. Index: (location_id).
+
 ### project_templates
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|

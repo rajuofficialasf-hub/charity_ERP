@@ -12,6 +12,8 @@ import {
   projectRulesSchema,
   type StaffCreate,
   staffCreateSchema,
+  type StaffDistricts,
+  staffDistrictsSchema,
   type Syllabus,
   syllabusSchema,
   type QuotaTargets,
@@ -51,6 +53,8 @@ const staffView = z.object({
   displayName: z.string(),
   roleKey: z.string(),
   areaLocationId: uuid.nullable(),
+  // the districts of the place inside its area; none means the whole area
+  districtIds: z.array(uuid),
   canView: z.boolean(),
   canEdit: z.boolean(),
   canDelete: z.boolean(),
@@ -274,6 +278,22 @@ export function projectSetupRouter(
     responses: { 201: z.array(staffView), 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) =>
       ok(await c.projectSetup.addStaff(viewerOf(req), params.projectId, body)),
+  });
+
+  defineRoute<StaffDistricts, unknown, { assignmentId: string }>(router, deps, {
+    ...op,
+    method: 'put',
+    path: '/project-staff/:assignmentId/districts',
+    operationId: 'projects.staff.setDistricts',
+    summary:
+      "Replace the districts of a staff member's place inside its area; none gives the whole area back",
+    permission: 'project.staff_access.manage',
+    audit: 'permission_change',
+    params: { assignmentId: uuid },
+    body: staffDistrictsSchema,
+    responses: { 200: z.array(staffView), 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      ok(await c.projectSetup.replaceStaffDistricts(viewerOf(req), params.assignmentId, body)),
   });
 
   defineRoute<ReasonRequest, unknown, { assignmentId: string }>(router, deps, {

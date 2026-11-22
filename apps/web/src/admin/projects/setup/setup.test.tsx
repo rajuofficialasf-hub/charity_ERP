@@ -487,6 +487,7 @@ describe('the setup wizard', () => {
         displayName: 'নমুনা দায়ী',
         roleKey: 'official_daee',
         areaLocationId: null,
+        districtIds: [],
         canView: true,
         canEdit: false,
         canDelete: false,
@@ -508,6 +509,7 @@ describe('the setup wizard', () => {
         body: {
           userId: '01900000-0000-7000-8000-0000000000e1',
           roleKey: 'project_executive',
+          districtIds: [],
           canView: true,
           canEdit: true,
           canDelete: false,

@@ -92,6 +92,8 @@ export function StaffSection({
         userId: v.person!.id,
         roleKey: v.roleKey as Role,
         ...(v.areaId ? { areaLocationId: v.areaId } : {}),
+        // no district chosen: the place holds its whole area
+        districtIds: [],
         canView: true,
         canEdit: v.canEdit,
         canDelete: v.canDelete,

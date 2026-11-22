@@ -131,6 +131,8 @@ model User {
   projectStaffGrantedBy                ProjectStaff[]             @relation("project_staff_granted_by")
   projectStaffCreatedBy                ProjectStaff[]             @relation("project_staff_created_by")
   projectStaffUpdatedBy                ProjectStaff[]             @relation("project_staff_updated_by")
+  projectStaffDistrictsCreatedBy       ProjectStaffDistrict[]     @relation("project_staff_districts_created_by")
+  projectStaffDistrictsUpdatedBy       ProjectStaffDistrict[]     @relation("project_staff_districts_updated_by")
   projectTemplatesCreatedBy            ProjectTemplate[]          @relation("project_templates_created_by")
   projectTemplatesUpdatedBy            ProjectTemplate[]          @relation("project_templates_updated_by")
   projectQuotasCreatedBy               ProjectQuota[]             @relation("project_quotas_created_by")
@@ -570,6 +572,7 @@ model Location {
   locationsParent                 Location[]         @relation("locations_parent_id")
   projectAreasLocation            ProjectArea[]      @relation("project_areas_location_id")
   projectStaffAreaLocation        ProjectStaff[]     @relation("project_staff_area_location_id")
+  projectStaffDistrictsLocation   ProjectStaffDistrict[] @relation("project_staff_districts_location_id")
   projectQuotasLocation           ProjectQuota[]     @relation("project_quotas_location_id")
   beneficiariesDivision           Beneficiary[]      @relation("beneficiaries_division_id")
   beneficiariesDistrict           Beneficiary[]      @relation("beneficiaries_district_id")
@@ -905,6 +908,27 @@ model ProjectComponent {
   @@map("project_components")
 }
 
+model ProjectStaffDistrict {
+  id             String       @id @db.Uuid
+  projectStaffId String       @map("project_staff_id") @db.Uuid
+  locationId     String       @map("location_id") @db.Uuid
+  endedAt        DateTime?    @map("ended_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?      @map("created_by") @db.Uuid
+  updatedAt      DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  projectStaff   ProjectStaff @relation("project_staff_districts_project_staff_id", fields: [projectStaffId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  location       Location     @relation("project_staff_districts_location_id", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef   User?        @relation("project_staff_districts_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef   User?        @relation("project_staff_districts_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([projectStaffId, locationId], where: raw("ended_at IS NULL"), map: "project_staff_districts_project_staff_id_location_id_key")
+  @@index([locationId], map: "project_staff_districts_location_id_idx")
+  @@index([createdBy], map: "project_staff_districts_created_by_idx")
+  @@index([updatedBy], map: "project_staff_districts_updated_by_idx")
+  @@map("project_staff_districts")
+}
+
 model ProjectArea {
   id           String   @id @db.Uuid
   projectId    String   @map("project_id") @db.Uuid
@@ -952,6 +976,7 @@ model ProjectStaff {
   grantedByRef     User      @relation("project_staff_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef     User?     @relation("project_staff_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef     User?     @relation("project_staff_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  districts        ProjectStaffDistrict[] @relation("project_staff_districts_project_staff_id")
 
   @@unique([projectId, userId], where: raw("ended_at IS NULL"), map: "project_staff_project_id_user_id_key")
   @@index([userId], where: raw("ended_at IS NULL"), map: "project_staff_user_id_idx")
