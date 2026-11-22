@@ -103,8 +103,10 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
   {
     role: 'the HUM Program Manager',
     loginId: 'pm.hum@example.org',
+    // the panel is the Admin's and the Head's; the catalogue of roles and permissions stays
+    // readable for anyone who may view permissions, and the audit log is not a PM's
     page: '/admin/permissions',
-    api: '/roles',
+    api: '/audit-log',
   },
   // the panel's own reads stay open to the Monitoring Team (it reads every permission); what it
   // cannot do is administer: the active sessions and the system health refuse it
