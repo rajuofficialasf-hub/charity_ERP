@@ -61,7 +61,7 @@ async function run(
     appOrigin: ORIGIN,
     demoPassword,
     volunteers,
-    volunteerHome: home,
+    volunteerHomes: [home],
     // the links are issued on the app's own clock, so the set-password page reads them as open
     now: h.clock.now(),
     writeLinks: (links) => {
@@ -346,31 +346,58 @@ describe('the org seed set', () => {
     );
   });
 
-  it('gives the volunteers Savar union of Savar, Dhaka, and asks for the locations when they are missing', async () => {
+  it('spreads the volunteers over the divisions and their districts, and asks for the locations when there are none', async () => {
     const ctx = new SeedContext(h.container.prisma);
     ctx.actorId = SYSTEM_ACTOR_ID;
-    const savar: VolunteerListRow = { line: 2, name: 'Sample Savar', mobile: fakeMobile(966) };
     const options = { appOrigin: ORIGIN, now: h.clock.now(), writeLinks: () => undefined };
-    await expect(seedOrg(ctx, LIST, { ...options, volunteers: [savar] })).rejects.toThrow(
-      /run pnpm db:load-locations first/,
-    );
-    const place = async (parent: string | null, level: string, kind: string, name: string) => {
-      const id = crypto.randomUUID();
-      await h.db.query(
-        `INSERT INTO locations (id, parent_id, level, kind, code, name_bn, name_en) VALUES ($1, $2, $3, $4, $5, $6, $6)`,
-        [id, parent, level, kind, `SAVAR-${level}`, name],
+    const spread: VolunteerListRow[] = [967, 968, 969].map((n, i) => ({
+      line: i + 2,
+      name: `Sample Spread ${n}`,
+      mobile: fakeMobile(n),
+    }));
+    const active = await h.db.query(`SELECT id FROM locations WHERE active`);
+    const restore = () =>
+      h.db.query(`UPDATE locations SET active = true WHERE id = ANY($1::uuid[])`, [
+        active.rows.map((r) => r.id),
+      ]);
+    await h.db.query(`UPDATE locations SET active = false WHERE active`);
+    try {
+      // no active location at all: the run asks for them and writes nothing
+      await expect(seedOrg(ctx, LIST, { ...options, volunteers: spread })).rejects.toThrow(
+        /run pnpm db:load-locations first/,
       );
-      return id;
-    };
-    const division = await place(null, 'division', 'division', 'Dhaka');
-    const district = await place(division, 'district', 'district', 'Dhaka');
-    const upazila = await place(district, 'upazila', 'upazila', 'Savar');
-    const union = await place(upazila, 'union', 'union', 'Savar');
-    await seedOrg(ctx, LIST, { ...options, volunteers: [savar] });
-    const home = await h.db.query(`SELECT v.union_id FROM volunteers v WHERE v.user_id = $1`, [
-      volunteerUser(savar.mobile),
-    ]);
-    expect(home.rows[0].union_id).toBe(union);
+      // two divisions, the first with two districts: the turns go to each division, then to the
+      // first division's other district
+      const place = async (parent: string | null, level: string, code: string) => {
+        const id = crypto.randomUUID();
+        await h.db.query(
+          `INSERT INTO locations (id, parent_id, level, kind, code, name_bn, name_en)
+           VALUES ($1, $2, $3, $3, $4, $4, $4)`,
+          [id, parent, level, code],
+        );
+        return id;
+      };
+      const unionUnder = async (division: string, code: string) => {
+        const district = await place(division, 'district', `${code}-D`);
+        const upazila = await place(district, 'upazila', `${code}-U`);
+        return place(upazila, 'union', `${code}-N`);
+      };
+      const a = await place(null, 'division', 'S-1');
+      const b = await place(null, 'division', 'S-2');
+      const a1 = await unionUnder(a, 'S-1-1');
+      const a2 = await unionUnder(a, 'S-1-2');
+      const b1 = await unionUnder(b, 'S-2-1');
+      await seedOrg(ctx, LIST, { ...options, volunteers: spread });
+      const { rows } = await h.db.query(
+        `SELECT u.mobile, v.union_id FROM volunteers v JOIN users u ON u.id = v.user_id
+         WHERE u.mobile = ANY($1::text[]) ORDER BY u.mobile`,
+        [spread.map((v) => v.mobile)],
+      );
+      expect(rows.map((r) => r.union_id)).toEqual([a1, b1, a2]);
+      await h.db.query(`UPDATE locations SET active = false WHERE code LIKE 'S-%'`);
+    } finally {
+      await restore();
+    }
   });
 
   it('refuses a volunteer whose mobile another account holds, and writes nothing', async () => {

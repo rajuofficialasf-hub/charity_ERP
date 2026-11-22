@@ -5,7 +5,7 @@ import { hash } from '@node-rs/argon2';
 import { ARGON2, DEMO_PASSWORD, DEMO_PROGRAMS } from '../demo/index.js';
 import type { StaffListRow } from './staff-file.js';
 import type { VolunteerListRow } from './volunteer-file.js';
-import { defaultVolunteerHome, seedOrgVolunteers, type VolunteerHome } from './volunteers.js';
+import { seedOrgVolunteers, spreadVolunteerHomes, type VolunteerHome } from './volunteers.js';
 
 /**
  * The org set: the department's own officials from a checked staff list (`staff-file.ts`), in
@@ -37,8 +37,11 @@ export interface OrgOptions {
   demoPassword?: boolean;
   /** The department's own volunteers from a checked volunteer list (`volunteer-file.ts`). */
   volunteers?: VolunteerListRow[];
-  /** Where the volunteers live until their own address is entered; Savar, Dhaka when left out. */
-  volunteerHome?: VolunteerHome;
+  /**
+   * Where the volunteers live until their own address is entered, taken in turn; spread over the
+   * divisions when left out.
+   */
+  volunteerHomes?: VolunteerHome[];
 }
 
 const userId = (jobId: string) => seedId(`org-user:${jobId}`);
@@ -176,7 +179,7 @@ export async function seedOrg(ctx: SeedContext, rows: StaffListRow[], options: O
     if (volunteers.length)
       await seedOrgVolunteers(ctx, volunteers, {
         actor,
-        home: options.volunteerHome ?? (await defaultVolunteerHome(ctx.db)),
+        homes: options.volunteerHomes ?? (await spreadVolunteerHomes(ctx.db)),
         demoHash,
       });
     await options.writeLinks(links);
