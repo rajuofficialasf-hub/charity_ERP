@@ -725,6 +725,47 @@ describe('BEN numbers and the lookup', () => {
     expect(screen.queryByRole('button', { name: LOOKUP_BUTTON })).not.toBeInTheDocument();
   });
 
+  it('tells a person who sees by area why the tab is empty, and a global role nothing more', async () => {
+    const noRows = () =>
+      server.use(
+        http.get('*/api/v1/beneficiaries', () =>
+          HttpResponse.json({
+            data: [],
+            meta: {
+              requestId: 'req_test',
+              limit: 25,
+              nextCursor: null,
+              prevCursor: null,
+              total: 0,
+            },
+          }),
+        ),
+      );
+    refreshAs(RPM);
+    serve(fullRow, { total: 0, assistedThisYear: 0, blocked: 0 });
+    noRows();
+    const first = openList();
+    expect(
+      await screen.findByText('এই ফিল্টারে কোনো উপকারভোগী পাওয়া যায়নি।'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'আপনি শুধু তাঁদের দেখতে পান, যাঁদের আবেদন আপনার প্রকল্পে আপনার এলাকায় আছে।',
+      ),
+    ).toBeInTheDocument();
+    first.unmount();
+
+    resetClientForTests();
+    refreshAs(HEAD);
+    serve(fullRow, { total: 0, assistedThisYear: 0, blocked: 0 });
+    noRows();
+    openList();
+    expect(
+      await screen.findByText('এই ফিল্টারে কোনো উপকারভোগী পাওয়া যায়নি।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/আবেদন আপনার প্রকল্পে আপনার এলাকায় আছে/)).not.toBeInTheDocument();
+  });
+
   it('looks a number up inside the chosen project and links to the found profile', async () => {
     refreshAs(RPM);
     serve(fullRow, { total: 1, assistedThisYear: 0, blocked: 0 });

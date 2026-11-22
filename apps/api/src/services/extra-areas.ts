@@ -10,6 +10,7 @@ import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
 import { isUniqueViolation } from '../core/db-errors.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 
@@ -33,6 +34,43 @@ const ROW = {
   grantedByRef: named,
   endedByRef: named,
 } as const;
+
+type StoredRow = Prisma.UserExtraAreaGetPayload<{ select: typeof ROW }>;
+
+/** An extra area as the contract shows it. */
+const rowView = (r: StoredRow): ExtraAreaRow => ({
+  id: r.id,
+  wholeCountry: r.wholeCountry,
+  location: r.location
+    ? {
+        id: r.location.id,
+        level: r.location.level,
+        name: { bn: r.location.nameBn, en: r.location.nameEn },
+      }
+    : null,
+  reason: r.reason,
+  grantedAt: r.grantedAt.toISOString(),
+  grantedBy: r.grantedByRef,
+  endedAt: r.endedAt?.toISOString() ?? null,
+  endedBy: r.endedByRef,
+  endReason: r.endReason,
+});
+
+/**
+ * The extra areas a person holds now, the newest first: what the person's own profile shows, so
+ * it takes no scope (the caller reads the own record).
+ */
+export async function liveExtraAreas(
+  db: Pick<PrismaService, 'userExtraArea'>,
+  userId: string,
+): Promise<ExtraAreaRow[]> {
+  const rows = await db.userExtraArea.findMany({
+    where: { userId, endedAt: null },
+    orderBy: { grantedAt: 'desc' },
+    select: ROW,
+  });
+  return rows.map(rowView);
+}
 
 /** The place of an extra area: the whole country, or one location with its parent. */
 interface Place {
@@ -131,23 +169,7 @@ export class ExtraAreasService {
       orderBy: [{ endedAt: { sort: 'desc', nulls: 'first' } }, { grantedAt: 'desc' }],
       select: ROW,
     });
-    return rows.map((r) => ({
-      id: r.id,
-      wholeCountry: r.wholeCountry,
-      location: r.location
-        ? {
-            id: r.location.id,
-            level: r.location.level,
-            name: { bn: r.location.nameBn, en: r.location.nameEn },
-          }
-        : null,
-      reason: r.reason,
-      grantedAt: r.grantedAt.toISOString(),
-      grantedBy: r.grantedByRef,
-      endedAt: r.endedAt?.toISOString() ?? null,
-      endedBy: r.endedByRef,
-      endReason: r.endReason,
-    }));
+    return rows.map(rowView);
   }
 
   /** Gives an official a division, a district or the whole country, with a reason. */

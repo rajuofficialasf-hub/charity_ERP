@@ -40,6 +40,7 @@ import {
   canEndSessions,
   canSeeCategories,
   canSeeVolunteers,
+  seesPeopleByArea,
 } from '../roles';
 import { useTabView } from '../use-tab-view';
 import { VolunteerSessions } from './VolunteerSessions';
@@ -362,6 +363,8 @@ function VolunteerTab({ categories }: { categories: boolean }) {
             <LoadError error={list.error} onRetry={() => void list.refetch()} />
           ) : undefined
         }
+        // a person who sees by area learns why the list is empty and who can widen it
+        emptyDescription={me && seesPeopleByArea(me) ? t('empty_scope') : undefined}
         emptyTitle={t('empty')}
         toolbar={
           <FilterBar

@@ -869,7 +869,7 @@ components:
           description: The official's uploaded photo, readable by those who may see the staff list; null shows the initial (D-147)
     OwnStaffProfile:
       type: object
-      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, supervisor, mobile, email, state, lastLoginAt, photoFileId]
+      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, supervisor, mobile, email, state, lastLoginAt, photoFileId, extraAreas]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -906,6 +906,10 @@ components:
         state: { type: string, enum: [pending, active, blocked, deactivated] }
         lastLoginAt: { type: [string, 'null'], format: date-time }
         photoFileId: { type: [string, 'null'], format: uuid }
+        extraAreas:
+          type: array
+          description: The extra areas the person holds now for volunteers, the newest first (D-189, BR-325)
+          items: { $ref: '#/components/schemas/ExtraAreaRow' }
     ProjectsWork:
       type: object
       required: [everyProject, years]
@@ -12230,8 +12234,8 @@ paths:
       summary: "An official's own profile: identity, workplace, contact and account"
       description: >-
         The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
-        affiliation and unit, program, supervisor, mobile, email, state, last login and
-        photo. A volunteer has no official profile (404; their own profile is GET /volunteers/me).
+        affiliation and unit, program, supervisor, mobile, email, state, last login,
+        photo and the extra areas held now for volunteers (D-189, BR-325). A volunteer has no official profile (404; their own profile is GET /volunteers/me).
       x-permission: authenticated
       x-scope: self
       x-audit: none

@@ -375,7 +375,8 @@
       "sessions_title": "Devices of {name}"
     },
     "eyebrow": "People and field coordination",
-    "description": "Registration, skills, availability and project assignments in one place."
+    "description": "Registration, skills, availability and project assignments in one place.",
+    "empty_scope": "You see the volunteers in the areas of your projects that are at work. To see volunteers elsewhere, ask the person above you to add an extra area on your profile."
   },
   "beneficiaries": {
     "title": "Beneficiaries",
@@ -722,7 +723,8 @@
       "reverted": "Merge reverted"
     },
     "eyebrow": "Beneficiary services",
-    "description": "Registration, verification, support and service history in one place."
+    "description": "Registration, verification, support and service history in one place.",
+    "empty_scope": "You see the people who have an application in your area of your projects."
   },
   "programs": {
     "dialog": {
@@ -1604,7 +1606,30 @@
       "none": "Not given"
     },
     "eyebrow": "People",
-    "description": "See the officials' profiles, roles and programs, and add a new official."
+    "description": "See the officials' profiles, roles and programs, and add a new official.",
+    "extra_areas": {
+      "title": "Extra areas",
+      "hint": "The person sees the volunteers of these areas, also with no project of theirs at work there. Beneficiaries are seen through the projects alone.",
+      "none": "No extra area has been given.",
+      "whole_country": "Whole country",
+      "given_by": "Given by {name}, {date}",
+      "reason": "Reason: {reason}",
+      "add": "Add an area",
+      "add_title": "Give {name} an extra area",
+      "whole_country_hint": "The volunteers of every division will be seen.",
+      "district_hint": "With no district chosen, the whole division is given.",
+      "place_required": "Choose a division.",
+      "reason_label": "Reason",
+      "give": "Give the area",
+      "given": "The extra area has been given.",
+      "end": "End",
+      "end_area": "{area}: end the extra area",
+      "end_message": "After this the person no longer sees the volunteers of this area, unless a project of theirs is at work there.",
+      "ended": "The extra area has been ended.",
+      "past": "Earlier extra areas",
+      "ended_by": "Ended by {name}, {date}",
+      "offline": "The server could not be reached. Check the connection and try again."
+    }
   },
   "settings": {
     "title": "Settings",

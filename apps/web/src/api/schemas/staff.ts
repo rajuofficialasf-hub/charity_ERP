@@ -1,3 +1,4 @@
+import type { ExtraAreaRow } from '@css/shared/access';
 import type { InvitationIssued } from '@css/shared/auth';
 import { AFFILIATIONS, USER_STATES } from '@css/shared/auth';
 import { z } from 'zod';
@@ -42,6 +43,26 @@ export const staffDetailSchema = staffMemberSchema.extend({
   isSystemOwner: z.boolean(),
 });
 export type StaffDetail = z.infer<typeof staffDetailSchema>;
+
+const namedUser = z.object({ id: z.uuid(), displayName: z.string() });
+
+/**
+ * One extra area an official holds or held for volunteers (`GET /users/{userId}/extra-areas`, and
+ * the live ones in the own profile): a division, a district, or the whole country without a
+ * location; `endedAt` is null while it is live.
+ */
+export const extraAreaSchema = z.object({
+  id: z.uuid(),
+  wholeCountry: z.boolean(),
+  location: z.object({ id: z.uuid(), level: z.string(), name: bilingual }).nullable(),
+  reason: z.string(),
+  grantedAt: dateTime,
+  grantedBy: namedUser,
+  endedAt: dateTime.nullable(),
+  endedBy: namedUser.nullable(),
+  endReason: z.string().nullable(),
+}) satisfies z.ZodType<ExtraAreaRow>;
+export type ExtraArea = z.infer<typeof extraAreaSchema>;
 
 /** The answer of a new official or a new link: the link, shown once so the admin can copy it. */
 export const invitationIssuedSchema = z.object({

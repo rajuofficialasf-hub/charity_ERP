@@ -37,6 +37,7 @@ const official = (over: Partial<OwnStaffProfile> = {}): OwnStaffProfile => ({
   state: 'active',
   lastLoginAt: '2026-11-01T04:00:00.000Z',
   photoFileId: null,
+  extraAreas: [],
   ...over,
 });
 
@@ -205,6 +206,47 @@ describe("an official's own profile", () => {
       within(within(older).getByText('সিদ্ধান্তে সময় (মধ্যমা)').closest('div')!).getByText('—'),
     ).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it('names the extra areas the person holds above the projects, and nothing when there is none', async () => {
+    const user = userEvent.setup();
+    const area = {
+      id: '01900000-0000-7000-8000-0000000000f1',
+      wholeCountry: false,
+      location: {
+        id: '01900000-0000-7000-8000-0000000000f2',
+        level: 'division',
+        name: { bn: 'বরিশাল', en: 'Barishal' },
+      },
+      reason: 'বন্যার ত্রাণের প্রস্তুতি',
+      grantedAt: '2026-11-20T04:00:00.000Z',
+      grantedBy: { id: '01900000-0000-7000-8000-0000000000f3', displayName: 'ডিপার্টমেন্ট প্রধান' },
+      endedAt: null,
+      endedBy: null,
+      endReason: null,
+    };
+    serve(
+      official({
+        extraAreas: [area, { ...area, id: DIVISION, wholeCountry: true, location: null }],
+      }),
+    );
+    const first = renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(screen.getByRole('button', { name: 'আমার প্রকল্প' }));
+    const extra = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    expect(within(extra).getByText('বরিশাল')).toBeInTheDocument();
+    expect(within(extra).getByText('পুরো দেশ')).toBeInTheDocument();
+    expect(within(extra).getAllByText(/^ডিপার্টমেন্ট প্রধান দিয়েছেন, /)).toHaveLength(2);
+    await expectNoAxeViolations(first.container);
+    first.unmount();
+
+    resetClientForTests();
+    serve(official());
+    renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(screen.getByRole('button', { name: 'আমার প্রকল্প' }));
+    await screen.findByRole('article', { name: 'শীতবস্ত্র ২০২৬' });
+    expect(screen.queryByRole('region', { name: 'বাড়তি এলাকা' })).not.toBeInTheDocument();
   });
 
   it('gives a person every project is open to one line and the project list', async () => {

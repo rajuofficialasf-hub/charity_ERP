@@ -4,8 +4,10 @@ import type {
   StaffCreateRequest,
   StaffProfileRequest,
 } from '@css/shared/auth';
+import type { ExtraAreaRequest } from '@css/shared/access';
 import { api } from '../../api/client';
 import type {
+  ExtraArea,
   Organogram,
   OrganogramNode,
   StaffDetail,
@@ -14,7 +16,7 @@ import type {
   StaffRecord,
 } from '../../api/schemas';
 
-export type { Organogram, OrganogramNode, StaffDetail, StaffMember, StaffPage };
+export type { ExtraArea, Organogram, OrganogramNode, StaffDetail, StaffMember, StaffPage };
 
 export const STAFF_KEY = ['admin', 'staff'] as const;
 
@@ -77,3 +79,15 @@ export const findSupervisors = (text: string) =>
   );
 
 export const organogram = () => api<Organogram>('/organogram');
+
+export const extraAreasKey = (userId: string) => [...STAFF_KEY, 'extra-areas', userId] as const;
+/** The extra areas an official holds or held for volunteers, the live ones first. */
+export const extraAreas = (userId: string) => api<ExtraArea[]>(`/users/${userId}/extra-areas`);
+/** A division, a district or the whole country, with the reason. */
+export const giveExtraArea = (userId: string, body: ExtraAreaRequest) =>
+  api<ExtraArea[]>(`/users/${userId}/extra-areas`, { method: 'POST', body });
+export const endExtraArea = (userId: string, areaId: string, reason: string) =>
+  api<ExtraArea[]>(`/users/${userId}/extra-areas/${areaId}/end`, {
+    method: 'POST',
+    body: { reason },
+  });

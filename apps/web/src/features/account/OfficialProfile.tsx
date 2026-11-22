@@ -1,4 +1,6 @@
 import type { OwnStaffProfile } from '@css/shared/auth';
+import { formatDate } from '@css/shared/format';
+import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
   Button,
@@ -13,7 +15,7 @@ import {
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
-import { useTranslations } from 'use-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
 import { LoadError } from '../../components/LoadError';
 import { canSeeProjects } from '../../admin/roles';
@@ -149,7 +151,7 @@ export function OfficialProfile() {
               )}
             </div>
             {current === 'projects' ? (
-              <OwnProjects />
+              <OwnProjects extraAreas={me.extraAreas} />
             ) : editing && rows ? (
               <OfficialEditSection
                 key={current}
@@ -273,8 +275,41 @@ function AccountLinks() {
   );
 }
 
-function OwnProjects() {
+/**
+ * The person's projects with the figures of their work and, above them, the extra areas they hold
+ * for volunteers (docs/BUSINESS_RULES.md, "An official may be given an extra area").
+ */
+function OwnProjects({ extraAreas }: { extraAreas: OwnStaffProfile['extraAreas'] }) {
   const { me } = useAuth();
+  const t = useTranslations('registration.profile.official');
+  const locale = useLocale() as Locale;
   const work = useQuery({ queryKey: OWN_WORK_KEY, queryFn: ownProjectsWork });
-  return <ProjectsWork query={work} own projectLinks={Boolean(me && canSeeProjects(me))} />;
+  return (
+    <>
+      {extraAreas.length > 0 && (
+        <section className="profile-extra" aria-labelledby="profile-extra-areas">
+          <h3 id="profile-extra-areas" className="profile-extra-title">
+            {t('extra_areas')}
+          </h3>
+          <p className="profile-extra-hint">{t('extra_areas_hint')}</p>
+          <ul className="profile-extra-list">
+            {extraAreas.map((a) => (
+              <li key={a.id}>
+                <strong>
+                  {a.location ? localized(a.location.name, locale) : t('whole_country')}
+                </strong>{' '}
+                <span className="profile-extra-by">
+                  {t('extra_area_given', {
+                    name: a.grantedBy.displayName,
+                    date: formatDate(a.grantedAt),
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <ProjectsWork query={work} own projectLinks={Boolean(me && canSeeProjects(me))} />
+    </>
+  );
 }

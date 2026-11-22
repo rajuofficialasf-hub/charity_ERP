@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toEnglishDigits } from '../digits.js';
+import type { ExtraAreaRow } from '../access/index.js';
 import type { ProjectStatus } from '../projects/lifecycle.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 
@@ -156,6 +157,8 @@ export interface OwnStaffProfile {
   state: 'pending' | 'active' | 'blocked' | 'deactivated';
   lastLoginAt: string | null;
   photoFileId: string | null;
+  /** The extra areas the person holds now for volunteers, the newest first. */
+  extraAreas: ExtraAreaRow[];
 }
 
 /** The figures of an official's work on one project (docs/BUSINESS_RULES.md, the work figures). */

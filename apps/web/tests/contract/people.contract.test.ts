@@ -5,6 +5,7 @@ import {
   deviceSessionSchema,
   editRequestRowSchema,
   effectivePermissionSchema,
+  extraAreaSchema,
   handoverAccountSchema,
   handoverViewSchema,
   invitationIssuedSchema,
@@ -304,6 +305,36 @@ describe.skipIf(!contractBase())('the officials', () => {
       201,
       invitationIssuedSchema,
     );
+  });
+
+  it('gives an official an extra area for volunteers, lists it and ends it', async () => {
+    const head = await signIn(HEAD);
+    const official = await newOfficial('regional_program_manager');
+    const places = await savar(head);
+    expectContract(
+      await call(head, 'GET', `/users/${official.userId}/extra-areas`),
+      200,
+      z.array(extraAreaSchema),
+    );
+    const given = expectContract(
+      await call(head, 'POST', `/users/${official.userId}/extra-areas`, {
+        wholeCountry: false,
+        locationId: places.division,
+        reason: REASON,
+      }),
+      201,
+      z.array(extraAreaSchema),
+    );
+    expect(given[0]).toMatchObject({ wholeCountry: false, endedAt: null });
+    expect(given[0]?.location?.id).toBe(places.division);
+    const ended = expectContract(
+      await call(head, 'POST', `/users/${official.userId}/extra-areas/${given[0]!.id}/end`, {
+        reason: REASON,
+      }),
+      200,
+      z.array(extraAreaSchema),
+    );
+    expect(ended[0]?.endedAt).not.toBeNull();
   });
 
   it('shows the organogram and finds users by name and by role', async () => {
