@@ -1,7 +1,7 @@
 ---
 title: The department's own officials in the development database
 type: chore
-status: in-progress
+status: done
 source: plan
 date: 2026-11-22
 doc_review: 2026-11-22
@@ -155,12 +155,3 @@ The owner wants to try the app with the department's own people. The demo set is
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
-
-## Progress
-
-- **Branch:** `chore/org-staff-seed`
-- **Updated:** 2026-11-22 14:40
-- **Next:** checkpoint C4 (test and review of U5), then finish
-- **Reviewed through:** C3 at ee9dd68a
-- **Uncommitted:** none
-- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it. C2 review: the demo set refuses an org database (`seed.marker.org`); the links file is restricted to the current user on Windows with icacls, named to the second, and removed when the run fails; `isInside` follows real paths; the betterleaks hits on test database URLs were placeholders, now without credentials; `invitationLink` is covered by the org and staff-account integration tests. The database never lets go of its Main Admin (a trigger), so tests cannot clear the flag. U4: css_erp_dev was reset with the owner's explicit consent in chat (Prisma asks for it), migrated, the locations loaded and the list seeded: 35 pending officials, roles 1/1/1/3/14/15, the Main Admin and the three PMs as the list gives them, 34 supervisors, 35 open links; the links file is readable by the owner's account alone; one link opened the set-password page with the name and job ID (no password set). The seed reads the origin as the API does (`appOriginOf` in `src/config/env.ts`: the named URL, or the developer default). U5: css_erp_dev's 35 officials were opened with the demo password (35 active, 0 open links), the earlier links file deleted, and one official signed in with the job ID and the demo password in the browser.
