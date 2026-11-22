@@ -23,6 +23,10 @@ overrides:
   # patch release of the same line; remove when @serwist moves past it.
   '@serwist/build>zod': 4.6.7
   '@serwist/vite>zod': 4.6.7
+  # Prisma's config loader and @hookform/resolvers pull effect 3.20.0 (GHSA-7589-6fvf-x4pw, a
+  # ReDoS in Schema.TemplateLiteral, pnpm audit 2026-11-22); the patched releases of the same 3.x
+  # line; remove when both depend on 3.22.1 or later.
+  effect: ^3.22.1
 
 # The one advisory the audit leaves out, approved by the owner with an expiry: picomatch's ReDoS
 # (picomatch <= 4.0.7, no patched release yet), reached only through the build and dev tools
