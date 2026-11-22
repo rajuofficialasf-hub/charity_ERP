@@ -115,7 +115,7 @@ Rules:
 - Session lifetime: a device session lives while it is refreshed at least every 30 days; the hard limit is 180 days, after which the user logs in again (O-25).
 - Idle timeout: 12 hours without any request on official desktop sessions (the access token expires in 15 minutes anyway; this governs silent refresh), none on volunteer phones (field use is intermittent and offline for days) (O-25).
 - Device limit: at most 5 active device sessions per user; the oldest is revoked when a sixth logs in (O-25). Since T2.7 a session that idled past its refresh window counts as ended: it neither counts against the limit nor is revoked for it, so the device key a phone may still recover is not dropped by a later login.
-- Logout: revokes the current device session and triggers the local-data wipe (section 8). A refresh that crosses it opens nothing: the server rotates only a session that is not revoked, so a cookie a refresh answered with dies with the logout, and the PWA drops the answer of every refresh that started before the logout, also one that arrives while the logout is still on its way.
+- Logout: revokes the current device session and triggers the local-data wipe (section 8). A refresh that crosses it opens nothing: the server rotates only a session that is not revoked, so a cookie a refresh answered with dies with the logout, and the PWA lets a refresh already on its way finish before the logout goes out (its new cookie lands before the logout clears it, and the logout carries the newest token, so a stale one never makes it fail), while it drops the answer of a refresh that starts during the logout.
 
 ## 6. Lockout after failed attempts (O-05)
 

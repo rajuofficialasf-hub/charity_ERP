@@ -10,6 +10,8 @@ import { fromProfileMenu, scan } from './support/admin';
 // ends every other login), see the account table of docs/testing/DEMO_ACCOUNTS.md.
 const PASSWORD = 'CssDemo2026';
 const OTP = '123456';
+/** The new password of the password change spec, set back to the demo one after it. */
+const CHANGED = 'Shapla phul 2027';
 
 const ACCOUNTS = {
   desktop: {
@@ -145,42 +147,46 @@ test.describe('passwords', () => {
   test('changes the password and logs in with the new one', async ({ page, request }, info) => {
     passwordsOnWebKit(info);
     const id = account(info.project.name, 'change');
-    await signIn(page, id);
-    await fromProfileMenu(page, 'পাসওয়ার্ড পরিবর্তন');
-    await ready(page, 'পাসওয়ার্ড পরিবর্তন করুন');
-    await page
-      .getByLabel(/^বর্তমান পাসওয়ার্ড/)
-      .first()
-      .fill(PASSWORD);
-    await page
-      .getByLabel(/^নতুন পাসওয়ার্ড(?! আবার)/)
-      .first()
-      .fill('Shapla phul 2027');
-    await page
-      .getByLabel(/^নতুন পাসওয়ার্ড আবার লিখুন/)
-      .first()
-      .fill('Shapla phul 2027');
-    await page.getByRole('button', { name: 'পাসওয়ার্ড পরিবর্তন করুন' }).click();
-    await expect(page.getByText(/পাসওয়ার্ড বদলানো হয়েছে/)).toBeVisible();
-    await fromProfileMenu(page, 'লগআউট');
-    await expect(page).toHaveURL(/\/login/);
-    await signIn(page, id, 'Shapla phul 2027');
-
-    // the old password goes back through the API, so a repeat of the spec signs in as before
-    const login = await request.post('/api/v1/auth/login', {
-      data: {
-        loginId: id,
-        password: 'Shapla phul 2027',
-        device: { name: 'E2E', platform: 'desktop', appVersion: 'e2e' },
-      },
-    });
-    expect(login.ok()).toBe(true);
-    const { accessToken } = ((await login.json()) as { data: { accessToken: string } }).data;
-    const back = await request.post('/api/v1/auth/password/change', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      data: { currentPassword: 'Shapla phul 2027', newPassword: PASSWORD },
-    });
-    expect(back.status()).toBe(204);
+    try {
+      await signIn(page, id);
+      await fromProfileMenu(page, 'পাসওয়ার্ড পরিবর্তন');
+      await ready(page, 'পাসওয়ার্ড পরিবর্তন করুন');
+      await page
+        .getByLabel(/^বর্তমান পাসওয়ার্ড/)
+        .first()
+        .fill(PASSWORD);
+      await page
+        .getByLabel(/^নতুন পাসওয়ার্ড(?! আবার)/)
+        .first()
+        .fill(CHANGED);
+      await page
+        .getByLabel(/^নতুন পাসওয়ার্ড আবার লিখুন/)
+        .first()
+        .fill(CHANGED);
+      await page.getByRole('button', { name: 'পাসওয়ার্ড পরিবর্তন করুন' }).click();
+      await expect(page.getByText(/পাসওয়ার্ড বদলানো হয়েছে/)).toBeVisible();
+      await fromProfileMenu(page, 'লগআউট');
+      await expect(page).toHaveURL(/\/login/);
+      await signIn(page, id, CHANGED);
+    } finally {
+      // the old password goes back through the API, also after a failure midway, so a repeat of
+      // the spec signs in as before; an account still on the old one has nothing to restore
+      const login = await request.post('/api/v1/auth/login', {
+        data: {
+          loginId: id,
+          password: CHANGED,
+          device: { name: 'E2E', platform: 'desktop', appVersion: 'e2e' },
+        },
+      });
+      if (login.ok()) {
+        const { accessToken } = ((await login.json()) as { data: { accessToken: string } }).data;
+        const back = await request.post('/api/v1/auth/password/change', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          data: { currentPassword: CHANGED, newPassword: PASSWORD },
+        });
+        expect(back.status()).toBe(204);
+      }
+    }
   });
 
   test('resets a forgotten password with the OTP', async ({ page }, info) => {
