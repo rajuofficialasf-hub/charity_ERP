@@ -75,12 +75,11 @@ export async function sendTogether<F extends string>(
     return { sent: requests.map((r) => r.field), refused: [], error: null };
   } catch (error) {
     const asked = new Set<string>(requests.map((r) => r.field));
-    const refused =
-      error instanceof ApiFailure
-        ? error.details
-            .filter((d) => d.path !== undefined && asked.has(d.path))
-            .map((d): [F, string] => [d.path as F, d.message])
-        : [];
+    // the server names the refused details by their field; only one that was asked counts
+    const isAsked = (path: string | undefined): path is F => path !== undefined && asked.has(path);
+    const refused: [F, string][] = [];
+    if (error instanceof ApiFailure)
+      for (const d of error.details) if (isAsked(d.path)) refused.push([d.path, d.message]);
     return { sent: [], refused, error };
   }
 }

@@ -28,7 +28,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import { assertContactFree } from './change-requests.js';
-import { batchHash, checkEach, inOrder, namedRefusal } from './edit-batch.js';
+import { inOrder, runEditBatch } from './edit-batch.js';
 import { changeView } from './registrations.js';
 import { assertStaffRefs } from './staff-accounts.js';
 import { linkStaffPhoto, staffPhotos } from './staff-photos.js';
@@ -144,34 +144,18 @@ export class StaffChangeRequestsService {
    */
   async createMany(principal: Principal, key: string | undefined, body: StaffEditRequestBatch) {
     if (principal.kind !== 'staff') throw new ApiError('permission.not_found', 404);
-    const outcome = await this.idempotency.runWithKey<{ id: string }>(
-      key,
-      { userId: principal.userId, deviceSessionId: principal.sessionId },
-      body.requests.length,
-      async (tx) => {
-        await this.lockPerson(tx, principal.userId);
-        const values = await checkEach(body.requests, (r) =>
-          r.field === 'photo'
-            ? Promise.resolve(null)
-            : this.checkedValue(tx, principal.userId, { ...r, field: r.field }),
-        );
-        const made: { id: string }[] = [];
-        for (const [i, request] of body.requests.entries()) {
-          try {
-            made.push({ id: (await this.createIn(tx, principal, request, values[i])).id });
-          } catch (error) {
-            throw namedRefusal(request.field, error);
-          }
-        }
-        return made;
-      },
-      { requestHash: batchHash(principal.userId, body) },
-    );
-    const ids = outcome.results.map((r) => r.id);
+    const { replay, ids } = await runEditBatch(this.idempotency, key, principal, body.requests, {
+      lock: (tx) => this.lockPerson(tx, principal.userId),
+      check: (tx, r) =>
+        r.field === 'photo'
+          ? Promise.resolve(null)
+          : this.checkedValue(tx, principal.userId, { ...r, field: r.field }),
+      write: (tx, r, value) => this.createIn(tx, principal, r, value),
+    });
     const rows = await this.prisma.volunteerChangeRequest.findMany({
       where: { id: { in: ids }, userId: principal.userId, volunteerId: null },
     });
-    return { replay: outcome.replay, data: inOrder(ids, rows).map(view) };
+    return { replay, data: inOrder(ids, rows).map(view) };
   }
 
   /** The caller's own row, locked for the requests; 404 when it is gone. */

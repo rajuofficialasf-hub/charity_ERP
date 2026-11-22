@@ -33,7 +33,7 @@ import { ApiError } from '../i18n/api-error.js';
 import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import { addressProblem } from './registration.js';
-import { batchHash, checkEach, inOrder, namedRefusal } from './edit-batch.js';
+import { inOrder, runEditBatch } from './edit-batch.js';
 import { applyField, changeView, OBJECT_FIELDS } from './registrations.js';
 
 const EDIT = 'profile_edit';
@@ -137,33 +137,18 @@ export class ChangeRequestsService {
    */
   async createMany(principal: Principal, key: string | undefined, body: EditRequestBatch) {
     const volunteerId = await this.ownVolunteer(principal);
-    const values = await checkEach(body.requests, (r) =>
-      isPhoto(r.field) ? Promise.resolve(null) : this.checkedValue(principal, r),
-    );
-    const outcome = await this.idempotency.runWithKey<{ id: string }>(
-      key,
-      { userId: principal.userId, deviceSessionId: principal.sessionId },
-      body.requests.length,
-      async (tx) => {
+    const { replay, ids } = await runEditBatch(this.idempotency, key, principal, body.requests, {
+      lock: async (tx) => {
         await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteerId}::uuid FOR UPDATE`;
-        const made: { id: string }[] = [];
-        for (const [i, request] of body.requests.entries()) {
-          try {
-            const row = await this.createIn(tx, principal, volunteerId, request, values[i]);
-            made.push({ id: row.id });
-          } catch (error) {
-            throw namedRefusal(request.field, error);
-          }
-        }
-        return made;
       },
-      { requestHash: batchHash(principal.userId, body) },
-    );
-    const ids = outcome.results.map((r) => r.id);
+      check: (tx, r) =>
+        isPhoto(r.field) ? Promise.resolve(null) : this.checkedValue(principal, r, tx),
+      write: (tx, r, value) => this.createIn(tx, principal, volunteerId, r, value),
+    });
     const rows = await this.prisma.volunteerChangeRequest.findMany({
       where: { id: { in: ids }, userId: principal.userId },
     });
-    return { replay: outcome.replay, data: inOrder(ids, rows).map((row) => editView(row, true)) };
+    return { replay, data: inOrder(ids, rows).map((row) => editView(row, true)) };
   }
 
   /** The approved volunteer record of the caller; 404 for anyone else. */
@@ -230,19 +215,20 @@ export class ChangeRequestsService {
    * only after its code is verified (verifyCode), so nobody learns whose number or address it is
    * without owning it.
    */
-  private async checkedValue(principal: Principal, body: EditRequestCreate): Promise<unknown> {
+  private async checkedValue(
+    principal: Principal,
+    body: EditRequestCreate,
+    db: Tx = this.prisma,
+  ): Promise<unknown> {
     const parsed = EDIT_FIELD_VALUES[body.field].safeParse(body.newValue);
     if (!parsed.success) throw invalid(parsed.error.issues[0]?.message ?? 'validation.failed');
     const value = parsed.data as unknown;
     if (body.field === 'address' || body.field === 'permanentAddress') {
-      const problem = await addressProblem(
-        this.prisma,
-        value as Parameters<typeof addressProblem>[1],
-      );
+      const problem = await addressProblem(db, value as Parameters<typeof addressProblem>[1]);
       if (problem) throw invalid('validation.option_unknown');
     }
     if (isContact(body.field)) {
-      const current = await this.prisma.user.findUniqueOrThrow({
+      const current = await db.user.findUniqueOrThrow({
         where: { id: principal.userId },
         select: { mobile: true, email: true },
       });

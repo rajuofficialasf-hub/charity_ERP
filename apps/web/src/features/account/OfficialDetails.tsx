@@ -340,6 +340,8 @@ export function OfficialEditSection({
       // all of them or none: a detail the form cannot make holds back the others too
       if (missing.length)
         return { sent: [], refused: missing.map((f) => [f, tv('required')]), error: MISSING };
+      // every ticked detail is waiting already (a send whose answer the network lost): done
+      if (!requests.length) return { sent: [], refused: [], error: null };
       return sendTogether(requests, (all) => askStaffEdits(all, keyFor(all)));
     },
     onSuccess: ({ refused, error }) => {

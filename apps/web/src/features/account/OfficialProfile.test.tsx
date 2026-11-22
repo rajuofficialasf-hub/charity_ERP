@@ -345,6 +345,57 @@ describe("an official's change of several details", () => {
     expect(sends[1]!.key).toBe(sends[0]!.key);
   });
 
+  it('counts a send whose answer was lost as done once its details are waiting, and posts nothing more', async () => {
+    const user = userEvent.setup();
+    serve(official());
+    let waiting: unknown[] = [];
+    let posts = 0;
+    server.use(
+      http.get('*/api/v1/me/change-requests', () =>
+        HttpResponse.json({
+          data: waiting,
+          meta: { requestId: 'r', limit: 50, nextCursor: null, prevCursor: null },
+        }),
+      ),
+      // the server takes the request, but its answer never reaches the phone
+      http.post('*/api/v1/me/staff-change-requests/batch', () => {
+        posts += 1;
+        waiting = [
+          {
+            id: '01900000-0000-7000-8000-0000000000f7',
+            userId: ME.id,
+            volunteerId: null,
+            kind: 'profile_edit',
+            field: 'designation',
+            note: null,
+            status: 'submitted',
+            decidedAt: null,
+          },
+        ];
+        return HttpResponse.error();
+      }),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Identity and workplace' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Change Designation' }));
+    await user.type(screen.getByRole('textbox', { name: 'Designation' }), ' (নতুন)');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    // the list read again shows the detail waiting; a second press finds nothing left to ask
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('checkbox', { name: 'Change Designation' }),
+      ).not.toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(
+      await screen.findByText(
+        'Request sent. The Department Head or the Monitoring Team will decide.',
+      ),
+    ).toBeInTheDocument();
+    expect(posts).toBe(1);
+  });
+
   it('asks before Cancel drops the ticked details, and keeps them when asked to', async () => {
     const user = userEvent.setup();
     serve(official());

@@ -10,7 +10,10 @@ import {
   REQUEST_FIELD_LABEL,
   STAFF_EDIT_FIELDS,
   draftExpiry,
+  EDIT_REQUESTS_PER_BATCH,
+  editRequestBatchSchema,
   editRequestCreateSchema,
+  staffEditRequestBatchSchema,
   otpSendRequestSchema,
   otpVerifyRequestSchema,
   REGISTRATION_RULES,
@@ -293,5 +296,35 @@ describe('REQUEST_FIELD_LABEL', () => {
       translator('en', key);
     }
     expect(missing).toEqual([]);
+  });
+});
+
+describe('several details of the own profile at once', () => {
+  const one = (field: string, newValue: unknown = 'নতুন') => ({ field, newValue });
+
+  it('takes one to twenty details, each once', () => {
+    expect(editRequestBatchSchema.safeParse({ requests: [one('education')] }).success).toBe(true);
+    expect(editRequestBatchSchema.safeParse({ requests: [] }).success).toBe(false);
+    expect(
+      editRequestBatchSchema.safeParse({ requests: [one('education'), one('education')] }).success,
+    ).toBe(false);
+    const fields = EDIT_FIELDS.slice(0, EDIT_REQUESTS_PER_BATCH + 1);
+    expect(fields).toHaveLength(EDIT_REQUESTS_PER_BATCH + 1);
+    expect(editRequestBatchSchema.safeParse({ requests: fields.map((f) => one(f)) }).success).toBe(
+      false,
+    );
+  });
+
+  it('checks each detail as its own request: a field no request takes is refused', () => {
+    expect(editRequestBatchSchema.safeParse({ requests: [one('category', 'A')] }).success).toBe(
+      false,
+    );
+    expect(
+      staffEditRequestBatchSchema.safeParse({ requests: [one('designation'), { field: 'photo' }] })
+        .success,
+    ).toBe(true);
+    expect(staffEditRequestBatchSchema.safeParse({ requests: [one('education')] }).success).toBe(
+      false,
+    );
   });
 });

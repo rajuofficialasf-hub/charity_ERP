@@ -428,6 +428,28 @@ describe('several details at once', () => {
     expect(JSON.stringify(stranger.body)).not.toContain(first.body.data[0].id);
   });
 
+  it('answers a repeat from the first answer even after its new mobile was verified and applied', async () => {
+    const v = await approvedVolunteer();
+    const key = randomUUID();
+    const newMobile = f.fakeMobile();
+    const body = [{ field: 'mobile', newValue: newMobile }];
+    const first = await askMany(v.session, body, key);
+    expect(first.status).toBe(201);
+    const id = first.body.data[0].id as string;
+    await api().post(`/api/v1/me/change-requests/${id}/otp`).set(bearer(v.session)).expect(204);
+    await api()
+      .post(`/api/v1/me/change-requests/${id}/otp/verify`)
+      .set(bearer(v.session))
+      .send({ code: DUMMY_CODE })
+      .expect(204);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await decide(rpm, id, { decision: 'approve' })).status).toBe(200);
+    // the mobile is now the person's own: a fresh check would refuse it, the key answers instead
+    const again = await askMany(await login(h, newMobile), body, key);
+    expect(again.status).toBe(200);
+    expect(again.body.data.map((r: { id: string }) => r.id)).toEqual([id]);
+  });
+
   it('needs a key and a session, and an official has no grant for it', async () => {
     const v = await approvedVolunteer();
     const noKey = await api()
