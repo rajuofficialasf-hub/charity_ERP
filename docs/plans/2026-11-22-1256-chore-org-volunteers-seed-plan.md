@@ -54,7 +54,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U2. The volunteers in the org set
 - **Goal:** write the volunteers with their placeholders and sign-in, and take the list on the command line.
@@ -103,7 +103,7 @@ The org set (D-189) loads the officials only. The owner gave a second list with 
 ## Progress
 - **Branch:** `chore/org-volunteers-seed`
 - **Updated:** 2026-11-22 13:10
-- **Next:** U1, the volunteer list reader and its spec
+- **Next:** U2, the volunteers in the org set
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** the owner's list and its prepared copy (`volunteers-raw.tsv`, `volunteers.tsv`) are in the owner's folder outside the repository; never copy them in. Run tests with fnm's Node 24.22.2 first on PATH.
