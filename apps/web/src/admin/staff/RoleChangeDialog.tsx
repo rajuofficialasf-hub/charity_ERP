@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
+import { LoadError } from '../../components/LoadError';
 import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { roles } from '../registrations/registrations-api';
@@ -99,6 +100,9 @@ export function RoleChangeDialog({
   };
 
   const loading = roleList.isPending || version.isPending;
+  const failed = roleList.error ?? version.error;
+  // the version read again after a change meanwhile: nothing is sent with the old one
+  const ready = Boolean(version.data?.meta.etag) && !version.isFetching && !failed;
   return (
     <Dialog
       title={title}
@@ -114,14 +118,22 @@ export function RoleChangeDialog({
           <Button
             onClick={() => void form.handleSubmit(send)()}
             loading={pending}
-            disabled={loading || !version.data}
+            disabled={loading || !ready}
           >
             {t('confirm')}
           </Button>
         </>
       }
     >
-      {loading ? (
+      {failed ? (
+        <LoadError
+          error={failed}
+          onRetry={() => {
+            void roleList.refetch();
+            void version.refetch();
+          }}
+        />
+      ) : loading ? (
         <Skeleton count={3} />
       ) : (
         <Form

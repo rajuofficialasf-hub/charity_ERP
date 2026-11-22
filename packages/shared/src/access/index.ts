@@ -116,10 +116,12 @@ export const permissionOverrideSchema = z.object({
   scopeRef: z.uuid().nullable(),
   scopeName: bilingual.nullable(),
   condition: z.string().nullable(),
-  reason: z.string(),
+  /** Null to a reader below GLOBAL: a reason may concern the person's conduct. */
+  reason: z.string().nullable(),
   expiresAt: z.string().nullable(),
   grantedAt: z.string(),
-  grantedBy: z.object({ id: z.uuid(), displayName: z.string() }),
+  /** Null to a reader below GLOBAL, as the reason. */
+  grantedBy: z.object({ id: z.uuid(), displayName: z.string() }).nullable(),
 });
 export type PermissionOverride = z.infer<typeof permissionOverrideSchema>;
 

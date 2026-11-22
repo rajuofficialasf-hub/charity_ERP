@@ -393,9 +393,30 @@ describe('several permissions at once, and what is taken away', () => {
     );
   });
 
-  it('lets an RPM read the overrides of a person of the region and nobody outside it', async () => {
+  it('lets an RPM read the overrides of a person of the region and nobody outside it, without the reasons', async () => {
+    const head = await as(world.users.head);
+    await grant(head, {
+      userId: world.users.executive,
+      permissions: ['donor.view'],
+      scopeType: 'REGION',
+      scopeRef: world.dhaka.division,
+    }).expect(201);
     const rpm = await as(world.users.rpmDhaka);
-    await overrides(rpm, world.users.executive).expect(200);
+    const seen = (await overrides(rpm, world.users.executive).expect(200)).body.data as {
+      permission: string;
+      reason: string | null;
+      grantedBy: unknown;
+      scopeName: unknown;
+    }[];
+    const row = seen.find((r) => r.permission === 'donor.view')!;
+    // a reason may concern the person: it and its author are for the readers at GLOBAL
+    expect(row).toMatchObject({ reason: null, grantedBy: null });
+    expect(row.scopeName).not.toBeNull();
+    const byHead = (await overrides(head, world.users.executive).expect(200)).body.data as {
+      permission: string;
+      reason: string | null;
+    }[];
+    expect(byHead.find((r) => r.permission === 'donor.view')!.reason).toBe(REASON);
     const outside = await overrides(rpm, world.users.outsider).expect(404);
     expect(outside.body.error.code).toBe('permission.not_found');
   });

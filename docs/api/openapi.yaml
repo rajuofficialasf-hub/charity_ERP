@@ -1372,7 +1372,7 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     PermissionOverride:
       type: object
-      description: A live panel override, a grant or a revoke, with its scope by name and who gave it, when and why (D-188)
+      description: A live panel override, a grant or a revoke, with its scope by name and who gave it, when and why (D-188); the reason and who gave it are null to a reader below GLOBAL
       required: [id, permission, title, effect, scopeType, scopeRef, scopeName, condition, reason, expiresAt, grantedAt, grantedBy]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -1386,10 +1386,13 @@ components:
             - { $ref: '#/components/schemas/Bilingual' }
             - { type: 'null' }
         condition: { type: [string, 'null'] }
-        reason: { type: string }
+        reason: { type: [string, 'null'] }
         expiresAt: { type: [string, 'null'], format: date-time }
         grantedAt: { type: string, format: date-time }
-        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        grantedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
     PermissionOverrideList:
       type: object
       required: [data, meta]

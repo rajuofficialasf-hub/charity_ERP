@@ -1075,6 +1075,46 @@ describe('the official profile', () => {
     expect(screen.queryByText('রোল বদলানো হয়েছে।')).not.toBeInTheDocument();
   }, 20_000);
 
+  it('says so with a retry when the roles do not load, and sends nothing until they do', async () => {
+    refreshAs(HEAD);
+    serve();
+    let rolesDown = true;
+    server.use(
+      http.get('*/api/v1/roles', () =>
+        rolesDown
+          ? // a refusal is not asked again by itself, so the retry is the person's
+            HttpResponse.json(
+              {
+                error: { code: 'rate.limited', message: 'অনেকবার চেষ্টা হয়েছে।', requestId: 'r' },
+              },
+              { status: 429 },
+            )
+          : HttpResponse.json({
+              data: [
+                {
+                  key: 'project_executive',
+                  name: { bn: 'প্রজেক্ট এক্সিকিউটিভ', en: 'Project Executive' },
+                  kind: 'official',
+                  globalScope: false,
+                },
+              ],
+              meta: {},
+            }),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: 'রোল বদলান' }));
+    const dialog = await screen.findByRole('dialog');
+    const retry = await within(dialog).findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    expect(within(dialog).getByRole('button', { name: 'রোল বদলান' })).toBeDisabled();
+    expect(within(dialog).queryByRole('combobox', { name: /নতুন রোল/ })).not.toBeInTheDocument();
+    rolesDown = false;
+    await user.click(retry);
+    expect(await within(dialog).findByRole('combobox', { name: /নতুন রোল/ })).toBeInTheDocument();
+    expect(roleChanges).toEqual([]);
+  }, 20_000);
+
   it('offers an Admin the Department Head, and says the role asks for the longer password', async () => {
     refreshAs({ ...HEAD, roles: ['admin'] });
     serve();

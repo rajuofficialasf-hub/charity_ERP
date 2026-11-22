@@ -222,6 +222,11 @@ export class AccessPanelService {
       },
     });
     const names = await this.scopeNames(rows);
+    // the reason and the person who wrote an override are for the readers at GLOBAL (an Admin,
+    // the Department Head, the Monitoring Team): a reason may concern the person's conduct. The
+    // names of programs, projects and places are no secret: a PM and an RPM see every program
+    // and project in the overview, and the locations are public.
+    const whole = scope.instances.global;
     return rows.map((r) => ({
       id: r.id,
       permission: r.permissionName,
@@ -231,10 +236,10 @@ export class AccessPanelService {
       scopeRef: r.scopeRef,
       scopeName: (r.scopeRef && names.get(r.scopeRef)) || null,
       condition: r.condition,
-      reason: r.reason,
+      reason: whole ? r.reason : null,
       expiresAt: r.expiresAt?.toISOString() ?? null,
       grantedAt: r.createdAt.toISOString(),
-      grantedBy: r.grantedByRef,
+      grantedBy: whole ? r.grantedByRef : null,
     }));
   }
 
