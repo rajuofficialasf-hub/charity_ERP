@@ -1,6 +1,7 @@
 import { demoName, fakeNid } from '@css/shared';
 import type { Tx } from '../../../src/core/prisma.service.js';
 import { SEED_AT, type SeedContext, seedId } from '../../context.js';
+import type { UnionRef } from '../demo/index.js';
 import type { VolunteerListRow } from './volunteer-file.js';
 
 /**
@@ -11,17 +12,12 @@ import type { VolunteerListRow } from './volunteer-file.js';
  */
 
 /** Where the volunteers live until their own address is entered: a division to a union. */
-export interface VolunteerHome {
-  division: string;
-  district: string;
-  upazila: string;
-  union: string;
-}
+export type VolunteerHome = UnionRef;
 
 /** The first fake NID of the org set's volunteers, away from the demo set's own numbers. */
 const NID_OFFSET = 50_000;
 
-export const volunteerUserId = (mobile: string) => seedId(`org-volunteer:${mobile}`);
+const volunteerUserId = (mobile: string) => seedId(`org-volunteer:${mobile}`);
 
 /** The home address the run gives every volunteer: Savar union of Savar, Dhaka. */
 export async function defaultVolunteerHome(db: Tx): Promise<VolunteerHome> {
@@ -89,7 +85,8 @@ export async function seedOrgVolunteers(
         language: 'bn',
         ...ctx.audit(),
       },
-      { insertOnly: ['state', 'language'] },
+      // a name or state changed in the app stays on a rerun
+      { insertOnly: ['state', 'language', 'display_name'] },
     );
     await ctx.upsert('user_roles', {
       id: seedId(`user-role:${uid}:volunteer_general`),
@@ -126,6 +123,8 @@ export async function seedOrgVolunteers(
           'upazila_id',
           'union_id',
           'type',
+          'approved_by',
+          'approved_at',
         ],
       },
     );

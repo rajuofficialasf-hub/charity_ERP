@@ -36,6 +36,9 @@ describe('checkOrgTarget', () => {
       /outside the repository/,
     );
     expect(checkOrgTarget(env(DEV), REPO, REPO)).toMatch(/outside the repository/);
+    expect(checkOrgTarget(env(DEV), REPO, join(REPO, 'v.tsv'), 'volunteer list')).toBe(
+      'the volunteer list must be kept outside the repository',
+    );
     // a folder whose name starts with two dots is still inside
     expect(checkOrgTarget(env(DEV), REPO, join(REPO, '..data', 'staff.tsv'))).toMatch(
       /outside the repository/,
@@ -75,6 +78,13 @@ describe('parseSeedArgs', () => {
       parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers', VOLUNTEERS]).volunteers,
     ).toBe(VOLUNTEERS);
     expect(() => parseSeedArgs(['--set', 'base', '--volunteers', VOLUNTEERS])).toThrow(/org set/);
+    // a flag without its path stops the run instead of loading the officials alone
+    expect(() => parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers'])).toThrow(
+      /--volunteers needs a path/,
+    );
+    expect(() =>
+      parseSeedArgs(['--set', 'org', '--file', OUTSIDE, '--volunteers', '--demo-password']),
+    ).toThrow(/--volunteers needs a path/);
   });
 
   it('keeps the earlier sets as they were', () => {

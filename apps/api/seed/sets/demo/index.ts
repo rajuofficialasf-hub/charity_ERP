@@ -306,7 +306,7 @@ const MALE = [
 ];
 const FATHERS = ['আব্দুল জব্বার', 'মো. ইউসুফ', 'আলী আকবর', 'কাশেম আলী', 'আব্দুর রশিদ'];
 
-interface UnionRef {
+export interface UnionRef {
   division: string;
   district: string;
   upazila: string;

@@ -334,6 +334,45 @@ describe('the org seed set', () => {
     expect(kept.rows[0].password_hash).toBe('own-password-hash');
   });
 
+  it('leaves the volunteers without a password when the demo password is not asked for', async () => {
+    const quiet: VolunteerListRow = { line: 2, name: 'Sample Quiet', mobile: fakeMobile(965) };
+    await run(LIST, [], false, [quiet]);
+    const user = await h.db.query(`SELECT password_hash FROM users WHERE id = $1`, [
+      volunteerUser(quiet.mobile),
+    ]);
+    expect(user.rows[0].password_hash).toBeNull();
+    await expect(login(h, quiet.mobile, { password: DEMO_PASSWORD })).rejects.toThrow(
+      /login failed/,
+    );
+  });
+
+  it('gives the volunteers Savar union of Savar, Dhaka, and asks for the locations when they are missing', async () => {
+    const ctx = new SeedContext(h.container.prisma);
+    ctx.actorId = SYSTEM_ACTOR_ID;
+    const savar: VolunteerListRow = { line: 2, name: 'Sample Savar', mobile: fakeMobile(966) };
+    const options = { appOrigin: ORIGIN, now: h.clock.now(), writeLinks: () => undefined };
+    await expect(seedOrg(ctx, LIST, { ...options, volunteers: [savar] })).rejects.toThrow(
+      /run pnpm db:load-locations first/,
+    );
+    const place = async (parent: string | null, level: string, kind: string, name: string) => {
+      const id = crypto.randomUUID();
+      await h.db.query(
+        `INSERT INTO locations (id, parent_id, level, kind, code, name_bn, name_en) VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+        [id, parent, level, kind, `SAVAR-${level}`, name],
+      );
+      return id;
+    };
+    const division = await place(null, 'division', 'division', 'Dhaka');
+    const district = await place(division, 'district', 'district', 'Dhaka');
+    const upazila = await place(district, 'upazila', 'upazila', 'Savar');
+    const union = await place(upazila, 'union', 'union', 'Savar');
+    await seedOrg(ctx, LIST, { ...options, volunteers: [savar] });
+    const home = await h.db.query(`SELECT v.union_id FROM volunteers v WHERE v.user_id = $1`, [
+      volunteerUser(savar.mobile),
+    ]);
+    expect(home.rows[0].union_id).toBe(union);
+  });
+
   it('refuses a volunteer whose mobile another account holds, and writes nothing', async () => {
     const taken = fakeMobile(963);
     await h.db.query(

@@ -8,7 +8,7 @@ import { parseCsvLines } from '../../../src/locations/csv.js';
  * line, the column and the reason, never the cell's value.
  */
 
-export const VOLUNTEER_LIST_COLUMNS = ['name', 'mobile'] as const;
+const VOLUNTEER_LIST_COLUMNS = ['name', 'mobile'] as const;
 type Column = (typeof VOLUNTEER_LIST_COLUMNS)[number];
 
 export interface VolunteerListRow {
@@ -18,10 +18,10 @@ export interface VolunteerListRow {
   mobile: string;
 }
 
-export type VolunteerListReason =
+type VolunteerListReason =
   'missing_column' | 'no_rows' | 'required' | 'format' | 'duplicate' | 'official';
 
-export interface VolunteerListProblem {
+interface VolunteerListProblem {
   line: number;
   field: Column;
   reason: VolunteerListReason;
@@ -68,5 +68,5 @@ export function readVolunteerList(
     seen.add(mobile);
     rows.push({ line, name, mobile });
   }
-  return problems.length ? { rows: [], problems } : { rows, problems };
+  return { rows: problems.length ? [] : rows, problems };
 }

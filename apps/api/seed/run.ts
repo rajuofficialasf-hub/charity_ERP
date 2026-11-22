@@ -46,7 +46,10 @@ export function parseSeedArgs(args: string[]): {
   const value = i >= 0 ? args[i + 1] : 'all';
   const valueOf = (flag: string) => {
     const at = args.indexOf(flag);
-    return at >= 0 ? (args[at + 1] ?? null) : null;
+    if (at < 0) return null;
+    const value = args[at + 1];
+    if (!value || value.startsWith('--')) throw new Error(`${flag} needs a path`);
+    return value;
   };
   const file = valueOf('--file');
   const volunteers = valueOf('--volunteers');
@@ -106,8 +109,17 @@ export async function runSeed(
   };
 }
 
-/** The volunteers of the list, or the run stopped with every problem by line and column. */
-export function volunteerListOf(file: string, officialMobiles: string[]): VolunteerListRow[] {
+/**
+ * The volunteers of a list kept outside the repository, or the run stopped: by the org set's guards,
+ * or with every problem of the list by line and column.
+ */
+export function volunteerListOf(
+  file: string,
+  officialMobiles: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): VolunteerListRow[] {
+  const refusal = checkOrgTarget(env, REPO_ROOT, file, 'volunteer list');
+  if (refusal) throw new Error(`db:seed refused: ${refusal}`);
   const { rows, problems } = readVolunteerList(readFileSync(file, 'utf8'), officialMobiles);
   if (problems.length) {
     // line, column and reason only: a cell's value never reaches the terminal
@@ -151,11 +163,8 @@ async function main(): Promise<void> {
     const rows = staffListOf(list);
     let volunteerRows: VolunteerListRow[] = [];
     if (volunteers) {
-      const volunteerList = resolve(volunteers);
-      const volunteerRefusal = checkOrgTarget(process.env, REPO_ROOT, volunteerList);
-      if (volunteerRefusal) throw new Error(`db:seed refused: ${volunteerRefusal}`);
       volunteerRows = volunteerListOf(
-        volunteerList,
+        resolve(volunteers),
         rows.flatMap((r) => (r.mobile ? [r.mobile] : [])),
       );
     }
@@ -190,13 +199,13 @@ async function main(): Promise<void> {
     );
     for (const [table, c] of Object.entries(report.tables))
       console.warn(`  ${table}: ${JSON.stringify(c)}`);
+    if (org?.options.volunteers?.length)
+      console.warn(`  ${org.options.volunteers.length} volunteers; they sign in by mobile`);
     if (org && linksPath)
       console.warn(
         `  ${org.rows.length} officials; set-password links in ${linksPath} (hand each to its person; delete the file afterwards)`,
       );
-    if (org?.options.volunteers?.length)
-      console.warn(`  ${org.options.volunteers.length} volunteers; they sign in by mobile`);
-    if (org && !linksPath)
+    else if (org)
       console.warn(
         `  ${org.rows.length} officials; those without a password of their own sign in with the demo password (docs/testing/DEMO_ACCOUNTS.md)`,
       );

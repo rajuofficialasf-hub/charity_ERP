@@ -3,7 +3,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { staffListOf } from '../../run.js';
+import { staffListOf, volunteerListOf } from '../../run.js';
+import { REPO_ROOT } from '../util.js';
 import { linksDestination, linksFileText, removeLinksFile, writeLinksFile } from './links-file.js';
 
 // The file that carries the set-password links, and the stop before any write when the staff list
@@ -83,6 +84,23 @@ describe('where the links go', () => {
     expect(file.linksPath).toBe(join(dir, 'invitations-20261122-090507.tsv'));
     file.writeLinks(LINKS);
     expect(readFileSync(file.linksPath!, 'utf8')).toBe(linksFileText(LINKS));
+  });
+});
+
+describe('the volunteer list', () => {
+  const env = { DATABASE_URL: 'postgresql://localhost:5433/css_erp_dev' };
+  it('obeys the org set guards: inside the repository or on another database it is refused', () => {
+    expect(() => volunteerListOf(join(REPO_ROOT, 'volunteers.tsv'), [], env)).toThrow(
+      /volunteer list must be kept outside the repository/,
+    );
+    const list = join(dir, 'volunteers.tsv');
+    writeFileSync(list, ['name,mobile', 'Sample,01700000901', ''].join('\n'));
+    expect(() =>
+      volunteerListOf(list, [], { DATABASE_URL: 'postgresql://localhost:5433/css_erp_test' }),
+    ).toThrow(/css_erp_dev/);
+    expect(volunteerListOf(list, [], env)).toEqual([
+      { line: 2, name: 'Sample', mobile: '01700000901' },
+    ]);
   });
 });
 
