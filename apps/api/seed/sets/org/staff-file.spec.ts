@@ -68,7 +68,7 @@ describe('readStaffList', () => {
         HEAD,
         'T-2,A,,a@example.test,PM,Program Manager,humanitarian program,T-1',
         'T-3,B,,b@example.test,PM,প্রোগ্রাম ম্যানেজার,উন্নয়ন,T-1',
-        'T-4,C,,c@example.test,PM,program_manager,ucd,T-1',
+        'T-4,C,,c@example.test,Exec,project_executive,ucd,T-1',
       ),
       NAMES,
     );
@@ -179,6 +179,14 @@ describe('readStaffList', () => {
       { line: 14, field: 'mobile', reason: 'duplicate' },
       { line: 15, field: 'name', reason: 'required' },
     ]);
+  });
+
+  it('refuses a second PM for one program', () => {
+    const { problems } = readStaffList(
+      list(HEAD, PM, 'T-3,Other PM,,o@example.test,PM,program_manager,UCD,T-1'),
+      NAMES,
+    );
+    expect(problems).toEqual([{ line: 4, field: 'program', reason: 'second_program_manager' }]);
   });
 
   it('never repeats a cell value in a problem', () => {

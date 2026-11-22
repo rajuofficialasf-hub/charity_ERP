@@ -75,7 +75,7 @@ The owner wants to try the app with the department's own people. The demo set is
 - **Depends on:** U1
 - **Size:** L
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U3. The documents
 - **Goal:** the command and the rule of the org set are written where people look for them.
@@ -127,8 +127,8 @@ The owner wants to try the app with the department's own people. The demo set is
 
 ## Progress
 - **Branch:** `chore/org-staff-seed`
-- **Updated:** 2026-11-22 12:00
-- **Next:** U2, starting with `createInvitation` in staff-accounts.ts
+- **Updated:** 2026-11-22 12:30
+- **Next:** checkpoint C2 (test and review of U2), then U3 (the documents)
 - **Reviewed through:** C1 at b6077883
 - **Uncommitted:** none
-- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes.
+- **Notes:** the owner's real list and its prepared copy live in `D:\Charity Website\ERP-own-data\` (staff-raw.tsv, staff.tsv, README.txt); never copy them into the repository. Volunteers come later. The shell's own Node is 24.15.0, which the test config refuses; run tests with fnm's 24.22.2 first on PATH (`%APPDATA%\fnm\aliases\default`). The api Vitest project now includes `seed/**/*.spec.ts`. The owner's prepared list passed the reader with no problem (35 rows). C1 review: the CSV reader now gives each row's line (`parseCsvLines`), the staff reader cleans the header, reports a header-only list (`no_rows`) and an organogram loop (`cycle`), and stops when two roles or programs share a name; the supervisor loop also matters for U2's writes. U2: the reader also refuses a second PM for one program (`second_program_manager`); a role removed from the list stays granted on a rerun (the set grants, it never revokes); the harness database lacks the Executive role, so the integration test adds it.

@@ -52,7 +52,8 @@ export type StaffListReason =
   | 'self'
   | 'cycle'
   | 'second_department_head'
-  | 'required_for_program_manager';
+  | 'required_for_program_manager'
+  | 'second_program_manager';
 
 export interface StaffListProblem {
   line: number;
@@ -160,6 +161,7 @@ export function readStaffList(
   reportDuplicates((r) => r.mobile, 'mobile');
   const supervisorOf = new Map(rows.map((r) => [r.jobId, r.supervisorJobId]));
   let heads = 0;
+  const programManagers = new Set<string>();
   for (const r of rows) {
     if (r.supervisorJobId === r.jobId && r.jobId) add(r.line, 'supervisor_job_id', 'self');
     else if (r.supervisorJobId && !supervisorOf.has(r.supervisorJobId))
@@ -174,6 +176,11 @@ export function readStaffList(
       !problemAt(problems, r.line, 'program')
     )
       add(r.line, 'program', 'required_for_program_manager');
+    // a program has one PM; a second would leave the program's PM to the order of the list
+    if (r.roleKey === 'program_manager' && r.programCode) {
+      if (programManagers.has(r.programCode)) add(r.line, 'program', 'second_program_manager');
+      programManagers.add(r.programCode);
+    }
   }
 
   problems.sort((a, b) => a.line - b.line);

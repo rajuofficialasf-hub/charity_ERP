@@ -1,23 +1,29 @@
-// pnpm db:seed [--set base|demo|all]: loads the deterministic development and test seed sets
-// (docs/testing/TEST_STRATEGY.md, "Test data strategy"). Never for production: the guard refuses
-// NODE_ENV=production and any database that is not css_erp_dev* / css_erp_test*; every run leaves a
-// seed marker that the production start guard refuses.
+// pnpm db:seed [--set base|demo|all|org] [--file <staff list>]: loads the deterministic development
+// and test seed sets (docs/testing/TEST_STRATEGY.md, "Test data strategy"), or the department's own
+// officials from a staff list kept outside the repository (the org set, development database only).
+// Never for production: the guard refuses NODE_ENV=production and any database that is not
+// css_erp_dev* / css_erp_test*; every run leaves a seed marker that the production start guard refuses.
 import 'dotenv/config';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { checkDestructiveDbAccess } from '../src/config/db-guard.js';
 import { prismaClientFor } from '../src/core/prisma.service.js';
 import type { PrismaClient } from '../src/generated/prisma/client.js';
 import { json, type TableCounts, SeedContext } from './context.js';
+import { readPermissionsFile } from './sets/base/access.js';
 import { seedBase } from './sets/base/index.js';
-import { seedDemo } from './sets/demo/index.js';
+import { DEMO_PROGRAMS, seedDemo } from './sets/demo/index.js';
+import { type OrgLink, type OrgOptions, seedOrg } from './sets/org/index.js';
+import { readStaffList, type StaffListRow } from './sets/org/staff-file.js';
+import { checkOrgTarget, linksFileName } from './sets/org/target.js';
+import { REPO_ROOT } from './sets/util.js';
 
-export type SeedSet = 'base' | 'demo';
-export const SEED_SETS: Record<
-  SeedSet,
-  { version: number; run: (ctx: SeedContext) => Promise<void> }
-> = {
-  base: { version: 1, run: seedBase },
-  demo: { version: 1, run: seedDemo },
+export type SeedSet = 'base' | 'demo' | 'org';
+export const SEED_SETS: Record<'base' | 'demo', { run: (ctx: SeedContext) => Promise<void> }> = {
+  base: { run: seedBase },
+  demo: { run: seedDemo },
 };
+const SET_VERSION = 1;
 
 export interface SeedReport {
   database: string;
@@ -26,12 +32,19 @@ export interface SeedReport {
   tables: Record<string, TableCounts>;
 }
 
-export function parseSets(args: string[]): SeedSet[] {
+/** The sets to run (base always first) and the staff list of the org set. */
+export function parseSeedArgs(args: string[]): { sets: SeedSet[]; file: string | null } {
   const i = args.indexOf('--set');
   const value = i >= 0 ? args[i + 1] : 'all';
-  if (value === 'all') return ['base', 'demo'];
-  if (value === 'base' || value === 'demo') return value === 'demo' ? ['base', 'demo'] : ['base'];
-  throw new Error(`unknown seed set "${value}" (use base, demo or all)`);
+  const f = args.indexOf('--file');
+  const file = f >= 0 ? (args[f + 1] ?? null) : null;
+  if (value === 'org') {
+    if (!file) throw new Error('the org set reads a staff list: add --file <path>');
+    return { sets: ['base', 'org'], file };
+  }
+  if (value === 'all' || value === 'demo') return { sets: ['base', 'demo'], file: null };
+  if (value === 'base') return { sets: ['base'], file: null };
+  throw new Error(`unknown seed set "${value}" (use base, demo, all or org)`);
 }
 
 /** Runs the seed sets on a Prisma client; each set is one transaction. */
@@ -39,19 +52,23 @@ export async function runSeed(
   prisma: PrismaClient,
   sets: SeedSet[],
   env: NodeJS.ProcessEnv,
+  org?: { rows: StaffListRow[]; options: OrgOptions },
 ): Promise<SeedReport> {
   const guard = checkDestructiveDbAccess(env);
   if (!guard.allowed) throw new Error(`db:seed refused: ${guard.reason}`);
   const ctx = new SeedContext(prisma);
   for (const set of sets) {
-    await SEED_SETS[set].run(ctx);
+    if (set === 'org') {
+      if (!org) throw new Error('db:seed refused: the org set needs a checked staff list');
+      await seedOrg(ctx, org.rows, org.options);
+    } else await SEED_SETS[set].run(ctx);
     await ctx.transaction(async () => {
       await ctx.upsert(
         'settings',
         {
           key: `seed.marker.${set}`,
           value: json({
-            version: SEED_SETS[set].version,
+            version: SET_VERSION,
             note: 'development and test seed; production refuses to start with this row',
           }),
         },
@@ -67,17 +84,63 @@ export async function runSeed(
   };
 }
 
+/** The officials of the staff list, or the run stopped with every problem by line and column. */
+function staffListOf(file: string): StaffListRow[] {
+  const permissions = readPermissionsFile();
+  const { rows, problems } = readStaffList(readFileSync(file, 'utf8'), {
+    roles: Object.entries(permissions.roles)
+      .filter(([, r]) => r.kind === 'official')
+      .map(([key, r]) => ({ key, names: [r.name_en, r.name_bn] })),
+    programs: DEMO_PROGRAMS.map((p) => ({ code: p.code, names: [p.name_en, p.name_bn] })),
+  });
+  if (problems.length) {
+    // line, column and reason only: a cell's value never reaches the terminal
+    for (const p of problems) console.error(`  line ${p.line}, ${p.field}: ${p.reason}`);
+    throw new Error(`the staff list has ${problems.length} problem(s); nothing was written`);
+  }
+  return rows;
+}
+
+/** The links as a tab-separated file, created new (never over another file). */
+function writeLinksFile(path: string, links: OrgLink[]): void {
+  const lines = [
+    ['job_id', 'name', 'role', 'link', 'expires_at'].join('\t'),
+    ...links.map((l) => [l.jobId, l.name, l.roleKey, l.link, l.expiresAt].join('\t')),
+  ];
+  writeFileSync(path, `${lines.join('\n')}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+}
+
 async function main(): Promise<void> {
-  const sets = parseSets(process.argv.slice(2));
+  const { sets, file } = parseSeedArgs(process.argv.slice(2));
+  let org: { rows: StaffListRow[]; options: OrgOptions } | undefined;
+  let linksPath: string | null = null;
+  if (file) {
+    const list = resolve(file);
+    const refusal = checkOrgTarget(process.env, REPO_ROOT, list);
+    if (refusal) throw new Error(`db:seed refused: ${refusal}`);
+    const appOrigin = process.env.APP_ORIGIN;
+    if (!appOrigin) throw new Error('db:seed refused: APP_ORIGIN is not set (apps/api/.env)');
+    const now = new Date();
+    const path = linksFileName(list, now);
+    linksPath = path;
+    org = {
+      rows: staffListOf(list),
+      options: { appOrigin, now, writeLinks: (links) => writeLinksFile(path, links) },
+    };
+  }
   // runSeed refuses a database outside the guard before the client opens a connection
   const prisma = prismaClientFor(process.env.DATABASE_URL ?? '');
   try {
-    const report = await runSeed(prisma, sets, process.env);
+    const report = await runSeed(prisma, sets, process.env, org);
     console.warn(
       `db:seed (${report.database}) sets ${report.sets.join(', ')}: ${JSON.stringify(report.totals)}`,
     );
     for (const [table, c] of Object.entries(report.tables))
       console.warn(`  ${table}: ${JSON.stringify(c)}`);
+    if (org && linksPath)
+      console.warn(
+        `  ${org.rows.length} officials; set-password links in ${linksPath} (hand each to its person; delete the file afterwards)`,
+      );
   } finally {
     await prisma.$disconnect();
   }
