@@ -391,6 +391,25 @@ export const editRequestCreateSchema = z
   );
 export type EditRequestCreate = z.infer<typeof editRequestCreateSchema>;
 
+/** How many details one change of the own profile may carry. */
+export const EDIT_REQUESTS_PER_BATCH = 20;
+
+/**
+ * Several details of the own profile changed together: all of them are asked for or none is; each
+ * detail once, each checked as its own request is.
+ */
+const batchOf = <T extends z.ZodType<{ field: string }>>(item: T) =>
+  z
+    .strictObject({ requests: z.array(item).min(1).max(EDIT_REQUESTS_PER_BATCH) })
+    .refine((v) => new Set(v.requests.map((r) => r.field)).size === v.requests.length, {
+      path: ['requests'],
+      message: 'validation.failed',
+    });
+export const editRequestBatchSchema = batchOf(editRequestCreateSchema);
+export type EditRequestBatch = z.infer<typeof editRequestBatchSchema>;
+export const staffEditRequestBatchSchema = batchOf(staffEditRequestCreateSchema);
+export type StaffEditRequestBatch = z.infer<typeof staffEditRequestBatchSchema>;
+
 /** An approver's decision on an edit request: a refusal needs a reason. */
 export const decisionRequestSchema = z
   .strictObject({

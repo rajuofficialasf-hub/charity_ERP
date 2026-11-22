@@ -7,6 +7,7 @@ import {
   EDIT_FIELD_VALUES,
   EDIT_FIELDS,
   type EditField,
+  type EditRequestBatch,
   type EditRequestCreate,
   PHOTO_FIELDS,
 } from '@css/shared/registration';
@@ -29,8 +30,10 @@ import {
 } from '../core/pagination.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import { addressProblem } from './registration.js';
+import { batchHash, checkEach, inOrder, namedRefusal } from './edit-batch.js';
 import { applyField, changeView, OBJECT_FIELDS } from './registrations.js';
 
 const EDIT = 'profile_edit';
@@ -113,59 +116,113 @@ export class ChangeRequestsService {
     private readonly versions: PermissionVersionService,
     private readonly sessions: SessionService,
     private readonly events: AccountEvents,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   async create(principal: Principal, body: EditRequestCreate) {
+    const volunteerId = await this.ownVolunteer(principal);
+    const value = isPhoto(body.field) ? null : await this.checkedValue(principal, body);
+    const row = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteerId}::uuid FOR UPDATE`;
+      return this.createIn(tx, principal, volunteerId, body, value);
+    });
+    return editView(row, true);
+  }
+
+  /**
+   * Several details of the own profile in one request: each is checked as its own request is, and
+   * all of them are written in one transaction or none is; a refusal names the detail and never its
+   * value. It runs once per Idempotency-Key: a repeat with the same body answers the requests the
+   * first one made, and writes nothing.
+   */
+  async createMany(principal: Principal, key: string | undefined, body: EditRequestBatch) {
+    const volunteerId = await this.ownVolunteer(principal);
+    const values = await checkEach(body.requests, (r) =>
+      isPhoto(r.field) ? Promise.resolve(null) : this.checkedValue(principal, r),
+    );
+    const outcome = await this.idempotency.runWithKey<{ id: string }>(
+      key,
+      { userId: principal.userId, deviceSessionId: principal.sessionId },
+      body.requests.length,
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteerId}::uuid FOR UPDATE`;
+        const made: { id: string }[] = [];
+        for (const [i, request] of body.requests.entries()) {
+          try {
+            const row = await this.createIn(tx, principal, volunteerId, request, values[i]);
+            made.push({ id: row.id });
+          } catch (error) {
+            throw namedRefusal(request.field, error);
+          }
+        }
+        return made;
+      },
+      { requestHash: batchHash(principal.userId, body) },
+    );
+    const ids = outcome.results.map((r) => r.id);
+    const rows = await this.prisma.volunteerChangeRequest.findMany({
+      where: { id: { in: ids }, userId: principal.userId },
+    });
+    return { replay: outcome.replay, data: inOrder(ids, rows).map((row) => editView(row, true)) };
+  }
+
+  /** The approved volunteer record of the caller; 404 for anyone else. */
+  private async ownVolunteer(principal: Principal): Promise<string> {
     const volunteer = await this.prisma.volunteer.findFirst({
       where: { userId: principal.userId, approvedAt: { not: null } },
       select: { id: true },
     });
     if (!volunteer) throw new ApiError('permission.not_found', 404);
-    const value = isPhoto(body.field) ? null : await this.checkedValue(principal, body);
-    const row = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteer.id}::uuid FOR UPDATE`;
-      // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
-      // number or a failed upload would else block the field)
-      if (isContact(body.field) || isPhoto(body.field))
-        await tx.volunteerChangeRequest.updateMany({
-          where: { volunteerId: volunteer.id, kind: EDIT, field: body.field, status: 'open' },
-          data: { status: 'closed', decidedAt: this.clock.now() },
-        });
-      const busy = await tx.volunteerChangeRequest.count({
-        where: {
-          volunteerId: volunteer.id,
-          kind: EDIT,
-          field: body.field,
-          status: { in: ['open', 'submitted'] },
-        },
+    return volunteer.id;
+  }
+
+  /** One edit request written inside the caller's transaction, under the volunteer's lock. */
+  private async createIn(
+    tx: Tx,
+    principal: Principal,
+    volunteerId: string,
+    body: EditRequestCreate,
+    value: unknown,
+  ) {
+    // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
+    // number or a failed upload would else block the field)
+    if (isContact(body.field) || isPhoto(body.field))
+      await tx.volunteerChangeRequest.updateMany({
+        where: { volunteerId, kind: EDIT, field: body.field, status: 'open' },
+        data: { status: 'closed', decidedAt: this.clock.now() },
       });
-      if (busy) throw new ApiError('registration.request_open', 409);
-      const created = await tx.volunteerChangeRequest.create({
-        data: {
-          id: uuidv7(),
-          userId: principal.userId,
-          volunteerId: volunteer.id,
-          kind: EDIT,
-          field: body.field,
-          newValue:
-            value === null ? null : typeof value === 'string' ? value : JSON.stringify(value),
-          note: body.note ?? null,
-          requestedBy: principal.userId,
-          // a contact waits for its code, a photo for its upload
-          status: isContact(body.field) || isPhoto(body.field) ? 'open' : 'submitted',
-        },
-      });
-      await this.audit.record(tx, {
-        action: 'auth.edit_requested',
-        entityType: 'user',
-        entityId: principal.userId,
-        new: { field: body.field, requestId: created.id },
-      });
-      // a contact waits for its code and a photo for its upload before the approvers are told
-      if (created.status === 'submitted') await this.events.editRequestSubmitted(tx, created.id);
-      return created;
+    const busy = await tx.volunteerChangeRequest.count({
+      where: {
+        volunteerId,
+        kind: EDIT,
+        field: body.field,
+        status: { in: ['open', 'submitted'] },
+      },
     });
-    return editView(row, true);
+    if (busy) throw new ApiError('registration.request_open', 409);
+    const created = await tx.volunteerChangeRequest.create({
+      data: {
+        id: uuidv7(),
+        userId: principal.userId,
+        volunteerId,
+        kind: EDIT,
+        field: body.field,
+        newValue: value === null ? null : typeof value === 'string' ? value : JSON.stringify(value),
+        note: body.note ?? null,
+        requestedBy: principal.userId,
+        // a contact waits for its code, a photo for its upload
+        status: isContact(body.field) || isPhoto(body.field) ? 'open' : 'submitted',
+      },
+    });
+    await this.audit.record(tx, {
+      action: 'auth.edit_requested',
+      entityType: 'user',
+      entityId: principal.userId,
+      new: { field: body.field, requestId: created.id },
+    });
+    // a contact waits for its code and a photo for its upload before the approvers are told
+    if (created.status === 'submitted') await this.events.editRequestSubmitted(tx, created.id);
+    return created;
   }
 
   /**

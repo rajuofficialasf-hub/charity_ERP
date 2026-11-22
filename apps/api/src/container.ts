@@ -662,6 +662,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         permissionVersions,
         sessions,
         accountEvents,
+        idempotency,
       ),
     staffChangeRequests:
       o.staffChangeRequests ??
@@ -673,6 +674,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         permissionVersions,
         sessions,
         accountEvents,
+        idempotency,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
     uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
