@@ -107,7 +107,10 @@ function serve(me: OwnProfile, rows: () => ChangeRequest[]) {
       calls.push({ method: request.method, url: new URL(request.url).pathname, body });
       if (request.url.endsWith('/resubmit') || request.url.includes('/otp'))
         return new HttpResponse(null, { status: 204 });
-      return HttpResponse.json({ data: row('01900000-0000-7000-8000-0000000000c9', 'education') });
+      const made = row('01900000-0000-7000-8000-0000000000c9', 'education');
+      // the ticked details of one send go together
+      if (request.url.endsWith('/batch')) return list([made]);
+      return HttpResponse.json({ data: made });
     }),
   );
 }
@@ -280,7 +283,7 @@ describe('ProfileView of an approved volunteer', () => {
   it('a request that reaches no server says so and keeps the ticks', async () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    server.use(http.post('*/api/v1/me/change-requests', () => HttpResponse.error()));
+    server.use(http.post('*/api/v1/me/change-requests/batch', () => HttpResponse.error()));
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     await screen.findByRole('navigation', { name: 'Profile sections' });
     await openSection(user, 'Education');
@@ -299,7 +302,7 @@ describe('ProfileView of an approved volunteer', () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
     server.use(
-      http.post('*/api/v1/me/change-requests', () =>
+      http.post('*/api/v1/me/change-requests/batch', () =>
         HttpResponse.json(
           { error: { code: 'conflict', message: 'A request is already open.', requestId: 'r' } },
           { status: 409 },
@@ -324,7 +327,11 @@ describe('ProfileView of an approved volunteer', () => {
     await user.click(within(form).getByRole('button', { name: 'Send request' }));
     expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
     expect(calls).toEqual([
-      { method: 'POST', url: '/api/v1/me/change-requests', body: { field: 'photo' } },
+      {
+        method: 'POST',
+        url: '/api/v1/me/change-requests/batch',
+        body: { requests: [{ field: 'photo' }] },
+      },
     ]);
   }, 15_000);
 
@@ -484,10 +491,14 @@ describe('the personal, profession, education and skills data in the profile', (
     expect(calls).toEqual([
       {
         method: 'POST',
-        url: '/api/v1/me/change-requests',
+        url: '/api/v1/me/change-requests/batch',
         body: {
-          field: 'profession',
-          newValue: { profession: 'imam', details: { mosqueName: 'Central Mosque' } },
+          requests: [
+            {
+              field: 'profession',
+              newValue: { profession: 'imam', details: { mosqueName: 'Central Mosque' } },
+            },
+          ],
         },
       },
     ]);
@@ -535,7 +546,8 @@ describe('the personal, profession, education and skills data in the profile', (
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(4));
 
-    expect(calls.map((c) => c.body)).toEqual([
+    // each send here carries one detail
+    expect(calls.flatMap((c) => (c.body as { requests: unknown[] }).requests)).toEqual([
       {
         field: 'skills',
         newValue: {
@@ -647,7 +659,8 @@ describe('the single new values of the profile edit', () => {
     await user.click(await screen.findByRole('option', { name: 'XL' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(2));
-    expect(calls.map((c) => c.body)).toEqual([
+    // each send here carries one detail
+    expect(calls.flatMap((c) => (c.body as { requests: unknown[] }).requests)).toEqual([
       { field: 'volunteeringArea', newValue: 'anywhere' },
       { field: 'tshirtSize', newValue: 'XL' },
     ]);

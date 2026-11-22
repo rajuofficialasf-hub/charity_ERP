@@ -280,6 +280,108 @@ describe("an official's own profile", () => {
   });
 });
 
+describe("an official's change of several details", () => {
+  it('sends every ticked detail in one request; a refusal sends nothing, names its detail and keeps all ticked', async () => {
+    const user = userEvent.setup();
+    serve(official());
+    const sends: { key: string | null; body: unknown }[] = [];
+    server.use(
+      http.post('*/api/v1/me/staff-change-requests/batch', async ({ request }) => {
+        sends.push({ key: request.headers.get('Idempotency-Key'), body: await request.json() });
+        // the first send is refused for the designation; the second, the same, is taken
+        if (sends.length === 1)
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'validation.failed',
+                message: 'Check the details.',
+                requestId: 'r',
+                details: [
+                  { path: 'designation', code: 'validation.required', message: 'Write it.' },
+                ],
+              },
+            },
+            { status: 422 },
+          );
+        return HttpResponse.json(
+          { data: [], meta: { requestId: 'r', limit: 0, nextCursor: null, prevCursor: null } },
+          { status: 201 },
+        );
+      }),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Identity and workplace' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Change Name' }));
+    const name = screen.getByRole('textbox', { name: 'Name' });
+    await user.clear(name);
+    await user.type(name, 'রহিম উদ্দিন আহমদ');
+    await user.click(screen.getByRole('checkbox', { name: 'Change Designation' }));
+    const designation = screen.getByRole('textbox', { name: 'Designation' });
+    await user.clear(designation);
+    await user.type(designation, 'প্রোগ্রাম অফিসার');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(
+      await screen.findByText('Nothing was sent. Correct the marked details and send again.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Write it.')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Change Name' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Change Designation' })).toBeChecked();
+    expect(sends[0]!.body).toEqual({
+      requests: [
+        { field: 'displayName', newValue: 'রহিম উদ্দিন আহমদ' },
+        { field: 'designation', newValue: 'প্রোগ্রাম অফিসার' },
+      ],
+    });
+    // sent again as it was: the same request under the same key
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(
+      await screen.findByText(
+        'Request sent. The Department Head or the Monitoring Team will decide.',
+      ),
+    ).toBeInTheDocument();
+    expect(sends).toHaveLength(2);
+    expect(sends[0]!.key).toBeTruthy();
+    expect(sends[1]!.key).toBe(sends[0]!.key);
+  });
+
+  it('asks before Cancel drops the ticked details, and keeps them when asked to', async () => {
+    const user = userEvent.setup();
+    serve(official());
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Identity and workplace' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Change Designation' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const ask = await screen.findByRole('alertdialog', { name: 'Leave without sending?' });
+    // keeping them leaves the edit mode as it was
+    await user.click(within(ask).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('checkbox', { name: 'Change Designation' })).toBeChecked();
+    // dropping them closes the edit mode
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const again = await screen.findByRole('alertdialog', { name: 'Leave without sending?' });
+    await user.click(within(again).getByRole('button', { name: 'Discard the changes' }));
+    expect(
+      await screen.findByRole('button', { name: 'Edit Identity and workplace' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Change Designation' })).not.toBeInTheDocument();
+  });
+
+  it('leaves the edit mode at once with nothing ticked', async () => {
+    const user = userEvent.setup();
+    serve(official());
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('heading', { level: 2, name: 'রহিম উদ্দিন' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Identity and workplace' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Edit Identity and workplace' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("an official's own change request", () => {
   it('asks for a new designation from the edit mode and says who decides', async () => {
     const user = userEvent.setup();
@@ -300,8 +402,8 @@ describe("an official's own change request", () => {
     expect(calls).toEqual([
       {
         method: 'POST',
-        url: '/api/v1/me/staff-change-requests',
-        body: { field: 'designation', newValue: 'প্রোগ্রাম অফিসার' },
+        url: '/api/v1/me/staff-change-requests/batch',
+        body: { requests: [{ field: 'designation', newValue: 'প্রোগ্রাম অফিসার' }] },
       },
     ]);
   });

@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { uuidv7 } from '@css/shared';
+import { useMemo, useRef } from 'react';
 import { type Path, useForm, type UseFormReturn, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { ApiFailure } from '../../api/client';
 import { useSchemaResolver } from '../../lib/form-schema';
 
 /**
@@ -54,6 +56,46 @@ export function toggleDetail<F extends string>(
   form.clearErrors(`values.${field}` as Path<EditFields<F>>);
   if (on && !(field in form.getValues().values))
     form.setValue(`values.${field}` as Path<EditFields<F>>, initial() as never);
+}
+
+/** What a send of the ticked details came to: all of them sent, or none with the reason. */
+export type TogetherOutcome<F extends string> =
+  { sent: F[]; refused: []; error: null } | { sent: []; refused: [F, string][]; error: unknown };
+
+/**
+ * Sends the ticked details in one request, so all of them are asked for or none is: a refusal names
+ * the details it is about, each kept ticked with its message.
+ */
+export async function sendTogether<F extends string>(
+  requests: { field: F; newValue?: unknown; note?: string }[],
+  post: (requests: { field: F; newValue?: unknown; note?: string }[]) => Promise<unknown>,
+): Promise<TogetherOutcome<F>> {
+  try {
+    await post(requests);
+    return { sent: requests.map((r) => r.field), refused: [], error: null };
+  } catch (error) {
+    const asked = new Set<string>(requests.map((r) => r.field));
+    const refused =
+      error instanceof ApiFailure
+        ? error.details
+            .filter((d) => d.path !== undefined && asked.has(d.path))
+            .map((d): [F, string] => [d.path as F, d.message])
+        : [];
+    return { sent: [], refused, error };
+  }
+}
+
+/**
+ * The key of one send: a retry of the same details repeats the same request, so a send the network
+ * cut short is never asked for twice; other details get a new key.
+ */
+export function useSendKey(): (body: unknown) => string {
+  const last = useRef<{ body: string; key: string } | null>(null);
+  return (body) => {
+    const text = JSON.stringify(body);
+    if (last.current?.body !== text) last.current = { body: text, key: uuidv7() };
+    return last.current.key;
+  };
 }
 
 /**

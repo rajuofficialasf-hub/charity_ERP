@@ -172,10 +172,11 @@
       "pick": "Tick what you want to change.",
       "change_field": "Change {field}",
       "form_label": "Request to change {section}",
-      "partial": "Some requests were not sent. Check the marked details.",
+      "none_sent": "Nothing was sent. Correct the marked details and send again.",
       "leave_title": "Leave without sending?",
       "leave_message": "The details you ticked and what you typed are not sent yet. If you leave, they are lost.",
-      "leave_confirm": "Leave this section"
+      "leave_confirm": "Leave this section",
+      "discard_confirm": "Discard the changes"
     },
     "nav_label": "Profile sections",
     "state": {

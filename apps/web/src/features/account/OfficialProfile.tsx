@@ -161,7 +161,8 @@ export function OfficialProfile() {
                 edits={edits}
                 onBusy={setBusy}
                 onDirty={setDirty}
-                onCancel={() => setEditing(false)}
+                // ticked details are never dropped without a question, by Cancel either
+                onCancel={() => (dirty ? setLeaving(current) : setEditing(false))}
                 onSent={() => {
                   setEditing(false);
                   setNotice(t('official.sent'));
@@ -177,7 +178,7 @@ export function OfficialProfile() {
         open={leaving !== null}
         title={t('edit.leave_title')}
         message={t('edit.leave_message')}
-        confirmLabel={t('edit.leave_confirm')}
+        confirmLabel={leaving === current ? t('edit.discard_confirm') : t('edit.leave_confirm')}
         onConfirm={() => {
           if (leaving) setCurrent(leaving);
           setLeaving(null);
