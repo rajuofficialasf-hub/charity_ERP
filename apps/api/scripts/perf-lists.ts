@@ -186,7 +186,7 @@ async function main(): Promise<void> {
     ['head', 'head@example.org'],
     ['rpm', 'rpm.dhaka@example.org'],
   ] as const) {
-    const vv = await viewerOf(email, 'volunteer.view_all', 'global');
+    const vv = await viewerOf(email, 'volunteer.view_all', 'volunteer');
     const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
     const mv = await viewerOf(email, 'beneficiary.merge.dismiss', 'beneficiary');
     const ov = await viewerOf(email, 'project.overview.view', 'program');
@@ -267,7 +267,10 @@ async function main(): Promise<void> {
       await measure(`${who} beneficiaries.statistics district`, () =>
         c.beneficiaries.statistics({ districtId: dhaka.id }, bv),
       ),
-      await measure(`${who} beneficiaries.profile`, () => c.beneficiaries.profile(bv, ben.id)),
+      // a profile inside the viewer's own reach: the first of the viewer's list
+      await measure(`${who} beneficiaries.profile`, () =>
+        c.beneficiaries.profile(bv, who === 'head' ? ben.id : firstBeneficiaries.rows[0]!.id),
+      ),
       // the cards of programs and projects (docs/testing/PERFORMANCE.md, "The cards of programs
       // and projects")
       await measure(`${who} program cards`, () => c.programCards.list(ov)),
@@ -281,6 +284,46 @@ async function main(): Promise<void> {
     );
     out();
   }
+  // the beneficiary tab of an Executive: the applicants placed in the districts of the own
+  // projects (docs/testing/PERFORMANCE.md, "The beneficiary tab inside a person's reach")
+  const ev: BeneficiaryViewer = await viewerOf(
+    'executive@example.org',
+    'beneficiary.view_all',
+    'beneficiary',
+  );
+  const e = (name: string, filter: Record<string, string | number>) =>
+    measure(`executive beneficiaries.list ${name}`, () =>
+      c.beneficiaries.list({ ...page, ...filter } as BeneficiaryQuery, ev),
+    );
+  results.push(
+    await e('first page', {}),
+    await e('with total', { include: 'total' }),
+    await e('district', { districtId: dhaka.id }),
+    await e('year 2025', { year: 2025 }),
+    await e('name search + total', { q: SEARCH_TERMS.beneficiaryPair, include: 'total' }),
+    await e('by times helped', { sort: '-helpCount' }),
+    await measure('executive beneficiaries.statistics all', () =>
+      c.beneficiaries.statistics({}, ev),
+    ),
+  );
+  out();
+  // the volunteer tab of a PM reads the areas of the own program's projects at work
+  // (docs/testing/PERFORMANCE.md, "The volunteer tab inside a person's reach")
+  const pv = await viewerOf('pm.hum@example.org', 'volunteer.view_all', 'volunteer');
+  results.push(
+    await measure('pm volunteers.list first page', () => c.volunteerList.list({ ...page }, pv)),
+    await measure('pm volunteers.list with total', () =>
+      c.volunteerList.list({ ...page, include: 'total' }, pv),
+    ),
+    await measure('pm volunteers.list name search + total', () =>
+      c.volunteerList.list(
+        { ...page, q: SEARCH_TERMS.volunteerPair, include: 'total' } as VolunteerQuery,
+        pv,
+      ),
+    ),
+    await measure('pm volunteers.statistics all', () => c.volunteerList.statistics({}, pv)),
+  );
+  out();
 
   // the office's list of one project's applications, on the project with the most of them
   // (docs/testing/PERFORMANCE.md, "The application lists")

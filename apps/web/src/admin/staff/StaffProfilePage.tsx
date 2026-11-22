@@ -19,7 +19,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
@@ -29,12 +28,15 @@ import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
 import {
   canEndStaffSessions,
+  canGiveWholeCountry,
+  canManageExtraAreas,
   canManageOfficials,
   canSeeProjects,
   canSeeStaff,
   canSeeStaffWork,
 } from '../roles';
 import { VolunteerSessions } from '../volunteers/VolunteerSessions';
+import { ExtraAreas } from './ExtraAreas';
 import { LinkDialog } from './LinkDialog';
 import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
@@ -47,7 +49,7 @@ import { LoadError } from '../../components/LoadError';
 
 /**
  * One official's profile in the one profile layout, from the existing user API: the header card with the Job ID and
- * the contact, the role and place, the account and the devices. Editing the profile and a new
+ * the contact, the role and place, the extra areas, the account and the devices. Editing the profile and a new
  * set-password link are for the Department Head and the Monitoring Team; the devices for those who
  * may end another person's sessions. The server checks every read and action again.
  */
@@ -95,6 +97,12 @@ export function StaffProfilePage() {
       sessions={canEndStaffSessions(me)}
       work={canSeeStaffWork(me)}
       projectLinks={canSeeProjects(me)}
+      extraAreas={
+        canManageExtraAreas(me)
+          ? // nobody gives an area to themselves
+            { manage: me.id !== userId, wholeCountry: canGiveWholeCountry(me) }
+          : null
+      }
     />
   );
 }
@@ -105,6 +113,7 @@ function Profile({
   sessions,
   work,
   projectLinks,
+  extraAreas,
 }: {
   official: StaffDetail;
   manage: boolean;
@@ -112,6 +121,8 @@ function Profile({
   /** The viewer may see the official's projects and the figures of their work. */
   work: boolean;
   projectLinks: boolean;
+  /** The viewer reads the official's extra areas, and whether they may change them here. */
+  extraAreas: { manage: boolean; wholeCountry: boolean } | null;
 }) {
   const t = useTranslations('admin.staff.profile');
   const ts = useTranslations('admin.staff');
@@ -129,7 +140,6 @@ function Profile({
     enabled: u.supervisorUserId !== null,
     retry: false,
   });
-  const division = useLocationName(undefined, u.homeDivisionId);
   const none = t('none');
   const roleName = (key: string) => {
     const role = roleList.data?.find((r) => r.key === key);
@@ -282,7 +292,6 @@ function Profile({
                   label: td('program'),
                   value: program ? localized(program.name, locale) : none,
                 },
-                { label: td('division'), value: division?.[locale] ?? none },
                 {
                   label: td('supervisor'),
                   value: supervisor.data ? (
@@ -300,6 +309,7 @@ function Profile({
               ]}
             />
           </ProfileSection>
+          {extraAreas && <ExtraAreas userId={u.id} name={u.displayName} {...extraAreas} />}
           {work && <WorkSection userId={u.id} projectLinks={projectLinks} />}
           <ProfileSection title={t('sections.account')} icon="key">
             <DescriptionList

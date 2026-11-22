@@ -199,8 +199,9 @@ export class ExportRows {
     let filters: object;
     let byScore = false;
     if (input.kind === 'volunteers') {
+      const scope = await this.access.scopeFor(principal, access, permission, 'volunteer');
       filters = parsed(volunteerFilterSchema, input.filters);
-      where = await this.volunteers.where(filters, { principal, fieldClasses });
+      where = await this.volunteers.where(filters, { principal, scope, fieldClasses });
     } else if (input.kind === 'beneficiaries') {
       const scope = await this.access.scopeFor(principal, access, permission, 'beneficiary');
       filters = parsed(beneficiaryFilterSchema, input.filters);

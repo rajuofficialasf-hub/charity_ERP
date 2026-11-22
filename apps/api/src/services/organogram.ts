@@ -12,7 +12,6 @@ export interface OrganogramNode {
   designation: string | null;
   roles: string[];
   state: string;
-  homeDivisionId: string | null;
   /** The official's uploaded photo; null shows the initial. */
   photoFileId: string | null;
   reports: OrganogramNode[];
@@ -53,7 +52,6 @@ interface Official {
   designation: string | null;
   state: string;
   homeProgramId: string | null;
-  homeDivisionId: string | null;
   supervisorUserId: string | null;
   roles: string[];
   global: boolean;
@@ -85,7 +83,6 @@ export class OrganogramService {
           designation: true,
           state: true,
           homeProgramId: true,
-          homeDivisionId: true,
           supervisorUserId: true,
           userRolesUser: {
             where: { revokedAt: null },
@@ -140,7 +137,6 @@ export class OrganogramService {
       designation: o.designation,
       roles: o.roles,
       state: o.state,
-      homeDivisionId: o.homeDivisionId,
       photoFileId: photos.get(o.id) ?? null,
       reports: sorted(children.get(o.id) ?? []).map((c) => node(c, children)),
     });

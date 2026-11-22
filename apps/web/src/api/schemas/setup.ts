@@ -50,6 +50,8 @@ export const staffAccessSchema = z.object({
   displayName: z.string(),
   roleKey: z.string(),
   areaLocationId: z.uuid().nullable(),
+  /** The districts of the place inside its area; none means the whole area. */
+  districtIds: z.array(z.uuid()),
   canView: z.boolean(),
   canEdit: z.boolean(),
   canDelete: z.boolean(),

@@ -185,6 +185,7 @@ const listQuery = pageQuery
 /** The caller as the list services need it: who asks, and which protected classes they see. */
 const viewerOf = (req: AuthedRequest) => ({
   principal: principalOf(req),
+  scope: scopeOf(req),
   fieldClasses: req.fieldClasses ?? new Set<string>(),
 });
 
@@ -200,8 +201,8 @@ export const blocklistEntry = z.object({
 
 /**
  * Volunteer routes (openapi tag volunteers): the own profile, the blocklist, and the
- * nationwide volunteer tab for officials: the list, its counts and the official view of one
- * volunteer with what the caller may do.
+ * volunteer tab for officials inside each caller's reach: the list, its counts and the official
+ * view of one volunteer with what the caller may do.
  */
 export function volunteersRouter(
   deps: RouteDeps,
@@ -212,7 +213,7 @@ export function volunteersRouter(
   const tabOp = {
     tag: 'volunteers',
     permission: 'volunteer.view_all',
-    scope: 'global',
+    scope: 'volunteer',
     audit: 'none',
     idempotency: 'none' as const,
     rateLimit: 'list' as const,
@@ -224,7 +225,7 @@ export function volunteersRouter(
     method: 'get',
     path: '/volunteers',
     operationId: 'volunteers.volunteer.list',
-    summary: 'Nationwide volunteer tab with filters (masks per role)',
+    summary: "Volunteer tab with filters, inside the caller's reach (masks per role)",
     query: listQuery,
     responses: {
       200: z.array(volunteerRow),
@@ -312,7 +313,6 @@ export function volunteersRouter(
     operationId: 'volunteers.volunteer.get',
     summary:
       'The official view of one volunteer with what the caller may do (masks per role and record)',
-    scope: 'volunteer',
     sensitiveFields: [
       'volunteer.identity',
       'volunteer.bank',

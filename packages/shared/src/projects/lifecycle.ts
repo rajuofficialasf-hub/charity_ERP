@@ -12,6 +12,14 @@ export function projectStatusOf(value: string): ProjectStatus {
   return status;
 }
 
+/**
+ * A project is at work while it is active or closing: its areas then show the people who hold
+ * them the volunteers living there (docs/BUSINESS_RULES.md, "An official sees the volunteers whose
+ * address lies in the areas they hold on projects at work"). A draft, a closed and a cancelled
+ * project show nobody.
+ */
+export const AT_WORK_STATUSES: readonly ProjectStatus[] = ['active', 'closing'];
+
 export type ProjectAction = 'activate' | 'cancel' | 'start_closing' | 'close' | 'reopen';
 
 /**

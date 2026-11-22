@@ -33,6 +33,7 @@ export const KEY_PERMISSIONS: ReadonlySet<string> = new Set([
   // roles and the panel
   'permission.panel.manage',
   'user.role.change',
+  'user.extra_area.manage',
   OWNER_TRANSFER,
   // registrations of officials
   'staff.registration.approve',
@@ -55,7 +56,9 @@ export type HardRule =
   | 'owner_transfer_only_admin'
   | 'global_scope_protected'
   | 'sensitive_to_volunteer'
-  | 'role_admin_only';
+  | 'role_admin_only'
+  | 'whole_country_top_roles_only'
+  | 'outside_own_reach';
 
 /** Who asks for the change. */
 export interface RuleActor {
@@ -208,4 +211,31 @@ export function rpmGrantable(
       .get(permission)
       ?.defaults.some((d) => d.condition === IF_RPM_GRANTS && roles.includes(d.role)) ?? false
   );
+}
+
+/** Where a person reaches volunteers: everywhere, or in a set of locations. */
+export interface VolunteerReach {
+  everywhere: boolean;
+  locationIds: ReadonlySet<string>;
+}
+
+/**
+ * The rule that refuses the giving or the ending of an extra area, or null
+ * (docs/BUSINESS_RULES.md, "An official may be given an extra area"): nobody changes the own; an
+ * Admin and the Department Head give any place; the whole country is theirs alone to give; anyone
+ * else gives only a place they reach for volunteers themselves, a location they hold or a
+ * district of a division they hold.
+ */
+export function extraAreaRefusal(
+  actor: { id: string; roles: readonly string[] },
+  targetId: string,
+  place: { wholeCountry: boolean; locationId: string | null; parentId: string | null },
+  reach: VolunteerReach,
+): HardRule | null {
+  if (actor.id === targetId) return 'self_change';
+  if (isTopRole(actor.roles)) return null;
+  if (place.wholeCountry) return 'whole_country_top_roles_only';
+  if (reach.everywhere) return null;
+  const held = (id: string | null) => id !== null && reach.locationIds.has(id);
+  return held(place.locationId) || held(place.parentId) ? null : 'outside_own_reach';
 }

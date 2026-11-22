@@ -44,7 +44,7 @@ Before development starts, management approves the business process, MEAL unders
 2. Beneficiary and application are separate: one permanent profile per person (BEN-ID) based on NID or birth-registration number; many applications across years and projects, one profile.
 3. Permissions depend on role and data scope and are project-based; nothing is hard-coded, everything can be changed from the permission panel.
 4. Nobody edits approved data directly; corrections happen only through field unlock, with old and new value and a reason in the log.
-5. Project work is organized by region; the central volunteer and beneficiary lists are visible nationwide to all officials.
+5. Project work is organized by region; the central volunteer and beneficiary lists are visible nationwide to all officials. (Amended by D-193 of `docs/DECISION_LOG.md`: below the global roles a person sees the volunteers of the areas of their projects at work and the beneficiaries of the projects they work or worked on; the blueprint's text stays as it is.)
 6. Every project's budget is in the system: cost per beneficiary × number = planned budget; distributed and remaining are always visible.
 7. Field updates are done from one screen in bulk; mobile PWA works without network; the interface is Bangla and English from the start.
 8. Dawah is an optional project component; when enabled, syllabus, classes, attendance, exams and call log become active.
@@ -151,7 +151,7 @@ Two kinds of users: officials (staff) and volunteers. Every role's permissions a
 | Unlock a field after approval | — | ✓ | ✓ | — | — | — | — |
 | Approve a volunteer's edit request | — | ✓ | ✓ | — | — | — | — |
 | View all applications | ✓ | ✓ | ✓ | own | own | own beneficiaries | ✓ |
-| Nationwide volunteer and beneficiary tabs | ✓ | ✓ | ✓ | — | — | — | — |
+| Nationwide volunteer and beneficiary tabs (by program and area since D-193) | ✓ | ✓ | ✓ | — | — | — | — |
 | Distribution update and photos | — | ✓ | ✓ | ✓ | — | — | — |
 | Construction/work progress update | — | ✓ | ✓ | ✓ in safe water | — | — | ✓ |
 | Raise an issue in the issue log (with photos; also Procurement Team) | — | ✓ | ✓ | ✓ | — | ✓ | ✓ |

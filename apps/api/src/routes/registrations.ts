@@ -71,7 +71,7 @@ const staffChangeRequest = changeRequest.extend({
   personName: z.string(),
   personJobId: z.string().nullable(),
   currentValue: z.unknown(),
-  /** The names of the program, division or supervisor the two values name, by id. */
+  /** The names of the program the two values name, by id. */
   names: z.record(z.string(), z.object({ bn: z.string(), en: z.string() })),
 });
 
@@ -96,7 +96,6 @@ export const registrationDetail = pendingRegistration.extend({
   email: nullableText,
   photoFileId: uuid.nullable(),
   homeProgramId: uuid.nullable(),
-  homeDivisionId: uuid.nullable(),
   volunteer: volunteerSummary
     .extend({
       fatherName: z.string(),
@@ -143,7 +142,6 @@ const userView = z.object({
   mobile: nullableText,
   email: nullableText,
   homeProgramId: uuid.nullable(),
-  homeDivisionId: uuid.nullable(),
   isSystemOwner: z.boolean(),
   lastLoginAt: z.string().nullable(),
 });

@@ -242,6 +242,29 @@ describe('the volunteer tab', () => {
     expect(screen.queryByRole('button', { name: /ক্যাটাগরি/ })).not.toBeInTheDocument();
   });
 
+  it('tells a person who sees by area why the tab is empty, and a global role nothing more', async () => {
+    refreshAs(DAEE);
+    serve([]);
+    const first = open();
+    expect(
+      await screen.findByText('এই ফিল্টারে কোনো স্বেচ্ছাসেবক পাওয়া যায়নি।'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/আপনি শুধু নিজের চলমান প্রকল্পের এলাকার স্বেচ্ছাসেবকদের দেখতে পান।/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/বাড়তি এলাকা যোগ করতে বলুন/)).toBeInTheDocument();
+    first.unmount();
+
+    resetClientForTests();
+    refreshAs(HEAD);
+    serve([]);
+    open();
+    expect(
+      await screen.findByText('এই ফিল্টারে কোনো স্বেচ্ছাসেবক পাওয়া যায়নি।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/বাড়তি এলাকা যোগ করতে বলুন/)).not.toBeInTheDocument();
+  });
+
   it('shows the forbidden content to a volunteer', async () => {
     refreshAs(VOLUNTEER);
     serve();

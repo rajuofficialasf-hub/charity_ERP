@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context.js';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists.js';
 import { seedWorkflows } from '../../seed/sets/base/workflows.js';
+import { applicationWhere } from '../../src/access/scope.js';
 import { accessWorld } from './support/access-fixtures.js';
 import {
   type Account,
@@ -798,6 +800,243 @@ describe('staff access', () => {
     expect(ended.status).toBe(204);
     const twice = await at(pm, 'post', `/project-staff/${assignment}/end`).send({ reason: 'শেষ' });
     expect(twice.status).toBe(404);
+  });
+
+  // Several districts of the area for one place (docs/security/RBAC.md, "Data scopes and their
+  // resolution"): the place reaches its districts, or the whole area when it has none.
+  describe('the districts of a staff place', () => {
+    /** Another district of a division, with its own upazila and union. */
+    async function districtOf(division: string) {
+      const tree = await f.locationTree(h.db);
+      await h.db.query('UPDATE locations SET parent_id = $1 WHERE id = $2', [
+        division,
+        tree.district,
+      ]);
+      return { ...tree, division };
+    }
+    const give = (s: Session, body: Record<string, unknown>) =>
+      at(s, 'post', `/projects/${world.a1.id}/staff`).send(body);
+    const placeOf = (res: { body: { data: { userId: string }[] } }, userId: string) =>
+      res.body.data.find((s) => s.userId === userId) as unknown as {
+        id: string;
+        districtIds: string[];
+      };
+    /** The applications of the list a person reaches for `application.view`. */
+    async function reached(userId: string, ids: string[]) {
+      const scope = await h.container.access.scopeOfUser(userId, 'application.view', 'application');
+      const rows = await h.container.prisma.application.findMany({
+        where: { AND: [{ id: { in: ids } }, applicationWhere(scope)] },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id).sort();
+    }
+    const applicationIn = async (loc: Awaited<ReturnType<typeof f.locationTree>>) =>
+      (await f.application(
+        h.db,
+        { project: world.a1, loc },
+        { beneficiary_id: await f.beneficiary(h.db, loc) },
+      )) as string;
+    const version = async (userId: string) =>
+      (await h.db.query('SELECT permission_version FROM users WHERE id = $1', [userId])).rows[0]
+        .permission_version as number;
+
+    it('gives two districts of the own area, and the place reaches those two alone', async () => {
+      const rpm = await as(world.users.rpmDhaka);
+      const second = await districtOf(world.dhaka.division);
+      const third = await districtOf(world.dhaka.division);
+      const executive = await staff('project_executive');
+      const res = await give(rpm, {
+        userId: executive.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.dhaka.division,
+        districtIds: [world.dhaka.district, second.district],
+      });
+      expect(res.status).toBe(201);
+      expect([...placeOf(res, executive.id).districtIds].sort()).toEqual(
+        [world.dhaka.district, second.district].sort(),
+      );
+      const ids = [
+        await applicationIn(world.dhaka),
+        await applicationIn(second),
+        await applicationIn(third),
+      ];
+      expect(await reached(executive.id, ids)).toEqual([ids[0], ids[1]].sort());
+    });
+
+    it('holds the whole area with no district, as a place without any does', async () => {
+      const rpm = await as(world.users.rpmDhaka);
+      const second = await districtOf(world.dhaka.division);
+      const executive = await staff('project_executive');
+      const res = await give(rpm, {
+        userId: executive.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.dhaka.division,
+      });
+      expect(res.status).toBe(201);
+      expect(placeOf(res, executive.id).districtIds).toEqual([]);
+      const ids = [await applicationIn(world.dhaka), await applicationIn(second)];
+      expect(await reached(executive.id, ids)).toEqual([...ids].sort());
+    });
+
+    it('refuses a district outside the area, a location that is no district, and districts without an area', async () => {
+      const pm = await as(world.users.pm);
+      const executive = await staff('project_executive');
+      const base = { userId: executive.id, roleKey: 'project_executive' };
+      for (const body of [
+        { ...base, areaLocationId: world.dhaka.division, districtIds: [world.rangpur.district] },
+        { ...base, areaLocationId: world.dhaka.division, districtIds: [world.dhaka.upazila] },
+        { ...base, areaLocationId: world.dhaka.division, districtIds: [world.dhaka.division] },
+        { ...base, districtIds: [world.dhaka.district] },
+      ]) {
+        const res = await give(pm, body);
+        expect(res.status, JSON.stringify(body.districtIds)).toBe(422);
+        expect(res.body.error.details).toContainEqual(
+          expect.objectContaining({ path: 'districtIds', code: 'validation.option_unknown' }),
+        );
+      }
+      const none = await h.db.query(
+        'SELECT 1 FROM project_staff WHERE project_id = $1 AND user_id = $2',
+        [world.a1.id, executive.id],
+      );
+      expect(none.rowCount).toBe(0);
+    });
+
+    it('changes the districts of a place: the person is refreshed, it is audited, and the lost district is out of reach', async () => {
+      const rpm = await as(world.users.rpmDhaka);
+      const second = await districtOf(world.dhaka.division);
+      const executive = await staff('project_executive');
+      const given = await give(rpm, {
+        userId: executive.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.dhaka.division,
+        districtIds: [world.dhaka.district, second.district],
+      });
+      const place = placeOf(given, executive.id);
+      const ids = [await applicationIn(world.dhaka), await applicationIn(second)];
+      const before = await version(executive.id);
+      const put = (s: Session, districtIds: string[]) =>
+        at(s, 'put', `/project-staff/${place.id}/districts`).send({ districtIds });
+
+      const narrowed = await put(rpm, [second.district]);
+      expect(narrowed.status).toBe(200);
+      expect(placeOf(narrowed, executive.id).districtIds).toEqual([second.district]);
+      expect(await version(executive.id)).toBe(before + 1);
+      expect(await reached(executive.id, ids)).toEqual([ids[1]]);
+      // the change is written on the person and on the project, with the districts before and after
+      const staffAccess = (districtIds: string[]) => ({
+        projectId: world.a1.id,
+        staffAccess: { id: place.id, districtIds: [...districtIds].sort() },
+      });
+      for (const entity of [executive.id, world.a1.id]) {
+        const entry = (await audit(entity, 'permission_change')).at(-1)!;
+        expect(entry.old, entity).toEqual(staffAccess([world.dhaka.district, second.district]));
+        expect(entry.new, entity).toEqual(staffAccess([second.district]));
+      }
+      // the old token no longer passes
+      const stale = await api().get('/api/v1/auth/me').set(bearer(executive.session)).expect(401);
+      expect(stale.body.error.code).toBe('auth.token_stale');
+      // the district that was taken away is ended, never deleted
+      const rows = await h.db.query(
+        'SELECT location_id, ended_at IS NULL AS live FROM project_staff_districts WHERE project_staff_id = $1 ORDER BY created_at, location_id',
+        [place.id],
+      );
+      expect(rows.rows.filter((r) => !r.live).map((r) => r.location_id)).toEqual([
+        world.dhaka.district,
+      ]);
+
+      // no district again: the whole area, and the same list twice changes nobody's version
+      expect((await put(rpm, [])).status).toBe(200);
+      expect(await reached(executive.id, ids)).toEqual([...ids].sort());
+      const settled = await version(executive.id);
+      expect((await put(rpm, [])).status).toBe(200);
+      expect(await version(executive.id)).toBe(settled);
+
+      // a district of another area is refused, and so is the RPM of another region
+      expect((await put(rpm, [world.rangpur.district])).status).toBe(422);
+      const rangpur = await as(world.users.rpmRangpur);
+      expect((await put(rangpur, [world.dhaka.district])).status).toBe(403);
+      expect((await put(await as(world.users.general), [])).status).toBe(403);
+    });
+
+    it('answers an RPM with the places of its own areas alone, and shows a person with districts the staff of the place area', async () => {
+      const pm = await as(world.users.pm);
+      const rpm = await as(world.users.rpmDhaka);
+      const far = await staff('project_executive');
+      const elsewhere = await give(pm, {
+        userId: far.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.rangpur.division,
+      });
+      expect(elsewhere.status).toBe(201);
+      const near = await staff('project_executive');
+      const given = await give(rpm, {
+        userId: near.id,
+        roleKey: 'project_executive',
+        areaLocationId: world.dhaka.division,
+      });
+      const districts = (s: Session, districtIds: string[]) =>
+        at(s, 'put', `/project-staff/${placeOf(given, near.id).id}/districts`).send({
+          districtIds,
+        });
+      const users = (res: { body: { data: { userId: string }[] } }) =>
+        res.body.data.map((s) => s.userId);
+      for (const res of [given, await districts(rpm, [world.dhaka.district])]) {
+        expect(users(res)).toContain(near.id);
+        expect(users(res)).not.toContain(far.id);
+      }
+      // the person's place holds one district: the colleagues are those of the place's area
+      const seen = await at(await as(near.id), 'get', `/projects/${world.a1.id}/staff`);
+      expect(seen.status).toBe(200);
+      expect(users(seen)).toContain(near.id);
+      expect(users(seen)).not.toContain(far.id);
+      // the PM is answered with every place
+      expect(users(await districts(pm, []))).toEqual(expect.arrayContaining([near.id, far.id]));
+    });
+
+    it('refuses a place that does not exist, a closed project and an ended place, and changes no district', async () => {
+      const pm = await as(world.users.pm);
+      const put = (id: string) =>
+        at(pm, 'put', `/project-staff/${id}/districts`).send({ districtIds: [] });
+      expect((await put(randomUUID())).status).toBe(404);
+
+      const id = await draft();
+      const tree = await f.locationTree(h.db);
+      const rpm = await staff('regional_program_manager');
+      const area = await at(pm, 'post', `/projects/${id}/areas`).send({
+        locationId: tree.division,
+        rpmUserId: rpm.id,
+      });
+      expect(area.status).toBe(201);
+      const executive = await staff('project_executive');
+      const given = await at(pm, 'post', `/projects/${id}/staff`).send({
+        userId: executive.id,
+        roleKey: 'project_executive',
+        areaLocationId: tree.division,
+        districtIds: [tree.district],
+      });
+      expect(given.status).toBe(201);
+      const place = placeOf(given, executive.id);
+      const rows = async () =>
+        (
+          await h.db.query(
+            'SELECT location_id, ended_at IS NULL AS live FROM project_staff_districts WHERE project_staff_id = $1',
+            [place.id],
+          )
+        ).rows;
+      const held = [{ location_id: tree.district, live: true }];
+
+      await setStatus(id, 'closed');
+      const closed = await put(place.id);
+      expect(closed.status).toBe(409);
+      expect(closed.body.error.code).toBe('project.read_only');
+      expect(await rows()).toEqual(held);
+
+      await setStatus(id, 'draft');
+      const ended = await at(pm, 'post', `/project-staff/${place.id}/end`).send({ reason: 'বদল' });
+      expect(ended.status).toBeLessThan(300);
+      expect((await put(place.id)).status).toBe(404);
+      expect(await rows()).toEqual(held);
+    });
   });
 
   it('shows an RPM only the staff of its own areas', async () => {

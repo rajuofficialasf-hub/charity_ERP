@@ -98,6 +98,37 @@ export const roleHistoryRowSchema = z.object({
 });
 export type RoleHistoryRow = z.infer<typeof roleHistoryRowSchema>;
 
+/**
+ * An extra area for volunteers given to an official: one location (a division or a district) or
+ * the whole country, never both, with a reason.
+ */
+export const extraAreaRequestSchema = z.strictObject({
+  locationId: z.uuid().optional(),
+  wholeCountry: z.boolean().default(false),
+  reason: z.string().trim().min(3).max(1000),
+});
+export type ExtraAreaRequest = z.infer<typeof extraAreaRequestSchema>;
+
+/** One extra area a person holds or held, with who gave it and who ended it. */
+export const extraAreaRowSchema = z.object({
+  id: z.uuid(),
+  wholeCountry: z.boolean(),
+  location: z
+    .object({
+      id: z.uuid(),
+      level: z.string(),
+      name: z.object({ bn: z.string(), en: z.string() }),
+    })
+    .nullable(),
+  reason: z.string(),
+  grantedAt: z.string(),
+  grantedBy: namedUserSchema,
+  endedAt: z.string().nullable(),
+  endedBy: namedUserSchema.nullable(),
+  endReason: z.string().nullable(),
+});
+export type ExtraAreaRow = z.infer<typeof extraAreaRowSchema>;
+
 /** The Main Admin hands the flag to another Admin, confirming with the own password. */
 export const ownerTransferRequestSchema = z.strictObject({
   toUserId: z.uuid(),

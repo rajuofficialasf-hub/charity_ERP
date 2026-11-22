@@ -34,6 +34,12 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  // the Dhaka RPM holds the division on the program's second project too: a person is reached
+  // through an application of an own project, and the two profiles of a pair apply to one each
+  await h.db.query(
+    'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+    [randomUUID(), world.a2.id, world.dhaka.division, world.users.rpmDhaka],
+  );
 });
 afterAll(async () => h.close());
 
@@ -466,7 +472,9 @@ describe('what stops a merge', () => {
 
   it('refuses a second carrying out, and a proposal whose profile was merged meanwhile', async () => {
     const { kept, retired } = await duplicate();
+    // a third applicant of the RPM's project, so the RPM reaches it for a proposal
     const third = await person();
+    await applyTo(world.a1, third);
     const rpm = await as(world.users.rpmDhaka);
     const first = await propose(rpm, { keptId: kept, mergedId: retired, reason: REASON });
     const other = await propose(rpm, { keptId: third, mergedId: retired, reason: REASON });

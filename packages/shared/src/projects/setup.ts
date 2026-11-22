@@ -63,15 +63,25 @@ export const candidateQuerySchema = z.strictObject({
 });
 export type CandidateQuery = z.infer<typeof candidateQuerySchema>;
 
+/** The districts of one staff place: none means the whole area of the place. */
+export const STAFF_DISTRICTS_MAX = 64;
+const staffDistricts = z.array(z.uuid()).max(STAFF_DISTRICTS_MAX);
+
 export const staffCreateSchema = z.strictObject({
   userId: z.uuid(),
   roleKey: z.enum(STAFF_ACCESS_ROLES),
   areaLocationId: z.uuid().optional(),
+  /** Districts inside the area; left out or empty, the place holds the whole area. */
+  districtIds: staffDistricts.default([]),
   canView: z.boolean().default(true),
   canEdit: z.boolean().default(false),
   canDelete: z.boolean().default(false),
 });
 export type StaffCreate = z.infer<typeof staffCreateSchema>;
+
+/** The districts of a staff place, replaced as a whole; an empty list gives the whole area back. */
+export const staffDistrictsSchema = z.strictObject({ districtIds: staffDistricts });
+export type StaffDistricts = z.infer<typeof staffDistrictsSchema>;
 
 export const syllabusSchema = z.strictObject({
   topics: z

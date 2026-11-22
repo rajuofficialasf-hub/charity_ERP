@@ -4,7 +4,12 @@ import {
   parseBenNo,
 } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
-import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
+import {
+  beneficiaryListWhere,
+  beneficiaryRowsProjectWhere,
+  beneficiaryWhere,
+  type Scope,
+} from '../access/scope.js';
 import type { Principal } from '../auth/principal.js';
 import type { Env } from '../config/env.js';
 import { boundedRead } from '../core/bounded-read.js';
@@ -77,10 +82,16 @@ export class BeneficiariesService {
     throw new ApiError('permission.denied', 403);
   }
 
-  /** The filter of the list and of its counts, inside the caller's scope. */
+  /**
+   * The filter of the list and of its counts, inside the caller's scope. For a screen (`listed`)
+   * the people reached through the places of projects are read first, under the time limit of a
+   * list read, and given as ids; otherwise the reach stays a condition (an export, which keeps
+   * the filter with its job).
+   */
   async where(
     filter: BeneficiaryFilter,
     viewer: BeneficiaryViewer,
+    { listed = false }: { listed?: boolean } = {},
   ): Promise<Prisma.BeneficiaryWhereInput> {
     const sees = (cls: string) => viewer.fieldClasses.has(cls);
     if (filter.unionId && !sees(ADDRESS)) this.refuse(viewer, ADDRESS);
@@ -92,7 +103,9 @@ export class BeneficiariesService {
     // them to a caller without it
     if (filter.helpedMoreThanOnceInYear && !sees(HISTORY)) this.refuse(viewer, HISTORY);
     const and: Prisma.BeneficiaryWhereInput[] = [
-      beneficiaryWhere(viewer.scope),
+      listed
+        ? await boundedRead(this.prisma, (tx) => beneficiaryListWhere(tx, viewer.scope))
+        : beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
     ];
     for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const) {
@@ -179,7 +192,7 @@ export class BeneficiariesService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    const filter = await this.where(query, viewer);
+    const filter = await this.where(query, viewer, { listed: true });
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.beneficiary.findMany({
         where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
@@ -233,7 +246,7 @@ export class BeneficiariesService {
    * leaves out the counts of a class the caller does not see.
    */
   async statistics(filter: BeneficiaryFilter, viewer: BeneficiaryViewer) {
-    const where = await this.where(filter, viewer);
+    const where = await this.where(filter, viewer, { listed: true });
     const year = dhakaYear(this.clock.now());
     const rowsProjects = beneficiaryRowsProjectWhere(viewer.scope);
     // the two reads run side by side, each under its own time limit: figures of a moment, which

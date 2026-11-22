@@ -2,11 +2,14 @@ import type { OwnStaffProfile } from '@css/shared/auth';
 import type { Principal } from '../auth/principal.js';
 import type { PrismaService } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
+import { liveExtraAreas } from './extra-areas.js';
 import { staffPhotos } from './staff-photos.js';
 
 /**
- * An official's own profile: who they are, where they work and how they are reached. It reads the
- * caller's own record only; a volunteer's own profile is `GET /volunteers/me`.
+ * An official's own profile: who they are, where they work and how they are reached, and the
+ * extra areas they hold for volunteers (docs/BUSINESS_RULES.md, "An official may be given an
+ * extra area"). It reads the caller's own record only; a volunteer's own profile is
+ * `GET /volunteers/me`.
  */
 export class OwnProfileService {
   constructor(private readonly prisma: PrismaService) {}
@@ -23,7 +26,6 @@ export class OwnProfileService {
         affiliation: true,
         affiliationUnit: true,
         homeProgramId: true,
-        homeDivisionId: true,
         supervisorUserId: true,
         mobile: true,
         email: true,
@@ -37,16 +39,10 @@ export class OwnProfileService {
       },
     });
     if (!user || user.kind !== 'staff') throw new ApiError('permission.not_found', 404);
-    const [program, division, supervisor, photos] = await Promise.all([
+    const [program, supervisor, photos, extraAreas] = await Promise.all([
       user.homeProgramId
         ? this.prisma.program.findUnique({
             where: { id: user.homeProgramId },
-            select: { id: true, nameBn: true, nameEn: true },
-          })
-        : null,
-      user.homeDivisionId
-        ? this.prisma.location.findUnique({
-            where: { id: user.homeDivisionId },
             select: { id: true, nameBn: true, nameEn: true },
           })
         : null,
@@ -57,6 +53,7 @@ export class OwnProfileService {
           })
         : null,
       staffPhotos(this.prisma, [user.id]),
+      liveExtraAreas(this.prisma, user.id),
     ]);
     return {
       id: user.id,
@@ -72,15 +69,13 @@ export class OwnProfileService {
       program: program
         ? { id: program.id, name: { bn: program.nameBn, en: program.nameEn } }
         : null,
-      division: division
-        ? { id: division.id, name: { bn: division.nameBn, en: division.nameEn } }
-        : null,
       supervisor: supervisor ? { id: supervisor.id, name: supervisor.displayName } : null,
       mobile: user.mobile,
       email: user.email,
       state: user.state as OwnStaffProfile['state'],
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       photoFileId: photos.get(user.id) ?? null,
+      extraAreas,
     };
   }
 }

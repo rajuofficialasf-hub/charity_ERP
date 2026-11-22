@@ -3,6 +3,7 @@ import {
   type AccessChange,
   changeRefusal,
   endRefusal,
+  extraAreaRefusal,
   IF_RPM_GRANTS,
   KEY_PERMISSIONS,
   mayHold,
@@ -246,5 +247,42 @@ describe('a project extra', () => {
     expect(rpmGrantable(registry, ['finance_team'], 'application.approve')).toBe(false);
     expect(rpmGrantable(registry, ['project_executive'], 'permission.panel.manage')).toBe(false);
     expect(rpmGrantable(registry, ['project_executive'], 'no.such.permission')).toBe(false);
+  });
+});
+
+describe('the giving of an extra area', () => {
+  const DIVISION = 'division-1';
+  const DISTRICT = 'district-1';
+  const district = { wholeCountry: false, locationId: DISTRICT, parentId: DIVISION };
+  const division = { wholeCountry: false, locationId: DIVISION, parentId: null };
+  const country = { wholeCountry: true, locationId: null, parentId: null };
+  const reach = (...ids: string[]) => ({ everywhere: false, locationIds: new Set(ids) });
+  const NOWHERE = reach();
+  const RPM = party('rpm-1', 'regional_program_manager');
+
+  it('lets an Admin and the Department Head give any place and the whole country, never to themselves', () => {
+    for (const top of [ADMIN, HEAD]) {
+      for (const place of [district, division, country])
+        expect(extraAreaRefusal(top, 'someone', place, NOWHERE)).toBeNull();
+      expect(extraAreaRefusal(top, top.id, district, NOWHERE)).toBe('self_change');
+    }
+  });
+
+  it('keeps the whole country from everyone else, whatever they reach', () => {
+    for (const actor of [PM, RPM])
+      expect(
+        extraAreaRefusal(actor, 'someone', country, { everywhere: true, locationIds: new Set() }),
+      ).toBe('whole_country_top_roles_only');
+  });
+
+  it('lets anyone else give a location they hold or a district of a division they hold', () => {
+    expect(extraAreaRefusal(RPM, 'someone', division, reach(DIVISION))).toBeNull();
+    expect(extraAreaRefusal(RPM, 'someone', district, reach(DIVISION))).toBeNull();
+    expect(extraAreaRefusal(RPM, 'someone', district, reach(DISTRICT))).toBeNull();
+    // a district held gives no right to its division, and another place none at all
+    expect(extraAreaRefusal(RPM, 'someone', division, reach(DISTRICT))).toBe('outside_own_reach');
+    expect(extraAreaRefusal(PM, 'someone', district, reach('elsewhere'))).toBe('outside_own_reach');
+    expect(extraAreaRefusal(PM, 'someone', district, NOWHERE)).toBe('outside_own_reach');
+    expect(extraAreaRefusal(RPM, RPM.id, district, reach(DISTRICT))).toBe('self_change');
   });
 });

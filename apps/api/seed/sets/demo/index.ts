@@ -9,7 +9,7 @@ import {
 import { type FormField, publishDefinitionSchema } from '@css/shared/forms';
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context.js';
-import { workflowVersionOf } from '../base/workflows.js';
+import { readWorkflowTemplates, workflowVersionOf } from '../base/workflows.js';
 import { writeDefinitionRows } from '../../../src/services/forms.js';
 import { writeHelpCounts } from '../../../src/services/help-history.js';
 import { MatchKeysService, profileKeysWith } from '../../../src/services/match-keys.js';
@@ -241,6 +241,16 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
   }),
 );
 
+/**
+ * The demo beneficiaries (number n of `beneficiary:n`) who applied to the project at work: 11 to
+ * 20 live in the Dhaka division, 36 to 45 in the Rangpur division. The first ten of each division
+ * stay without an application, for the lookup cases.
+ */
+const DEMO_APPLICANTS: readonly number[] = [
+  ...Array.from({ length: 10 }, (_, i) => 11 + i),
+  ...Array.from({ length: 10 }, (_, i) => 36 + i),
+];
+
 /** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
 const DEMO_BLOCKED_BENEFICIARY = 3;
 
@@ -344,8 +354,6 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         match_keys_version: k.matchKeysVersion,
       };
     };
-    const divisionIdOf = (key: string) =>
-      key === 'rpm_rangpur' ? rangpur[0]!.division : dhaka[0]!.division;
 
     // staff accounts and their roles; a PM's home program is filled in once the program exists
     const homeProgram = (s: DemoStaff) =>
@@ -366,7 +374,6 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       job_id: s.jobId,
       affiliation: 'department',
       supervisor_user_id: s.supervisor ? userId(s.supervisor) : null,
-      home_division_id: s.role === 'regional_program_manager' ? divisionIdOf(s.key) : null,
       ...(withProgram ? { home_program_id: homeProgram(s) } : {}),
       language: 'bn',
       ...ctx.audit(),
@@ -600,16 +607,165 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         ],
       },
     };
-    for (const [key, settings] of Object.entries(components)) {
-      componentSettingsSchema(key).parse(settings);
-      await ctx.upsert('project_components', {
-        id: seedId(`project-component:WNT:${key}`),
-        project_id: projectId,
-        component_key: key,
-        enabled: true,
-        settings: json(settings),
+    // a project at work beside the draft: only the areas of an active or a closing project show
+    // the people who hold them the volunteers living there, so the two RPMs, the Executive and the
+    // Official দায়ী meet the volunteers of their divisions in the demo
+    const activeSeriesId = seedId('project-series:IFT');
+    await ctx.upsert('project_series', {
+      id: activeSeriesId,
+      program_id: seedId('program:HUM'),
+      code: 'IFT',
+      name_bn: 'ইফতার বিতরণ',
+      name_en: 'Iftar Distribution',
+      ...ctx.audit(),
+    });
+    const activeId = seedId('project:IFT:2026');
+    const distribution = readWorkflowTemplates().find((t) => t.template === 'distribution');
+    await ctx.upsert('projects', {
+      id: activeId,
+      program_id: seedId('program:HUM'),
+      series_id: activeSeriesId,
+      code: 'IFT',
+      year: 2026,
+      period_from: '2026-01-01',
+      period_to: '2026-12-31',
+      name_bn: 'ইফতার বিতরণ 2026',
+      name_en: 'Iftar Distribution 2026',
+      description: demoName('চালু প্রকল্প, ডেমো ডেটা'),
+      status: 'active',
+      activated_at: SEED_AT,
+      workflow_definition_id: seedId(`workflow:distribution:${workflowVersionOf('distribution')}`),
+      workflow_version: workflowVersionOf('distribution'),
+      // an active project runs on the definition it was activated with
+      workflow_snapshot: json(distribution),
+      per_volunteer_limit: 50,
+      cost_per_beneficiary: '900.00',
+      target_beneficiaries: 1000,
+      ...ctx.audit(),
+    });
+    await ctx.upsert(
+      'id_sequences',
+      { scope_key: `app:${activeId}`, last_value: 0 },
+      { key: ['scope_key'], insertOnly: ['last_value'] },
+    );
+    for (const [rpm, location] of [
+      ['rpm_dhaka', dhaka[0]!.division],
+      ['rpm_rangpur', rangpur[0]!.division],
+    ] as const) {
+      await ctx.upsert('project_areas', {
+        id: seedId(`project-area:IFT:${rpm}`),
+        project_id: activeId,
+        location_id: location,
+        rpm_user_id: userId(rpm),
         ...ctx.audit(),
       });
+    }
+    // the field officials under the Dhaka RPM, each with the whole division
+    for (const [key, role] of [
+      ['executive', 'project_executive'],
+      ['official_daee', 'official_daee'],
+    ] as const) {
+      await ctx.upsert(
+        'project_staff',
+        {
+          id: seedId(`project-staff:IFT:${key}`),
+          project_id: activeId,
+          user_id: userId(key),
+          role_key: role,
+          area_location_id: dhaka[0]!.division,
+          can_view: true,
+          can_edit: true,
+          can_delete: false,
+          granted_by: userId('rpm_dhaka'),
+          ...ctx.audit(),
+        },
+        // a handover or an end of the place in a dev database stays as the person left it
+        { insertOnly: ['user_id', 'area_location_id', 'can_view', 'can_edit', 'can_delete'] },
+      );
+    }
+    // the Executive holds one district of the division, the Official দায়ী the whole of it
+    await ctx.upsert(
+      'project_staff_districts',
+      {
+        id: seedId('project-staff-district:IFT:executive'),
+        project_staff_id: seedId('project-staff:IFT:executive'),
+        location_id: dhaka[0]!.district,
+        ...ctx.audit(),
+      },
+      // a district taken away in a dev database stays ended
+      { insertOnly: ['location_id'] },
+    );
+    // an extra area for volunteers: the Official দায়ী, whose project place is in Dhaka, also sees
+    // the volunteers of the first Rangpur district, given by the Department Head
+    await ctx.upsert(
+      'user_extra_areas',
+      {
+        id: seedId('extra-area:official_daee:rangpur'),
+        user_id: userId('official_daee'),
+        location_id: rangpur[0]!.district,
+        whole_country: false,
+        reason: demoName('রংপুরের দাওয়াহ ক্লাসের খোঁজখবর'),
+        granted_by: userId('department_head'),
+        granted_at: SEED_AT,
+        ...ctx.audit(),
+      },
+      // an area ended in a dev database stays ended
+      { insertOnly: ['location_id', 'whole_country', 'reason', 'granted_by', 'granted_at'] },
+    );
+    // the applicants of the project at work: a person is reached through an application of an
+    // own project, so twenty of the demo people applied to it where they live (ten in each
+    // division, still under review), and the regional accounts meet them in the beneficiary tab
+    const activeFormId = seedId('form:IFT:demo');
+    await ctx.upsert('forms', {
+      id: activeFormId,
+      project_id: activeId,
+      key: 'demo_applicants',
+      title_bn: 'আবেদন ফর্ম',
+      title_en: 'Application form',
+      ...ctx.audit(),
+    });
+    const activeVersionId = seedId('form-version:IFT:demo:1');
+    await ctx.upsert('form_versions', {
+      id: activeVersionId,
+      form_id: activeFormId,
+      version_no: 1,
+      ...ctx.audit(),
+    });
+    for (const n of DEMO_APPLICANTS) {
+      const home = (n <= 25 ? dhaka : rangpur)[(n - 1) % 25]!;
+      // a merge or its revert moves the row; a later seed run leaves it where it is
+      await ctx.upsert(
+        'applications',
+        {
+          id: seedId(`application:IFT:${n}`),
+          project_id: activeId,
+          form_version_id: activeVersionId,
+          beneficiary_id: seedId(`beneficiary:${n}`),
+          status: 'under_review',
+          region_location_id: home.division,
+          district_id: home.district,
+          union_id: home.union,
+          submitted_at: SEED_AT,
+          ...ctx.audit(),
+        },
+        { insertOnly: ['beneficiary_id', 'status'] },
+      );
+    }
+    for (const [code, id] of [
+      ['WNT', projectId],
+      ['IFT', activeId],
+    ] as const) {
+      for (const [key, settings] of Object.entries(components)) {
+        componentSettingsSchema(key).parse(settings);
+        await ctx.upsert('project_components', {
+          id: seedId(`project-component:${code}:${key}`),
+          project_id: id,
+          component_key: key,
+          enabled: true,
+          settings: json(settings),
+          ...ctx.audit(),
+        });
+      }
     }
 
     // the duplicate pairs: a draft form version of WNT for their applications, the four
@@ -717,6 +873,20 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       target_beneficiaries: 2000,
       ...ctx.audit(),
     });
+    // the closed session keeps its area: the Dhaka RPM worked on it, so the person it helped
+    // stays in the RPM's beneficiary tab after the close, while its volunteers do not
+    await ctx.upsert(
+      'project_areas',
+      {
+        id: seedId('project-area:WNT:2025:rpm_dhaka'),
+        project_id: pastId,
+        location_id: place.division,
+        rpm_user_id: userId('rpm_dhaka'),
+        ...ctx.audit(),
+      },
+      // an area handed over in a dev database stays with the person who took it
+      { insertOnly: ['location_id', 'rpm_user_id'] },
+    );
     const pastFormId = seedId('form:WNT:2025');
     await ctx.upsert('forms', {
       id: pastFormId,

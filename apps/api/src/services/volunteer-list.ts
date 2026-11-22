@@ -48,18 +48,21 @@ const ROW_SELECT = {
   },
 } satisfies Prisma.VolunteerSelect;
 
-/** The caller's view of the list: whether categories are visible, and the NID search scope. */
+/** The caller's view of the list: whom it reaches, whether categories are visible, and the NID search scope. */
 export interface ListViewer {
   principal: Principal;
+  /** The route's scope (`volunteer.view_all` for the entity `volunteer`). */
+  scope: Scope;
   /** The protected field classes of the caller (docs/security/RBAC.md, "Field-level protection"). */
   fieldClasses: ReadonlySet<string>;
 }
 
 /**
- * The nationwide volunteer tab (docs/MASTER_SPEC.md, "Volunteer tab"): every volunteer for a
- * holder of `volunteer.view_all`, filtered, searched and counted with one shared filter. A filter
- * or a search on something the caller may not see is refused or never matches, so the answer
- * cannot reveal what the field mask hides.
+ * The volunteer tab (docs/MASTER_SPEC.md, "Volunteer tab"): the volunteers a holder of
+ * `volunteer.view_all` reaches (everyone for the global roles, else the volunteers living in the
+ * areas of the holder's projects at work), filtered, searched and counted with one shared filter.
+ * A filter or a search on something the caller may not see is refused or never matches, so the
+ * answer cannot reveal what the field mask hides.
  */
 export class VolunteerListService {
   constructor(
@@ -80,6 +83,9 @@ export class VolunteerListService {
       throw new ApiError('permission.denied', 403);
     }
     const and: Prisma.VolunteerWhereInput[] = [];
+    // the caller's reach first; a global role reaches everyone and adds no condition
+    const reach = volunteerWhere(viewer.scope);
+    if (Object.keys(reach).length) and.push(reach);
     for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const) {
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
       const value = filter[column];

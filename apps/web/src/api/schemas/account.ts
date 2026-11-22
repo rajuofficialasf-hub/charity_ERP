@@ -8,6 +8,7 @@ import { AFFILIATIONS, USER_STATES } from '@css/shared/auth';
 import { PROJECT_STATUSES } from '@css/shared/projects';
 import { z } from 'zod';
 import { bilingual, date, dateTime } from './common';
+import { extraAreaSchema } from './staff';
 
 /** The own volunteer profile as `GET /volunteers/me` answers. */
 export const ownProfileSchema = z.object({
@@ -85,13 +86,14 @@ export const ownStaffProfileSchema = z.object({
   affiliation: z.enum(AFFILIATIONS).nullable(),
   affiliationUnit: z.string().nullable(),
   program: named.nullable(),
-  division: named.nullable(),
   supervisor: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   mobile: z.string().nullable(),
   email: z.string().nullable(),
   state: z.enum(USER_STATES),
   lastLoginAt: dateTime.nullable(),
   photoFileId: z.uuid().nullable(),
+  /** The extra areas the person holds now for volunteers, the newest first. */
+  extraAreas: z.array(extraAreaSchema),
 }) satisfies z.ZodType<OwnStaffProfile>;
 
 const count = z.number().int();

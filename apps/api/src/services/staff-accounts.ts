@@ -83,10 +83,7 @@ const MAX_CHAIN = 50;
 const invalid = (path: string, code: string) =>
   new ApiError('validation.failed', 422, undefined, [{ path, code }]);
 
-type ProfileRefs = Pick<
-  StaffProfileRequest,
-  'homeProgramId' | 'homeDivisionId' | 'supervisorUserId'
->;
+type ProfileRefs = Pick<StaffProfileRequest, 'homeProgramId' | 'supervisorUserId'>;
 
 /**
  * Officials created by the admin (docs/architecture/AUTH.md, "Officials created by the admin"): the
@@ -144,7 +141,6 @@ export class StaffAccountsService {
             affiliation: body.affiliation,
             affiliationUnit: body.affiliationUnit,
             homeProgramId: body.homeProgramId,
-            homeDivisionId: body.homeDivisionId,
             supervisorUserId: body.supervisorUserId,
             language,
             createdBy: actor.userId,
@@ -166,7 +162,6 @@ export class StaffAccountsService {
             affiliation: body.affiliation,
             affiliationUnit: body.affiliationUnit,
             homeProgramId: body.homeProgramId,
-            homeDivisionId: body.homeDivisionId,
             supervisorUserId: body.supervisorUserId,
           },
         });
@@ -308,7 +303,6 @@ export class StaffAccountsService {
             affiliation: true,
             affiliationUnit: true,
             homeProgramId: true,
-            homeDivisionId: true,
             supervisorUserId: true,
           },
           tx,
@@ -454,7 +448,7 @@ export class StaffAccountsService {
 }
 
 /**
- * The program and the division exist; the supervisor is an active department official, never
+ * The program exists; the supervisor is an active department official, never
  * the official themself, and the line above them never comes back to this official.
  */
 export async function assertStaffRefs(
@@ -465,11 +459,6 @@ export async function assertStaffRefs(
 ): Promise<void> {
   if (refs.homeProgramId && !(await tx.program.count({ where: { id: refs.homeProgramId } })))
     throw invalid('homeProgramId', 'validation.option_unknown');
-  if (
-    refs.homeDivisionId &&
-    !(await tx.location.count({ where: { id: refs.homeDivisionId, level: 'division' } }))
-  )
-    throw invalid('homeDivisionId', 'validation.option_unknown');
   if (!refs.supervisorUserId) return;
   if (refs.supervisorUserId === userId)
     throw invalid('supervisorUserId', 'user.supervisor_invalid');

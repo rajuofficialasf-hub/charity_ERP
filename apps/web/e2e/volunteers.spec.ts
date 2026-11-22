@@ -1,11 +1,12 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { filterBy, mainMenu, openTab, rows as listRows, scan, signIn } from './support/admin';
 
-// The nationwide volunteer tab (docs/ui/SCREENS.md, the volunteer tab and the volunteer profile)
-// against the API on its E2E database with the demo seed (docs/testing/DEMO_ACCOUNTS.md): the
-// counts, the area filter kept in the address, the NID held back outside the caller's region, and
-// the refusal for volunteers. Mobile and desktop share the database, so each signs in with its own
-// accounts.
+// The volunteer tab (docs/ui/SCREENS.md, the volunteer tab and the volunteer profile) against the
+// API on its E2E database with the demo seed (docs/testing/DEMO_ACCOUNTS.md): the counts, the area
+// filter kept in the address, the reach of the tab (the Dhaka RPM meets the volunteers of Dhaka,
+// the division held on the demo's project at work; the PM of that project's program and the
+// Department Head meet Rangpur's too), and the refusal for volunteers. Mobile and desktop share
+// the database, so each signs in with its own accounts.
 const ACCOUNTS = {
   desktop: { official: 'rpm.dhaka@example.org', volunteer: '01700000103' },
   mobile: { official: 'pm.hum@example.org', volunteer: '01700000113' },
@@ -19,7 +20,13 @@ const rows = (page: Page) => listRows(page, TAB);
 /** Narrows the list to one volunteer by name, so the test never depends on which page holds them. */
 async function find(page: Page, name: string) {
   const box = page.getByRole('searchbox');
+  // the row may be on the page before the search: wait for the list read for this name, so the
+  // rows are no longer redrawn under the next click
+  const read = page.waitForResponse(
+    (response) => /\/volunteers\?(?:[^#]*&)?q=/.test(response.url()) && response.ok(),
+  );
   await box.fill(name);
+  await read;
   await expect(
     rows(page)
       .getByRole('link', { name })
@@ -31,11 +38,11 @@ test.describe('the volunteer tab', () => {
   test("a row's action button opens the volunteer's profile", async ({ page }, info) => {
     await signIn(page, accounts(info).official);
     await openTab(page, TAB);
-    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
-    await rows(page).getByRole('button', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)-এর কাজ' }).click();
+    await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
+    await rows(page).getByRole('button', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)-এর কাজ' }).click();
     await page.getByRole('menuitem', { name: 'প্রোফাইল দেখুন' }).click();
     await expect(
-      page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
+      page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }),
     ).toBeVisible();
   });
 
@@ -49,8 +56,12 @@ test.describe('the volunteer tab', () => {
       'aria-pressed',
       'true',
     );
+    // a Rangpur volunteer: in the tab of the PM whose project works in both divisions (the phone's
+    // account), never in the Dhaka RPM's (the computer's)
     await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
-    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toBeVisible();
+    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toHaveCount(
+      info.project.name === 'mobile' ? 1 : 0,
+    );
 
     await filterBy(page, info, [
       ['বিভাগ', 'ঢাকা'],
@@ -85,24 +96,32 @@ test.describe('the volunteer tab', () => {
     expect((await scan(page)).violations).toEqual([]);
   });
 
-  test('the Dhaka RPM sees the NID of a Dhaka volunteer, not of a Rangpur one', async ({
+  test('the Dhaka RPM meets a Dhaka volunteer with the NID and no Rangpur volunteer; the Department Head meets both', async ({
     page,
+    browser,
+    baseURL,
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'one account, one project');
     await signIn(page, accounts(info).official);
     await openTab(page, TAB);
 
+    // Rangpur is no area of the RPM on a project at work: its volunteer is not in the tab
     await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
-    await rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }).click();
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
-    ).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'ব্যক্তিগত তথ্য' })).toBeVisible();
-    await expect(page.getByText('আপনার জন্য দেখানো হয় না').first()).toBeVisible();
-    await expect(page.getByText('1000000002')).toHaveCount(0);
+    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toHaveCount(0);
+    await expect(page.getByText(/পাওয়া যায়নি/)).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
 
-    await page.getByRole('link', { name: 'সব স্বেচ্ছাসেবক' }).click();
+    // the Department Head sees every volunteer
+    const other = await browser.newContext({ baseURL });
+    const head = await other.newPage();
+    await signIn(head, 'head@example.org');
+    await openTab(head, TAB);
+    for (const name of ['স্বেচ্ছাসেবক 1 (নমুনা)', 'স্বেচ্ছাসেবক 2 (নমুনা)']) {
+      await find(head, name);
+      await expect(rows(head).getByRole('link', { name })).toBeVisible();
+    }
+    await other.close();
+
     await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
     await rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }).click();
     await expect(

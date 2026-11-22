@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toEnglishDigits } from '../digits.js';
+import type { ExtraAreaRow } from '../access/index.js';
 import type { ProjectStatus } from '../projects/lifecycle.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 
@@ -57,7 +58,6 @@ const profileShape = {
   /** The other department or the partner organisation; only when not department staff. */
   affiliationUnit: text(200).nullable(),
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
   /** The official this one reports to (the organogram). */
   supervisorUserId: z.uuid().nullable(),
 };
@@ -129,7 +129,7 @@ export interface InvitationIssued {
   emailed: boolean;
 }
 
-/** A name in both languages (a program, a division). */
+/** A name in both languages (a program). */
 interface Named {
   id: string;
   name: { bn: string; en: string };
@@ -151,13 +151,14 @@ export interface OwnStaffProfile {
   affiliation: Affiliation | null;
   affiliationUnit: string | null;
   program: Named | null;
-  division: Named | null;
   supervisor: { id: string; name: string } | null;
   mobile: string | null;
   email: string | null;
   state: 'pending' | 'active' | 'blocked' | 'deactivated';
   lastLoginAt: string | null;
   photoFileId: string | null;
+  /** The extra areas the person holds now for volunteers, the newest first. */
+  extraAreas: ExtraAreaRow[];
 }
 
 /** The figures of an official's work on one project (docs/BUSINESS_RULES.md, the work figures). */

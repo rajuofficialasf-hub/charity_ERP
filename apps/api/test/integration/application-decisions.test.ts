@@ -677,6 +677,13 @@ describe('the times helped kept on the profile', () => {
     const id = await reviewed('widow');
     const person = await personOf(id);
     const earlier = await fixtureProject(h.db, { year: 2025 });
+    // the office worked on the earlier project too, so its name is theirs to read
+    await insert(h.db, 'project_areas', {
+      id: randomUUID(),
+      project_id: earlier.id,
+      location_id: world.dhaka.division,
+      rpm_user_id: world.users.rpmDhaka,
+    });
     await insert(h.db, 'applications', {
       id: randomUUID(),
       project_id: earlier.id,
@@ -711,7 +718,8 @@ describe('the earlier help on the record', () => {
     await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
     const id = await reviewed('widow');
     const person = await personOf(id);
-    // an earlier help in a project of another program, which the PM of this one does not reach
+    // an earlier help in a project of another program, which neither the RPM nor the PM of this
+    // one works on
     const elsewhere = await fixtureProject(h.db, { year: 2024 });
     await insert(h.db, 'applications', {
       id: randomUUID(),
@@ -728,7 +736,11 @@ describe('the earlier help on the record', () => {
     // the approved application itself is never its own earlier help
     const byRpm = (await read(await as(world.users.rpmDhaka), id)).body.data.helpedBefore;
     expect(byRpm).toMatchObject({ total: 1, thisYear: 0, firstYear: 2024 });
-    expect(byRpm.years).toEqual([
+    // a person reached through an own project shows the help of other projects as a count alone
+    expect(byRpm.years).toEqual([{ year: 2024, count: 1, projects: [], unnamed: 1 }]);
+    // the Department Head reads the project's name
+    const byHead = (await read(await as(world.users.head), id)).body.data.helpedBefore;
+    expect(byHead.years).toEqual([
       expect.objectContaining({
         year: 2024,
         count: 1,

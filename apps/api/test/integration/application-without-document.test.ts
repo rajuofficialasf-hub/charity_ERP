@@ -24,7 +24,13 @@ import {
   login,
   type Session,
 } from './support/auth-app.js';
-import { beneficiary as row, fakeMobile, fakeNid, volunteer } from './support/fixtures.js';
+import {
+  application,
+  beneficiary as row,
+  fakeMobile,
+  fakeNid,
+  volunteer,
+} from './support/fixtures.js';
 import { storeKeys } from './support/name-keys.js';
 import { draftProject } from './support/projects.js';
 
@@ -957,6 +963,11 @@ describe('who is told that a person has no document or no mobile', () => {
     expect(row).not.toHaveProperty('birthReg');
     // a person with a document reads true, and the number stays out of the list
     const withNumber = await beneficiary(h.db, world.dhaka, { name: `${name} দুই` });
+    await application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: withNumber },
+    );
     const both = await at(rpm, 'get', `/beneficiaries?q=${encodeURIComponent(name)}`);
     const full = (both.body.data as Record<string, unknown>[]).find((r) => r.id === withNumber);
     expect(full).toMatchObject({ hasDocument: true });
@@ -964,7 +975,13 @@ describe('who is told that a person has no document or no mobile', () => {
   });
 
   it('tells an official outside the identity scope whether a document is on file, never the number', async () => {
-    // the Rangpur RPM holds the identity class; the profile lives in Dhaka, outside the NID scope
+    // the Rangpur RPM holds the identity class and, by a panel grant, the tab of the Dhaka
+    // division; the profiles live in Dhaka, outside the NID scope
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'beneficiary.view_all', 'grant', 'REGION', $3, 'Test grant', $4)`,
+      [randomUUID(), world.users.rpmRangpur, world.dhaka.division, world.users.head],
+    );
     const rpm = await as(world.users.rpmRangpur);
     const withNumber = await beneficiary(h.db, world.dhaka);
     for (const [personId, has] of [

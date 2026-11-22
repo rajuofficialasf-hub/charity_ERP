@@ -28,7 +28,6 @@ export const registrationDetailSchema = pendingRegistrationSchema.extend({
   email: z.string().nullable(),
   photoFileId: z.uuid().nullable(),
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
   volunteer: z
     .object({
       id: z.uuid(),
@@ -97,7 +96,7 @@ export const staffEditRequestRowSchema = changeRequestSchema.extend({
   personName: z.string(),
   personJobId: z.string().nullable(),
   currentValue: z.unknown().optional(),
-  /** The names of the program or division the two values name, by id. */
+  /** The names of the program the two values name, by id. */
   names: z.record(z.string(), bilingual),
 });
 export type StaffEditRequestRow = z.infer<typeof staffEditRequestRowSchema>;

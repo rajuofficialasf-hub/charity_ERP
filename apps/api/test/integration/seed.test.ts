@@ -172,7 +172,7 @@ describe('base set', () => {
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(160);
+    expect(permissions).toHaveLength(161);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -480,23 +480,62 @@ describe('demo set', () => {
     ]);
     const project = (
       await db.query(
-        `SELECT p.code, p.status, w.key AS workflow, array_agg(c.component_key ORDER BY c.component_key) AS components FROM projects p JOIN workflow_definitions w ON w.id = p.workflow_definition_id JOIN project_components c ON c.project_id = p.id GROUP BY p.id, w.key`,
+        `SELECT p.code, p.status, w.key AS workflow, array_agg(c.component_key ORDER BY c.component_key) AS components FROM projects p JOIN workflow_definitions w ON w.id = p.workflow_definition_id JOIN project_components c ON c.project_id = p.id GROUP BY p.id, w.key ORDER BY p.code`,
       )
     ).rows;
+    const components = [
+      'application_form',
+      'dispatch_receive',
+      'distribution',
+      'rating_criteria',
+      'volunteer_assignment',
+      'volunteer_expenses',
+    ];
     expect(project).toEqual([
+      { code: 'IFT', status: 'active', workflow: 'distribution', components },
+      { code: 'WNT', status: 'draft', workflow: 'distribution', components },
+    ]);
+    // the project at work gives the regional officials their divisions, and runs on a snapshot
+    const atWork = (
+      await db.query(
+        `SELECT p.workflow_snapshot IS NOT NULL AS snapshot, p.activated_at IS NOT NULL AS activated,
+                (SELECT array_agg(u.email::text ORDER BY u.email) FROM project_areas a JOIN users u ON u.id = a.rpm_user_id WHERE a.project_id = p.id) AS rpms,
+                (SELECT array_agg(s.role_key ORDER BY s.role_key) FROM project_staff s WHERE s.project_id = p.id AND s.ended_at IS NULL) AS staff
+           FROM projects p WHERE p.code = 'IFT'`,
+      )
+    ).rows;
+    expect(atWork).toEqual([
       {
-        code: 'WNT',
-        status: 'draft',
-        workflow: 'distribution',
-        components: [
-          'application_form',
-          'dispatch_receive',
-          'distribution',
-          'rating_criteria',
-          'volunteer_assignment',
-          'volunteer_expenses',
-        ],
+        snapshot: true,
+        activated: true,
+        rpms: ['rpm.dhaka@example.org', 'rpm.rangpur@example.org'],
+        staff: ['official_daee', 'project_executive'],
       },
+    ]);
+    // twenty demo people applied to it where they live, and the Executive holds one district
+    const applicants = (
+      await db.query(
+        `SELECT l.name_en, count(*)::int AS n FROM applications a
+           JOIN projects p ON p.id = a.project_id
+           JOIN locations l ON l.id = a.region_location_id
+          WHERE p.code = 'IFT' GROUP BY l.name_en ORDER BY l.name_en`,
+      )
+    ).rows;
+    expect(applicants).toEqual([
+      { name_en: 'Dhaka', n: 10 },
+      { name_en: 'Rangpur', n: 10 },
+    ]);
+    const districts = (
+      await db.query(
+        `SELECT s.role_key, count(d.id)::int AS n FROM project_staff s
+           JOIN projects p ON p.id = s.project_id
+           LEFT JOIN project_staff_districts d ON d.project_staff_id = s.id AND d.ended_at IS NULL
+          WHERE p.code = 'IFT' GROUP BY s.role_key ORDER BY s.role_key`,
+      )
+    ).rows;
+    expect(districts).toEqual([
+      { role_key: 'official_daee', n: 0 },
+      { role_key: 'project_executive', n: 1 },
     ]);
     const sessions = (
       await db.query(`SELECT year, status FROM projects WHERE code = 'WNT' ORDER BY year`)
@@ -505,6 +544,41 @@ describe('demo set', () => {
       { year: 2025, status: 'closed' },
       { year: 2026, status: 'draft' },
     ]);
+  });
+
+  it('gives the Official দায়ী one live extra area, a Rangpur district from the Head, and the closed session its Dhaka RPM', async () => {
+    const extra = (
+      await db.query(
+        `SELECT u.email::text AS holder, g.email::text AS giver, l.level, d.name_en AS division,
+                x.whole_country, x.ended_at
+           FROM user_extra_areas x
+           JOIN users u ON u.id = x.user_id
+           JOIN users g ON g.id = x.granted_by
+           JOIN locations l ON l.id = x.location_id
+           JOIN locations d ON d.id = l.parent_id`,
+      )
+    ).rows;
+    expect(extra).toEqual([
+      {
+        holder: 'daee@example.org',
+        giver: 'head@example.org',
+        level: 'district',
+        division: 'Rangpur',
+        whole_country: false,
+        ended_at: null,
+      },
+    ]);
+    // the person the closed session helped stays with the RPM who worked on it
+    const past = (
+      await db.query(
+        `SELECT u.email::text AS rpm, l.name_en AS area FROM project_areas a
+           JOIN projects p ON p.id = a.project_id
+           JOIN users u ON u.id = a.rpm_user_id
+           JOIN locations l ON l.id = a.location_id
+          WHERE p.code = 'WNT' AND p.year = 2025`,
+      )
+    ).rows;
+    expect(past).toEqual([{ rpm: 'rpm.dhaka@example.org', area: 'Dhaka' }]);
   });
 
   it('keeps one person helped once, by the closed session of 2025, with the times helped kept', async () => {

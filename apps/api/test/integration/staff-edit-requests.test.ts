@@ -95,7 +95,7 @@ describe("an official's own request", () => {
     );
   });
 
-  it('refuses an unchanged value, a second open request, a bad workplace and a supervisor', async () => {
+  it('refuses an unchanged value, a second open request, a bad workplace, a supervisor and an area', async () => {
     const rpm = await official();
     await h.db.query(`UPDATE users SET designation = 'পদবি' WHERE id = $1`, [rpm.account.id]);
     expect((await ask(rpm.session, { field: 'designation', newValue: 'পদবি' })).status).toBe(422);
@@ -114,6 +114,9 @@ describe("an official's own request", () => {
       newValue: rpm.account.id,
     });
     expect(supervisor.status).toBe(422);
+    // the account names no area: an official's area comes from the projects
+    const area = await ask(rpm.session, { field: 'homeDivisionId', newValue: null });
+    expect(area.status).toBe(422);
     const program = await ask(rpm.session, {
       field: 'homeProgramId',
       newValue: '00000000-0000-7000-8000-000000000000',
@@ -214,20 +217,31 @@ describe('who decides', () => {
   });
 
   it('refuses to apply a detail that is no longer asked for, and lets it be refused', async () => {
-    const rpm = await official();
-    const [row] = (
-      await h.db.query(
-        `INSERT INTO volunteer_change_requests (id, user_id, kind, field, new_value, requested_by, status)
-         VALUES (gen_random_uuid(), $1, 'profile_edit', 'supervisorUserId', 'null', $1, 'submitted')
-         RETURNING id`,
-        [rpm.account.id],
-      )
-    ).rows as { id: string }[];
     const s = await head();
-    const approved = await decide(s, row!.id, { decision: 'approve' });
-    expect(approved.status).toBe(409);
-    const refused = await decide(s, row!.id, { decision: 'reject', reason: 'আর চাওয়া যায় না' });
-    expect(refused.status).toBe(200);
+    // neither a supervisor nor an area of the account is asked for; a stored request for one waits
+    for (const field of ['supervisorUserId', 'homeDivisionId']) {
+      const rpm = await official();
+      const [row] = (
+        await h.db.query(
+          `INSERT INTO volunteer_change_requests (id, user_id, kind, field, new_value, requested_by, status)
+           VALUES (gen_random_uuid(), $1, 'profile_edit', $2, 'null', $1, 'submitted')
+           RETURNING id`,
+          [rpm.account.id, field],
+        )
+      ).rows as { id: string }[];
+      const listed = await waiting(s);
+      expect(listed.status, field).toBe(200);
+      // listed with empty values, read as they were stored
+      expect(listed.body.data.find((r: { id: string }) => r.id === row!.id)).toMatchObject({
+        field,
+        newValue: null,
+        currentValue: null,
+      });
+      const approved = await decide(s, row!.id, { decision: 'approve' });
+      expect(approved.status, field).toBe(409);
+      const refused = await decide(s, row!.id, { decision: 'reject', reason: 'আর চাওয়া যায় না' });
+      expect(refused.status, field).toBe(200);
+    }
   });
 
   it("keeps an official's request out of the volunteer path, and a volunteer out of this one", async () => {

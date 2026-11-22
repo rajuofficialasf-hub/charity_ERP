@@ -4,6 +4,7 @@ import {
   applicationWhere,
   applyInstanceRevokes,
   beneficiaryRowsProjectWhere,
+  beneficiaryNearWhere,
   beneficiaryWhere,
   holdsPermission,
   makeScope,
@@ -37,6 +38,8 @@ const revoke = (over: Partial<PanelOverride>): PanelOverride => ({
   ...over,
 });
 
+/** Only an application that stands reaches its person: a deleted one reaches nobody. */
+const SENT = { status: { not: 'deleted' } };
 const P1 = '00000000-0000-7000-8000-0000000000a1';
 const P2 = '00000000-0000-7000-8000-0000000000b2';
 const DHAKA = '00000000-0000-7000-8000-0000000000d1';
@@ -150,9 +153,8 @@ describe('the revoked projects in every filter', () => {
     const w = userWhere(
       scope('user', { programIds: [P1], areas: [{ projectId: null, locationId: DHAKA }] }),
     ) as { OR: unknown[] };
-    // the home program and the home division are not reached through a project
+    // the home program is not reached through a project
     expect(w.OR).toContainEqual({ homeProgramId: { in: [P1] } });
-    expect(w.OR).toContainEqual({ homeDivisionId: DHAKA });
     expect(w.OR).toContainEqual({
       projectStaffUser: {
         some: { endedAt: null, project: { programId: { in: [P1] }, ...outside } },
@@ -166,19 +168,29 @@ describe('the revoked projects in every filter', () => {
   });
 
   it('leaves the revoked project out of the volunteer and beneficiary filters', () => {
-    const v = volunteerWhere(scope('volunteer', { programIds: [P1] })) as { OR: unknown[] };
-    expect(v.OR).toContainEqual({
-      division: {
-        projectAreasLocation: {
-          some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
-        },
+    // a volunteer is reached through the areas alone: the revoke drops the revoked project's
+    const kept = applyInstanceRevokes(
+      {
+        ...NO_INSTANCES,
+        programIds: [P1],
+        areas: [
+          { projectId: P2, locationId: DHAKA },
+          { projectId: R, locationId: RANGPUR },
+        ],
       },
+      [],
+      [R],
+    );
+    expect(volunteerWhere(makeScope('actor', 'volunteer.view_all', 'volunteer', kept))).toEqual({
+      OR: ['divisionId', 'districtId', 'upazilaId', 'unionId'].map((column) => ({
+        [column]: { in: [DHAKA] },
+      })),
     });
     expect(beneficiaryWhere(scope('beneficiary', { programIds: [P1] }))).toEqual({
       OR: [
         {
           applicationsBeneficiary: {
-            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] }, ...SENT },
           },
         },
       ],
@@ -278,7 +290,6 @@ describe('the revoked locations in every filter', () => {
       volunteerWhere(scope('volunteer', region)),
       beneficiaryWhere(scope('beneficiary', { programIds: [P1] })),
       beneficiaryWhere(scope('beneficiary', { projectIds: [P1] })),
-      volunteerWhere(scope('volunteer', { projectIds: [P1] })),
     ]) {
       const and = (w as { AND: unknown[] }).AND;
       expect(and).toHaveLength(2);
@@ -288,13 +299,8 @@ describe('the revoked locations in every filter', () => {
     expect(volunteerWhere(scope('volunteer', {}))).toEqual({ id: { in: [] } });
   });
 
-  it('leaves out the people whose own place is there, and keeps an official without a home division', () => {
-    const outside = {
-      AND: [
-        { OR: [{ homeDivisionId: null }, { homeDivisionId: { notIn: [DISTRICT] } }] },
-        { NOT: { volunteersUser: { is: { OR: inRevoked([DISTRICT]).NOT.OR } } } },
-      ],
-    };
+  it('leaves out the volunteers living there, and no official, whose account names no area', () => {
+    const outside = { NOT: { volunteersUser: { is: { OR: inRevoked([DISTRICT]).NOT.OR } } } };
     expect(userWhere(scope('user', { global: true }))).toEqual(outside);
     const w = userWhere(scope('user', { programIds: [P1] })) as { AND: unknown[] };
     expect(w.AND).toHaveLength(2);
@@ -310,7 +316,7 @@ describe('the revoked locations in every filter', () => {
     expect(volunteerWhere(none('volunteer', { global: true }))).toEqual({});
     expect(userWhere(none('user', { global: true }))).toEqual({});
     expect(beneficiaryWhere(none('beneficiary', { projectIds: [P1] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] }, ...SENT } } }],
     });
   });
 });
@@ -412,7 +418,15 @@ describe('the user filter', () => {
     expect(self.OR).toEqual([{ id: 'actor' }]);
     expect(both.OR).toContainEqual({ id: 'actor' });
     expect(both.OR).toContainEqual({ homeProgramId: { in: [P1] } });
-    expect(both.OR).toContainEqual({ homeDivisionId: DHAKA });
+  });
+
+  it('reaches no official through an area alone: an account names no area', () => {
+    for (const projectId of [null, P1]) {
+      const w = where({ areas: [{ projectId, locationId: DHAKA }] });
+      expect(JSON.stringify(w)).not.toContain('homeDivision');
+      // the three ways an area reaches a person, each through a project
+      expect((w as { OR: unknown[] }).OR).toHaveLength(3);
+    }
   });
 
   it('keeps an area inside its project when the area names one', () => {
@@ -420,7 +434,62 @@ describe('the user filter', () => {
     expect(bound.OR).toContainEqual({
       projectAreasRpmUser: { some: { locationId: DHAKA, projectId: P1 } },
     });
-    expect(bound.OR).not.toContainEqual({ homeDivisionId: DHAKA });
+  });
+
+  it('reads a district of a staff place on the place area for colleagues, and in the district for volunteers', () => {
+    const DISTRICT = '00000000-0000-7000-8000-0000000000e1';
+    const w = where({ areas: [{ projectId: P1, locationId: DISTRICT, within: DHAKA }] }) as {
+      OR: unknown[];
+    };
+    expect(w.OR).toEqual([
+      { projectStaffUser: { some: { endedAt: null, areaLocationId: DHAKA, projectId: P1 } } },
+      {
+        volunteersUser: {
+          is: {
+            projectVolunteersVolunteer: {
+              some: {
+                AND: [
+                  { endedAt: null, projectId: P1 },
+                  {
+                    OR: [
+                      { regionLocationId: DISTRICT },
+                      { regionLocationId: DHAKA, volunteer: { districtId: DISTRICT } },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { projectAreasRpmUser: { some: { locationId: DHAKA, projectId: P1 } } },
+    ]);
+  });
+
+  it('reaches through an extra area the volunteers living there, and every volunteer for the whole country', () => {
+    const area = where({ volunteerLocations: [DHAKA] }) as { OR: unknown[] };
+    expect(area.OR).toEqual([
+      {
+        volunteersUser: {
+          is: {
+            OR: ['divisionId', 'districtId', 'upazilaId', 'unionId'].map((column) => ({
+              [column]: { in: [DHAKA] },
+            })),
+          },
+        },
+      },
+    ]);
+    expect(where({ everyVolunteer: true, volunteerLocations: [DHAKA] })).toEqual({
+      OR: [{ kind: 'volunteer' }],
+    });
+    expect(where({ volunteerLocations: [] })).toEqual({ id: { in: [] } });
+  });
+
+  it('drops an extra area of a revoked location', () => {
+    const kept = applyInstanceRevokes({ ...NO_INSTANCES, volunteerLocations: [DHAKA, RANGPUR] }, [
+      revoke({ scopeRef: DHAKA }),
+    ]);
+    expect(kept.volunteerLocations).toEqual([RANGPUR]);
   });
 
   it('reaches only volunteers through a volunteer area', () => {
@@ -505,11 +574,12 @@ describe('the volunteer filter by address', () => {
     expect(JSON.stringify(split)).not.toContain(DHAKA);
   });
 
-  it("PROGRAM reaches the volunteers in the area locations of the program's projects", () => {
-    const program = where({ programIds: [P1] }) as { OR: unknown[] };
-    const inProgram = { some: { project: { programId: { in: [P1] } } } };
-    expect(program.OR).toContainEqual({ division: { projectAreasLocation: inProgram } });
-    expect(program.OR).toContainEqual({ union: { projectAreasLocation: inProgram } });
+  it('reaches nobody through a program or a project that brought no area of a project at work', () => {
+    // the scope's resolution turns a program or a project into those areas; the filter reads them
+    expect(where({ programIds: [P1] })).toEqual({ id: { in: [] } });
+    expect(where({ projectIds: [P2] })).toEqual({ id: { in: [] } });
+    const withArea = where({ programIds: [P1], areas: [{ projectId: P2, locationId: DHAKA }] });
+    expect((withArea as { OR: unknown[] }).OR).toContainEqual({ divisionId: { in: [DHAKA] } });
   });
 
   it('SELF reaches the own volunteer row', () => {
@@ -528,18 +598,85 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     expect(beneficiaryWhere(scope({ self: true }))).toEqual({ id: { in: [] } });
   });
 
-  it('reaches by address for an area and by application for a project or a program', () => {
-    const area = beneficiaryWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })) as {
+  it('reaches an area of a project through an application of that project placed there', () => {
+    const placed = (locationId: string) => [
+      { regionLocationId: locationId },
+      { districtId: locationId },
+      { unionId: locationId },
+      { union: { parentId: locationId } },
+    ];
+    expect(
+      beneficiaryWhere(
+        scope({
+          areas: [
+            { projectId: P1, locationId: DHAKA },
+            { projectId: P2, locationId: RANGPUR },
+          ],
+        }),
+      ),
+    ).toEqual({
+      OR: [
+        {
+          applicationsBeneficiary: {
+            some: { projectId: { in: [P1] }, ...SENT, OR: placed(DHAKA) },
+          },
+        },
+        {
+          applicationsBeneficiary: {
+            some: { projectId: { in: [P2] }, ...SENT, OR: placed(RANGPUR) },
+          },
+        },
+      ],
+    });
+  });
+
+  it('compares the one place of the application the level of an area names, across its projects', () => {
+    const held = (level: string) =>
+      beneficiaryWhere(
+        scope({
+          areas: [
+            { projectId: P1, locationId: DHAKA, level },
+            { projectId: P2, locationId: DHAKA, level },
+          ],
+        }),
+      );
+    const projects = { projectId: { in: [P1, P2] }, ...SENT };
+    const some = (placed: object) => ({
+      OR: [{ applicationsBeneficiary: { some: { ...projects, ...placed } } }],
+    });
+    expect(held('division')).toEqual(some({ regionLocationId: DHAKA }));
+    expect(held('district')).toEqual(some({ districtId: DHAKA }));
+    expect(held('union')).toEqual(some({ unionId: DHAKA }));
+    expect(held('upazila')).toEqual(some({ union: { parentId: DHAKA } }));
+  });
+
+  it('keeps the address for a location held without a project, and the applications for a project or a program', () => {
+    const area = beneficiaryWhere(scope({ areas: [{ projectId: null, locationId: DHAKA }] })) as {
+      OR: unknown[];
+    };
+    expect(area.OR).toEqual(
+      ['divisionId', 'districtId', 'upazilaId', 'unionId'].map((column) => ({
+        [column]: { in: [DHAKA] },
+      })),
+    );
+    expect(beneficiaryWhere(scope({ projectIds: [P1] }))).toEqual({
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] }, ...SENT } } }],
+    });
+    expect(beneficiaryWhere(scope({ programIds: [P2] }))).toEqual({
+      OR: [
+        { applicationsBeneficiary: { some: { project: { programId: { in: [P2] } }, ...SENT } } },
+      ],
+    });
+  });
+
+  it('reads how near a lookup lies by the address of every area, with or without a project', () => {
+    const near = beneficiaryNearWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })) as {
       OR: unknown[];
     };
     for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'])
-      expect(area.OR).toContainEqual({ [column]: { in: [DHAKA] } });
-    expect(beneficiaryWhere(scope({ projectIds: [P1] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
-    });
-    expect(beneficiaryWhere(scope({ programIds: [P2] }))).toEqual({
-      OR: [{ applicationsBeneficiary: { some: { project: { programId: { in: [P2] } } } } }],
-    });
+      expect(near.OR).toContainEqual({ [column]: { in: [DHAKA] } });
+    expect(beneficiaryNearWhere(scope({ global: true }))).toEqual({});
+    expect(beneficiaryNearWhere(scope({}))).toEqual({ id: { in: [] } });
   });
 
   it('limits the rows of a profile to the projects of a project scope only', () => {
@@ -550,6 +687,10 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     expect(beneficiaryRowsProjectWhere(scope({ projectIds: [P1] }))).toEqual({
       OR: [{ id: { in: [P1] } }],
     });
+    // a person reached through an area of a project shows that project's rows alone
+    expect(
+      beneficiaryRowsProjectWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })),
+    ).toEqual({ OR: [{ id: P1 }] });
   });
 });
 

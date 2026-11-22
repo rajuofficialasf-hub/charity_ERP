@@ -67,6 +67,14 @@ beforeAll(async () => {
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
   distribution = await projectOf('SIG', 'distribution');
+  Object.assign(earlier, { id: world.a2.id, versionId: world.a2.formVersion });
+  // the Dhaka RPM holds the division on the program's second project too: the earlier families
+  // and the other profiles of these tests applied there, and a person is reached through an
+  // application of an own project
+  await h.db.query(
+    `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+    [randomUUID(), world.a2.id, world.dhaka.division, world.users.rpmDhaka],
+  );
   withoutProfiles = await make('staff')('regional_program_manager');
   await h.db.query(
     `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
@@ -96,6 +104,8 @@ const applies = (project: { id: string; versionId: string }, beneficiaryId: stri
     status: 'under_review',
     beneficiaryId,
   });
+/** The program's second project, where the earlier applications of these tests lie. */
+const earlier = { id: '', versionId: '' };
 /** An earlier beneficiary (another project's) whose active family list holds a son. */
 async function familyOf(n: number) {
   const head = await profile({ name: `মোঃ হাবিব ${n}`, father_or_husband_name: `পিতা ${n}` });
@@ -106,7 +116,7 @@ async function familyOf(n: number) {
     relationship_code: 'son',
     name_key: (await h.container.matchKeys.ofMember(h.container.prisma, `সোহেল ${n}`)).nameKey,
   });
-  await applies({ id: world.a2.id, versionId: world.a2.formVersion }, head);
+  await applies(earlier, head);
   return head;
 }
 const benNo = async (id: string) =>
@@ -184,6 +194,8 @@ describe('the same person signal', () => {
     const first = await profile(person);
     const second = await profile({ ...person, father_or_husband_name: `আজিজ ${n}` });
     await pairUp(first, second);
+    // the earlier profile applied to another project the RPM works on, so the RPM reaches both
+    await applies(earlier, first);
     const application = await applies(distribution, second);
     const rpm = await read(await as(world.users.rpmDhaka), application);
     expect(rpm.body.data.samePersonSignals).toEqual([
@@ -226,6 +238,7 @@ describe('the same person signal', () => {
     const first = await profile(person);
     const second = await profile(person);
     await pairUp(first, second);
+    await applies(earlier, second);
     const application = await applies(distribution, first);
     expect((await read(rpm, application)).body.data.samePersonSignals).toHaveLength(1);
     await api()

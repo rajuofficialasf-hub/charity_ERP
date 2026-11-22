@@ -890,13 +890,36 @@ export class FilesService {
       });
       return reached > 0;
     }
-    for (const permission of REACHING_PERMISSIONS) {
-      if (!access.grants.some((g) => g.permission === permission)) continue;
-      const scope = await this.access.scopeFor(principal, access, permission, 'user');
-      const reached = await this.prisma.user.count({
-        where: { AND: [{ id: ownerId }, this.access.userFilter(scope)] },
+    const owner = await this.prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { kind: true, state: true },
+    });
+    if (!owner) return false;
+    const holds = REACHING_PERMISSIONS.filter((permission) =>
+      access.grants.some((g) => g.permission === permission),
+    );
+    if (owner.kind === 'staff') {
+      // an official's photo is open to every official (docs/BUSINESS_RULES.md, "A person's
+      // uploaded photo shows wherever the person is shown"), whatever the caller reaches in the
+      // tabs; the photo of a registration that still waits is for those who reach that person
+      if (principal.kind === 'staff' && owner.state !== 'pending') return true;
+      for (const permission of holds) {
+        const scope = await this.access.scopeFor(principal, access, permission, 'user');
+        const reached = await this.prisma.user.count({
+          where: { AND: [{ id: ownerId }, this.access.userFilter(scope)] },
+        });
+        if (reached) return true;
+      }
+      return false;
+    }
+    // a volunteer is reached by the address alone, as the volunteer tab and the registrations
+    // reach them: never through a place on a project that is no longer, or not yet, at work
+    for (const permission of holds) {
+      const scope = await this.access.scopeFor(principal, access, permission, 'volunteer');
+      const listed = await this.prisma.volunteer.count({
+        where: { AND: [{ userId: ownerId }, volunteerWhere(scope)] },
       });
-      if (reached) return true;
+      if (listed) return true;
     }
     return false;
   }

@@ -131,6 +131,7 @@ const projectStaff: HandoverProvider = {
   async reassign(tx, item, from, to, actorId, registry) {
     const row = await tx.projectStaff.findFirst({
       where: { id: item.itemId, userId: from, endedAt: null },
+      include: { districts: { where: { endedAt: null }, select: { locationId: true } } },
     });
     if (!row) throw stale();
     const busy = await tx.projectStaff.count({
@@ -138,9 +139,10 @@ const projectStaff: HandoverProvider = {
     });
     if (busy) throw new ApiError('handover.target_invalid', 422);
     await tx.projectStaff.update({ where: { id: row.id }, data: { endedAt: new Date() } });
+    const placeId = uuidv7();
     await tx.projectStaff.create({
       data: {
-        id: uuidv7(),
+        id: placeId,
         projectId: row.projectId,
         userId: to,
         roleKey: row.roleKey,
@@ -155,6 +157,17 @@ const projectStaff: HandoverProvider = {
         grantedBy: actorId,
       },
     });
+    // the districts of the place go with it; without any, the receiver holds the whole area too
+    if (row.districts.length)
+      await tx.projectStaffDistrict.createMany({
+        data: row.districts.map((d) => ({
+          id: uuidv7(),
+          projectStaffId: placeId,
+          locationId: d.locationId,
+          createdBy: actorId,
+          updatedBy: actorId,
+        })),
+      });
   },
 };
 

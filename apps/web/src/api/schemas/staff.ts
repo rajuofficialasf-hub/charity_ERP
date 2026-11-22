@@ -1,3 +1,4 @@
+import type { ExtraAreaRow } from '@css/shared/access';
 import type { InvitationIssued } from '@css/shared/auth';
 import { AFFILIATIONS, USER_STATES } from '@css/shared/auth';
 import { z } from 'zod';
@@ -15,7 +16,6 @@ export const staffMemberSchema = z.object({
   affiliation: z.enum(AFFILIATIONS).nullable(),
   affiliationUnit: z.string().nullable(),
   homeProgramId: z.uuid().nullable(),
-  homeDivisionId: z.uuid().nullable(),
   supervisorUserId: z.uuid().nullable(),
   /** Created by the admin and the set-password link not used yet. */
   awaitingPassword: z.boolean(),
@@ -44,6 +44,26 @@ export const staffDetailSchema = staffMemberSchema.extend({
 });
 export type StaffDetail = z.infer<typeof staffDetailSchema>;
 
+const namedUser = z.object({ id: z.uuid(), displayName: z.string() });
+
+/**
+ * One extra area an official holds or held for volunteers (`GET /users/{userId}/extra-areas`, and
+ * the live ones in the own profile): a division, a district, or the whole country without a
+ * location; `endedAt` is null while it is live.
+ */
+export const extraAreaSchema = z.object({
+  id: z.uuid(),
+  wholeCountry: z.boolean(),
+  location: z.object({ id: z.uuid(), level: z.string(), name: bilingual }).nullable(),
+  reason: z.string(),
+  grantedAt: dateTime,
+  grantedBy: namedUser,
+  endedAt: dateTime.nullable(),
+  endedBy: namedUser.nullable(),
+  endReason: z.string().nullable(),
+}) satisfies z.ZodType<ExtraAreaRow>;
+export type ExtraArea = z.infer<typeof extraAreaSchema>;
+
 /** The answer of a new official or a new link: the link, shown once so the admin can copy it. */
 export const invitationIssuedSchema = z.object({
   userId: z.uuid(),
@@ -59,7 +79,6 @@ const organogramFields = {
   designation: z.string().nullable(),
   roles: z.array(z.string()),
   state: z.enum(['pending', 'active', 'blocked']),
-  homeDivisionId: z.uuid().nullable(),
   /** The official's uploaded photo; null shows the initial. */
   photoFileId: z.uuid().nullable(),
 };

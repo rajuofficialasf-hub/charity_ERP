@@ -28,7 +28,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
 });
 afterAll(async () => h.close());
 
@@ -50,6 +54,18 @@ async function staff(role: string) {
   return login(h, await account(h.db, { role }));
 }
 
+/** An official with a place in a division on a project at work, so the volunteers there are theirs to see. */
+async function placed(role: string, tree: Tree) {
+  const a = await account(h.db, { role });
+  const project = await f.project(h.db, { status: 'active' });
+  await h.db.query(
+    `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+     VALUES ($1, $2, $3, $4, $5, $3)`,
+    [randomUUID(), project.id, a.id, role, tree.division],
+  );
+  return login(h, a);
+}
+
 const profile = (s: Session | null, volunteerId: string) => {
   const req = api().get(`/api/v1/volunteers/${volunteerId}`);
   return s ? req.set(bearer(s)) : req;
@@ -67,10 +83,23 @@ const IDENTITY = [
 ];
 
 describe('the protected parts of a volunteer profile', () => {
-  it('reach the RPM inside the region and not in another one', async () => {
+  it('reach the RPM inside the region, and not where only the tab was given wider', async () => {
     const dhaka = await someone(world.dhaka);
     const rangpur = await someone(world.rangpur);
-    const rpm = await as(world.users.rpmDhaka);
+    // an RPM of Dhaka on a project at work, given the tab of Rangpur too in the panel: the
+    // identity still follows the own region
+    const account_ = await account(h.db, { role: 'regional_program_manager' });
+    const project = await f.project(h.db, { status: 'active' });
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), project.id, world.dhaka.division, account_.id],
+    );
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'volunteer.view_all', 'grant', 'REGION', $3, 'Test grant', $4)`,
+      [randomUUID(), account_.id, world.rangpur.division, world.users.head],
+    );
+    const rpm = await login(h, account_);
     const here = (await profile(rpm, dhaka.volunteerId)).body.data;
     expect(here).toMatchObject({
       id: dhaka.volunteerId,
@@ -96,9 +125,27 @@ describe('the protected parts of a volunteer profile', () => {
       nid: expect.any(String),
       bank: { bankName: 'Sample Bank' },
     });
-    const daee = await staff('official_daee');
+    const daee = await placed('official_daee', world.rangpur);
     const seen = (await profile(daee, rangpur.volunteerId)).body.data;
+    expect(seen.id).toBe(rangpur.volunteerId);
     for (const key of IDENTITY) expect(seen, key).not.toHaveProperty(key);
+  });
+
+  it('answer 404 outside the areas of the projects at work', async () => {
+    const dhaka = await someone(world.dhaka);
+    const rangpur = await someone(world.rangpur);
+    const nowhere = await someone(await f.locationTree(h.db));
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await profile(rpm, dhaka.volunteerId)).status).toBe(200);
+    expect((await profile(rpm, rangpur.volunteerId)).status).toBe(404);
+    // an official with no place on any project reaches nobody
+    const daee = await staff('official_daee');
+    expect((await profile(daee, dhaka.volunteerId)).status).toBe(404);
+    // the PM reaches every area of the own program's projects at work, and no other place
+    const pm = await as(world.users.pm);
+    expect((await profile(pm, dhaka.volunteerId)).status).toBe(200);
+    expect((await profile(pm, rangpur.volunteerId)).status).toBe(200);
+    expect((await profile(pm, nowhere.volunteerId)).status).toBe(404);
   });
 
   it('send the category, the ratings and the blocklist reason only with their classes', async () => {
@@ -126,8 +173,8 @@ describe('the protected parts of a volunteer profile', () => {
       ],
       blocklist: { blocked: true, reason: 'Sample reason', blockedAt: expect.any(String) },
     });
-    // the Official দায়ী sees every volunteer and the blocklist reason, but not the ratings
-    const daee = await staff('official_daee');
+    // the Official দায়ী sees the volunteers of the area and the blocklist reason, but not the ratings
+    const daee = await placed('official_daee', world.dhaka);
     const masked = (await profile(daee, rated.volunteerId)).body.data;
     for (const key of ['category', 'inactiveFlag', 'ratings'])
       expect(masked, key).not.toHaveProperty(key);
@@ -184,11 +231,7 @@ describe('the action flags of a volunteer profile', () => {
       requestCorrection: true,
       unblock: false,
     });
-    expect((await profile(rpm, elsewhere.volunteerId)).body.data.actions).toMatchObject({
-      approve: false,
-      requestCorrection: false,
-      block: false,
-    });
+    expect((await profile(rpm, elsewhere.volunteerId)).status).toBe(404);
     const active = await someone(world.dhaka);
     expect((await profile(rpm, active.volunteerId)).body.data.actions).toMatchObject({
       approve: false,
@@ -215,7 +258,7 @@ describe('the action flags of a volunteer profile', () => {
       (await api().get(`/api/v1/users/${world.users.general}/sessions`).set(bearer(rpm))).status,
     ).toBe(200);
     const rangpur = await volunteerIdOf(world.users.rangpurVolunteer);
-    expect((await profile(rpm, rangpur)).body.data.actions.viewSessions).toBe(false);
+    expect((await profile(rpm, rangpur)).status).toBe(404);
     expect(
       (await api().get(`/api/v1/users/${world.users.rangpurVolunteer}/sessions`).set(bearer(rpm)))
         .status,
@@ -249,7 +292,7 @@ describe('the action flags of a volunteer profile', () => {
 
   it('are all false for an Official দায়ী', async () => {
     const pending = await someone(world.dhaka, 'pending');
-    const daee = await staff('official_daee');
+    const daee = await placed('official_daee', world.dhaka);
     expect((await profile(daee, pending.volunteerId)).body.data.actions).toEqual({
       review: false,
       approve: false,

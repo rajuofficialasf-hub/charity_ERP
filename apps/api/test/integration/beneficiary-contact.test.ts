@@ -199,7 +199,12 @@ describe('the contact edit of a beneficiary', () => {
   });
 
   it('saves a mobile another profile has, with the warning', async () => {
-    const other = await f.beneficiary(h.db, world.dhaka, { mobile: '01811000077' });
+    // the other holder of the number is an applicant of the RPM's project, so it is named
+    const other = await f.applicant(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { mobile: '01811000077' },
+    );
     const ben = (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [other]))
       .rows[0].ben_no as number;
     const id = await applicant();

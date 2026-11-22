@@ -332,6 +332,36 @@ export const canMoveTeams = (me: Pick<Me, 'roles'>) => holds(me, TEAM_TRANSFER_R
 export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES);
 export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);
 export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_ROLES);
+
+/**
+ * Who gives and ends an official's extra area for volunteers (`user.extra_area.manage`): an Admin
+ * and the Department Head for anyone, a PM and an RPM for those below them; the server checks the
+ * person and the area again (docs/security/RBAC.md, "Data scopes and their resolution").
+ */
+const EXTRA_AREA_ROLES: readonly string[] = [
+  'admin',
+  'department_head',
+  'program_manager',
+  'regional_program_manager',
+];
+export const canManageExtraAreas = (me: Pick<Me, 'roles'>) => holds(me, EXTRA_AREA_ROLES);
+/** The whole country as an extra area is an Admin's or the Department Head's to give. */
+export const canGiveWholeCountry = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
+
+/**
+ * Who sees the volunteers and beneficiaries of the own projects' areas alone, so an empty tab
+ * says so: the four roles that work by area. The roles that see the whole country, the Media
+ * roles with their limited view of everyone and the Procurement Team with its own projects read
+ * the plain empty state.
+ */
+const BY_AREA_ROLES: readonly string[] = [
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+];
+export const seesPeopleByArea = (me: Pick<Me, 'roles'>) =>
+  holds(me, BY_AREA_ROLES) && !holdsGlobalRole(me);
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
 
 /**

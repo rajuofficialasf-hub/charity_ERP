@@ -15,7 +15,6 @@ const profile = {
   affiliation: 'department',
   affiliationUnit: null,
   homeProgramId: null,
-  homeDivisionId: null,
   supervisorUserId: null,
 };
 
@@ -61,6 +60,23 @@ describe('the official profile and the create request', () => {
         affiliationUnit: 'আইটি বিভাগ',
       }).success,
     ).toBe(true);
+  });
+
+  it('takes no area for the account: an area comes from the projects', () => {
+    const division = '0190a000-0000-7000-8000-000000000001';
+    const create = {
+      ...profile,
+      email: 'karim@example.org',
+      mobile: null,
+      roleKey: 'project_executive',
+    };
+    expect(staffCreateRequestSchema.safeParse(create).success).toBe(true);
+    for (const homeDivisionId of [division, null]) {
+      expect(staffProfileRequestSchema.safeParse({ ...profile, homeDivisionId }).success).toBe(
+        false,
+      );
+      expect(staffCreateRequestSchema.safeParse({ ...create, homeDivisionId }).success).toBe(false);
+    }
   });
 
   it('needs an email and a role, lower-cases the email and leaves the language to the system default', () => {

@@ -336,6 +336,88 @@ version in memory by its id after the link's checks of each request; an export's
 the time limit of the list reads; the Media Team's home counts its referrals grouped by project and
 state and its works grouped by stage once per program, in place of reading every referral.
 
+### The volunteer tab inside a person's reach (D-193, BR-324; 2026-11-22)
+
+The volunteer tab no longer shows every volunteer to every official: below the global roles it
+shows the volunteers whose address lies in the areas a person holds on projects at work. The list,
+its counts and its export take the caller's reach as one more condition (`volunteerWhere` in
+`apps/api/src/access/scope.ts`). For the measurement the demo seed gives the Dhaka RPM the Dhaka
+division of a project at work (10,100 of the 50,021 volunteers) and the PM of that project's
+program both of its divisions (16,050); `perf:seed` on a kept data set now runs the seed again, so
+its newer rows reach it.
+
+An area compares the volunteer's four address columns with the caller's locations, which the
+indexes of the tab serve as they serve the area filter. A program or a project was first read as
+"the volunteer's division, district, upazila or union is an area of one of its projects", four
+relation conditions that the count of the applications of those volunteers could only answer by
+joining every application to its owner and the owner's four locations: 695 ms at p95 for the PM.
+The scope's resolution now turns a program or a project into the locations of its projects at work
+once per request (`resolveInstances`), so the PM's filter is the same plain comparison as the
+RPM's. Measured by `perf:lists --only volunteers`, 20 runs each, in ms:
+
+| Case | Head p95 | RPM p95 | PM p95 before | PM p95 after |
+|---|---|---|---|---|
+| first page (25 rows) | 32 | 23 | 21 | 16 |
+| with total | 20 | 33 | 84 | 19 |
+| name search + total | 70 | 34 | 143 | 61 |
+| not blocked + total | 36 | 155 | not measured | not measured |
+| statistics, no filter | 157 | 89 | 695 | 93 |
+
+Every case stays under the 300 ms target. The slowest of the RPM is the list without the blocked
+with its total (155 ms): the blocked ids are excluded by a list in the statement, as before.
+
+### The beneficiary tab inside a person's reach (D-193, BR-326; 2026-11-22)
+
+Below the global roles the beneficiary tab shows the people with an application in the caller's
+projects, inside the caller's part of each: an area of a project reaches the applications of that
+project placed in the area. For the measurement `perf:seed` gives the Dhaka RPM the Dhaka division
+on the fifty projects with the most applications (16,805 people of the 2,000,055) and the
+Executive two of its districts on the same projects (2,881 people); it writes them on every run,
+on a kept data set too.
+
+Three things were measured and changed, `perf:lists --only beneficiaries`, 20 runs each, in ms:
+
+1. **The place of an application by the level of the area.** Read as "the area is the
+   application's region, district, union or the parent of its union" for fifty projects, the first
+   page of the RPM took 3,190 ms at p50: no index of the applications answers four places at once.
+   The scope's resolution now reads the level of each area (`withLevels` of
+   `apps/api/src/access/scope.ts`), and the filter compares the one column the level names, across
+   the projects of that place: 7 ms.
+2. **A filter that few of the reached people match.** The list is ordered by the profile's id and
+   takes 25 rows, so PostgreSQL walks the profiles in order and asks of each whether an application
+   reaches it. That is fast where matches are close together, and walks every profile the filter
+   matches where they are not: with the type filter, which none of the RPM's people of the data
+   set match, 222,222 profiles and over the 5 s limit of a list read (`server.busy`). The planner
+   cannot know it, since it takes the filter and the reach as independent. The list and its
+   counts now read the reached people first, from the applications' own indexes, and filter by
+   their ids (`beneficiaryListWhere`), up to 20,000 people (`REACH_AS_IDS_MAX`); a larger reach
+   keeps the condition, where matches lie close together. Every case of the list then costs about
+   the same, whatever the filter matches: the price is some 90 ms on a first page that took 7.
+3. **The tables after a rewrite of every row.** The name keys of the 2,000,000 profiles were
+   recomputed on this data set the same day, which left the name search with its total at 372 ms
+   for the Department Head, a path this change does not touch. After `VACUUM (ANALYZE)` and
+   `REINDEX TABLE beneficiaries` it is back at 194 ms. A production database gets the same from
+   autovacuum over time; a measurement after a mass update needs the two commands first.
+
+| Case | Head p50 / p95 | RPM p50 / p95 | Executive p50 / p95 |
+|---|---|---|---|
+| first page (25 rows) | 6 / 7 | 95 / 116 | 25 / 42 |
+| next page | 5 / 6 | 96 / 107 | not measured |
+| with total | 127 / 147 | 167 / 228 | 45 / 59 |
+| type filter | 6 / 7 | 111 / 143 | not measured |
+| district + year + total | 81 / 106 | 199 / 238 | not measured |
+| name search | 8 / 11 | 94 / 113 | not measured |
+| name search + total | 155 / 194 | 246 / 265 | 146 / 160 |
+| statistics, no filter | 172 / 218 | 147 / 183 | 41 / 51 |
+| statistics, one district | 82 / 115 | 148 / 175 | not measured |
+| profile | 54 / 97 | 82 / 115 | not measured |
+| duplicate pairs, first page | 6 / 7 | 8 / 10 | not measured |
+
+Every case stays under the 300 ms target. No index was added: the applications already carry
+`(project_id, region_location_id, status)`, `(project_id, district_id, status)` and
+`(project_id, union_id, status)`, which the reach reads. An export keeps the reach as a condition,
+since its filter is stored with the job and read back in batches without a time limit.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

@@ -49,7 +49,7 @@ async function staffPhoto(userId: string) {
 }
 
 describe('GET /me/profile', () => {
-  it('gives an official their own details with the program, division, supervisor and photo', async () => {
+  it('gives an official their own details with the program, supervisor and photo, and no area', async () => {
     const tree = await f.locationTree(h.db);
     const { program } = await f.project(h.db);
     const supervisor = await account(h.db, { role: 'program_manager' });
@@ -57,6 +57,7 @@ describe('GET /me/profile', () => {
     await h.db.query(
       `UPDATE users SET designation = 'আঞ্চলিক ব্যবস্থাপক', job_id = 'CSS-0042', affiliation = 'department',
          home_program_id = $2, home_division_id = $3, supervisor_user_id = $4 WHERE id = $1`,
+      // a division stored on the account is not read: an official's area comes from the projects
       [me.id, program, tree.division, supervisor.id],
     );
     const photo = await staffPhoto(me.id);
@@ -64,6 +65,7 @@ describe('GET /me/profile', () => {
       .get('/api/v1/me/profile')
       .set(bearer(await login(h, me)));
     expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('division');
     expect(res.body.data).toMatchObject({
       id: me.id,
       jobId: 'CSS-0042',
@@ -76,7 +78,6 @@ describe('GET /me/profile', () => {
       ],
       affiliation: 'department',
       program: { id: program, name: { bn: 'প্রোগ্রাম', en: 'Program' } },
-      division: { id: tree.division, name: { bn: 'বিভাগ', en: 'Division' } },
       supervisor: { id: supervisor.id, name: expect.any(String) },
       email: me.email,
       mobile: me.mobile,
@@ -93,10 +94,66 @@ describe('GET /me/profile', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
       program: null,
-      division: null,
       supervisor: null,
       photoFileId: null,
+      extraAreas: [],
     });
+  });
+
+  it('lists the extra areas the person holds now, the newest first, and none that ended or is another person’s', async () => {
+    const tree = await f.locationTree(h.db);
+    const giver = await account(h.db, { role: 'program_manager' });
+    const me = await account(h.db, { role: 'regional_program_manager' });
+    const other = await account(h.db, { role: 'regional_program_manager' });
+    const area = (userId: string, over: Record<string, unknown>) =>
+      f.insert(h.db, 'user_extra_areas', {
+        id: randomUUID(),
+        user_id: userId,
+        reason: 'বন্যার ত্রাণের প্রস্তুতি',
+        granted_by: giver.id,
+        ...over,
+      });
+    const division = await area(me.id, {
+      location_id: tree.division,
+      granted_at: '2026-11-20T04:00:00Z',
+    });
+    const country = await area(me.id, { whole_country: true, granted_at: '2026-11-21T04:00:00Z' });
+    await area(me.id, {
+      location_id: tree.district,
+      granted_at: '2026-11-22T04:00:00Z',
+      ended_at: '2026-11-22T05:00:00Z',
+      ended_by: giver.id,
+      end_reason: 'আর দরকার নেই',
+    });
+    await area(other.id, { location_id: tree.district });
+
+    const res = await api()
+      .get('/api/v1/me/profile')
+      .set(bearer(await login(h, me)));
+    expect(res.status).toBe(200);
+    expect(res.body.data.extraAreas).toEqual([
+      {
+        id: country,
+        wholeCountry: true,
+        location: null,
+        reason: 'বন্যার ত্রাণের প্রস্তুতি',
+        grantedAt: '2026-11-21T04:00:00.000Z',
+        grantedBy: { id: giver.id, displayName: expect.any(String) },
+        endedAt: null,
+        endedBy: null,
+        endReason: null,
+      },
+      expect.objectContaining({
+        id: division,
+        wholeCountry: false,
+        location: { id: tree.division, level: 'division', name: { bn: 'বিভাগ', en: 'Division' } },
+      }),
+    ]);
+    // the giver holds none
+    const theirs = await api()
+      .get('/api/v1/me/profile')
+      .set(bearer(await login(h, giver)));
+    expect(theirs.body.data.extraAreas).toEqual([]);
   });
 
   it('is not a volunteer page: a volunteer gets 404, and nobody signed out gets in', async () => {

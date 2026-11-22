@@ -11,7 +11,7 @@ import {
 } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
 import { dhakaDayStart } from '../core/dhaka-day.js';
-import { beneficiaryWhere, type Scope } from '../access/scope.js';
+import { beneficiaryNearWhere, beneficiaryWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Clock } from '../core/clock.js';
@@ -203,25 +203,27 @@ export class BeneficiaryIdentityService {
 
   /**
    * The live profiles a search term names by identity: a BEN number of any profile, or an NID or
-   * birth-registration number of a profile inside `identityScope`; retired profiles lead to their
-   * kept profile. Null when the term is neither.
+   * birth-registration number whose live profile lies inside `identityScope`; retired profiles
+   * lead to their kept profile, which is the one the scope is asked about (a retired profile
+   * keeps no application of its own to be reached through). Null when the term is neither.
    */
   async idsByIdentity(term: string, identityScope: Scope | null): Promise<string[] | null> {
     const benNo = parseBenNo(term);
     const digits = term.replace(/\D/g, '');
-    let where: Prisma.BeneficiaryWhereInput;
-    if (benNo !== null) where = { benNo };
-    else if (identityScope && [10, 13, 17].includes(digits.length))
-      where = {
-        AND: [{ OR: [{ nid: digits }, { birthReg: digits }] }, beneficiaryWhere(identityScope)],
-      };
-    else return null;
+    const byNumber = identityScope !== null && [10, 13, 17].includes(digits.length);
+    if (benNo === null && !byNumber) return null;
     const rows = await this.prisma.beneficiary.findMany({
-      where,
+      where: benNo !== null ? { benNo } : { OR: [{ nid: digits }, { birthReg: digits }] },
       select: { id: true },
     });
     const live = await Promise.all(rows.map((r) => this.liveOf(this.prisma, r.id)));
-    return [...new Set(live.filter((id): id is string => id !== null))];
+    const ids = [...new Set(live.filter((id): id is string => id !== null))];
+    if (benNo !== null || !ids.length) return ids;
+    const reached = await this.prisma.beneficiary.findMany({
+      where: { AND: [{ id: { in: ids } }, beneficiaryWhere(identityScope!)] },
+      select: { id: true },
+    });
+    return reached.map((r) => r.id);
   }
 
   /**
@@ -282,7 +284,13 @@ export class BeneficiaryIdentityService {
           where: { projectId: project.id, beneficiaryId: b.id, status: { not: 'deleted' } },
         }),
         tx.user.findUnique({ where: { id: viewer.principal.userId }, select: { mobile: true } }),
-        nearScope ? this.access.reaches(nearScope, { beneficiaryId: b.id }, tx) : false,
+        // near the caller's own places by the person's address, not by the tab's reach: a
+        // person of the own division who never applied to an own project is no stray lookup
+        nearScope
+          ? tx.beneficiary
+              .count({ where: { AND: [{ id: b.id }, beneficiaryNearWhere(nearScope)] } })
+              .then((n) => n > 0)
+          : false,
       ]);
       const limited = !inScope && (await outsideToday()) >= OUTSIDE_LOOKUPS_PER_DAY;
       await this.audit.record(tx, {
@@ -410,8 +418,11 @@ export class BeneficiaryIdentityService {
   }
 
   /**
-   * Whether a number another profile holds may be named to the caller: only inside the caller's
-   * `beneficiary.view_nid` scope, where a search by that number would find the holder anyway.
+   * Whether a number another profile holds may be named to the caller: inside the caller's
+   * `beneficiary.view_nid` scope, or where the holder lives in one of the caller's own places. The
+   * second half is the lookup's measure of "near" (`beneficiaryNearWhere`): a person of the own
+   * area who never applied to an own project is still the one an entry with their number is
+   * linked to, and the lookup by that number would name them anyway.
    */
   async seesHolder(db: Tx, actor: Principal, holderId: string): Promise<boolean> {
     const access = await this.access.load(actor.userId, db);
@@ -421,7 +432,13 @@ export class BeneficiaryIdentityService {
       'beneficiary.view_nid',
       'beneficiary',
     );
-    return !!scope && (await this.access.reaches(scope, { beneficiaryId: holderId }, db));
+    if (!scope) return false;
+    const reached = await db.beneficiary.count({
+      where: {
+        AND: [{ id: holderId }, { OR: [beneficiaryWhere(scope), beneficiaryNearWhere(scope)] }],
+      },
+    });
+    return reached > 0;
   }
 
   /**

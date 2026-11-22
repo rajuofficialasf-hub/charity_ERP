@@ -859,7 +859,6 @@ components:
         affiliation: { type: [string, 'null'], enum: [department, foundation, external, null] }
         affiliationUnit: { type: [string, 'null'] }
         homeProgramId: { type: [string, 'null'], format: uuid }
-        homeDivisionId: { type: [string, 'null'], format: uuid }
         supervisorUserId: { type: [string, 'null'], format: uuid }
         awaitingPassword:
           type: boolean
@@ -870,7 +869,7 @@ components:
           description: The official's uploaded photo, readable by those who may see the staff list; null shows the initial (D-147)
     OwnStaffProfile:
       type: object
-      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, division, supervisor, mobile, email, state, lastLoginAt, photoFileId]
+      required: [id, displayName, jobId, designation, roles, affiliation, affiliationUnit, program, supervisor, mobile, email, state, lastLoginAt, photoFileId, extraAreas]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -894,14 +893,6 @@ components:
               properties:
                 id: { $ref: '#/components/schemas/Uuid' }
                 name: { $ref: '#/components/schemas/Bilingual' }
-        division:
-          oneOf:
-            - type: 'null'
-            - type: object
-              required: [id, name]
-              properties:
-                id: { $ref: '#/components/schemas/Uuid' }
-                name: { $ref: '#/components/schemas/Bilingual' }
         supervisor:
           oneOf:
             - type: 'null'
@@ -915,6 +906,10 @@ components:
         state: { type: string, enum: [pending, active, blocked, deactivated] }
         lastLoginAt: { type: [string, 'null'], format: date-time }
         photoFileId: { type: [string, 'null'], format: uuid }
+        extraAreas:
+          type: array
+          description: The extra areas the person holds now for volunteers, the newest first (D-193, BR-325)
+          items: { $ref: '#/components/schemas/ExtraAreaRow' }
     ProjectsWork:
       type: object
       required: [everyProject, years]
@@ -1020,7 +1015,7 @@ components:
         department_head.
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId, email, mobile, roleKey]
+      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, supervisorUserId, email, mobile, roleKey]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -1031,10 +1026,6 @@ components:
             - { type: string, minLength: 1, maxLength: 200 }
             - { type: 'null' }
         homeProgramId:
-          anyOf:
-            - { type: string, format: uuid }
-            - { type: 'null' }
-        homeDivisionId:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
@@ -1059,7 +1050,7 @@ components:
         the line above never comes back to this official (422 user.supervisor_invalid).
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId]
+      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, supervisorUserId]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -1073,17 +1064,13 @@ components:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
-        homeDivisionId:
-          anyOf:
-            - { type: string, format: uuid }
-            - { type: 'null' }
         supervisorUserId:
           anyOf:
             - { type: string, format: uuid }
             - { type: 'null' }
     OrganogramNode:
       type: object
-      required: [userId, displayName, jobId, designation, roles, state, homeDivisionId, photoFileId, reports]
+      required: [userId, displayName, jobId, designation, roles, state, photoFileId, reports]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -1091,7 +1078,6 @@ components:
         designation: { type: [string, 'null'] }
         roles: { type: array, items: { type: string } }
         state: { type: string, enum: [pending, active, blocked] }
-        homeDivisionId: { type: [string, 'null'], format: uuid }
         photoFileId: { type: [string, 'null'], format: uuid, description: 'The uploaded photo; null shows the initial (D-147)' }
         reports: { type: array, items: { $ref: '#/components/schemas/OrganogramNode' } }
     Organogram:
@@ -1254,6 +1240,46 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/RoleHistoryRow' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    ExtraAreaRequest:
+      type: object
+      description: An extra area for volunteers; one of `locationId` (a division or a district) and `wholeCountry`, never both.
+      additionalProperties: false
+      required: [reason]
+      properties:
+        locationId: { type: string, format: uuid }
+        wholeCountry: { type: boolean, default: false }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    ExtraAreaRow:
+      type: object
+      description: One extra area a person holds or held; `endedAt` is null while it is live, and `location` is null for the whole country.
+      required: [id, wholeCountry, location, reason, grantedAt, grantedBy, endedAt, endedBy, endReason]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        wholeCountry: { type: boolean }
+        location:
+          oneOf:
+            - type: object
+              required: [id, level, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                level: { type: string }
+                name: { $ref: '#/components/schemas/Bilingual' }
+            - { type: 'null' }
+        reason: { type: string }
+        grantedAt: { type: string, format: date-time }
+        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        endedAt: { type: [string, 'null'], format: date-time }
+        endedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
+        endReason: { type: [string, 'null'] }
+    ExtraAreaList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ExtraAreaRow' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
 
     # ---------------- access ----------------
@@ -1567,10 +1593,10 @@ components:
       description: >-
         An official's own change (D-147, BR-289). The new value is required except for the photo,
         which the own photo upload fills; the workplace is an object with the affiliation and its
-        unit; a program or division of null asks to clear it. The supervisor is not asked for
-        (D-148).
+        unit; a program of null asks to clear it. The supervisor is not asked for (D-148). The
+        account names no area (D-193, BR-327): an area is never asked for here.
       properties:
-        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, photo] }
+        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, photo] }
         newValue:
           anyOf:
             - { type: string, maxLength: 2000 }
@@ -1588,7 +1614,7 @@ components:
             currentValue: { description: "The person's value of the field now, in the shape of newValue" }
             names:
               type: object
-              description: The names of the program or division the two values name, by id
+              description: The names of the program the two values name, by id
               additionalProperties: { $ref: '#/components/schemas/Bilingual' }
     StaffChangeRequestList:
       type: object
@@ -1663,7 +1689,6 @@ components:
             email: { type: [string, 'null'] }
             photoFileId: { type: [string, 'null'], format: uuid }
             homeProgramId: { type: [string, 'null'], format: uuid }
-            homeDivisionId: { type: [string, 'null'], format: uuid }
             volunteer: { oneOf: [{ $ref: '#/components/schemas/PendingVolunteerDetail' }, { type: 'null' }] }
             blocklisted: { type: boolean }
             corrections: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
@@ -3316,18 +3341,38 @@ components:
         userId: { type: string, format: uuid }
         roleKey: { type: string, enum: [project_executive, official_daee] }
         areaLocationId: { type: string, format: uuid }
+        districtIds:
+          description: Districts inside the area; left out or empty, the place holds the whole area.
+          type: array
+          maxItems: 64
+          default: []
+          items: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
         canDelete: { type: boolean, default: false }
+    StaffDistricts:
+      description: The districts of a staff place, replaced as a whole; an empty list gives the whole area back.
+      type: object
+      additionalProperties: false
+      required: [districtIds]
+      properties:
+        districtIds:
+          type: array
+          maxItems: 64
+          items: { type: string, format: uuid }
     StaffAssignment:
       type: object
-      required: [id, userId, displayName, roleKey, areaLocationId, canView, canEdit, canDelete, extraPermissions, endedAt]
+      required: [id, userId, displayName, roleKey, areaLocationId, districtIds, canView, canEdit, canDelete, extraPermissions, endedAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         roleKey: { type: string }
         areaLocationId: { type: [string, 'null'], format: uuid }
+        districtIds:
+          description: The districts of the place inside its area; none means the whole area.
+          type: array
+          items: { $ref: '#/components/schemas/Uuid' }
         canView: { type: boolean }
         canEdit: { type: boolean }
         canDelete: { type: boolean }
@@ -6083,12 +6128,13 @@ paths:
     post:
       tags: [users]
       operationId: users.user.create
-      summary: Create an official with job ID, role and place; the set-password link is emailed and returned once
+      summary: Create an official with job ID, role and program; the set-password link is emailed and returned once
       description: >-
         DECISION_LOG D-097, BR-261. The account is pending without a password until the link is
         used. A failed email keeps the account (emailed false); the admin copies the link. Errors
         409 user.job_id_taken, registration.account_exists; 422 validation.option_unknown (roleKey,
-        homeProgramId, homeDivisionId), user.supervisor_invalid (supervisorUserId).
+        homeProgramId), user.supervisor_invalid (supervisorUserId). The account names no area
+        (D-193, BR-327): a body with homeDivisionId is refused (422 validation.failed).
       x-permission: user.create
       x-scope: global
       x-audit: user.created
@@ -6202,7 +6248,7 @@ paths:
     put:
       tags: [users]
       operationId: users.user.updateProfile
-      summary: Replace an official's job ID, name, designation, affiliation, program, division and supervisor
+      summary: Replace an official's job ID, name, designation, affiliation, program and supervisor
       description: >-
         DECISION_LOG D-097, BR-261; existing officials too. Audited with the before and after
         values. 409 user.job_id_taken, user.not_staff; 422 user.supervisor_invalid.
@@ -6326,6 +6372,100 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/extra-areas:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [users]
+      operationId: users.extraArea.list
+      summary: The extra areas an official holds or held for volunteers, the live ones first, with who gave and who ended each
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The extra areas; not paginated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [users]
+      operationId: users.extraArea.give
+      summary: Give an official a division, a district or the whole country for volunteers, inside the giver's own reach, with a reason
+      description: >-
+        An extra area shows an official the volunteers living there whether or not a project of
+        theirs is at work there, for every volunteer permission the role holds; it shows no
+        beneficiary and no official (D-193, BR-325). The body names one active division or district,
+        or the whole country, never both (422 otherwise). Refused with 403
+        `permission.grant_refused` (`params.rule`): `self_change` for the own account,
+        `whole_country_top_roles_only` when anyone but an Admin or the Department Head gives the
+        whole country, and `outside_own_reach` when the giver does not reach the place for
+        volunteers (a location the giver holds, or a district of a division the giver holds; an
+        Admin and the Department Head give any place). With 409 `user.extra_area_exists` for a
+        live area given again and `user.extra_area_inactive` for an account that is not active. The
+        change raises the person's permission version and tells the person.
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: user.extra_area_given
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExtraAreaRequest' }
+      responses:
+        '201':
+          description: The person's extra areas after the change
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/extra-areas/{areaId}/end:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+      - name: areaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [users]
+      operationId: users.extraArea.end
+      summary: Take an extra area away from an official, with a reason
+      description: >-
+        Ends a live extra area under the rules of its giving (403 `permission.grant_refused`);
+        whoever gave the area may always end it, also after losing the reach it was given from. An
+        area the person gave on to someone else stays, each row standing on its own. 404 for an
+        area that is not live or not this person's.
+      x-permission: user.extra_area.manage
+      x-scope: user
+      x-audit: user.extra_area_ended
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: The person's extra areas after the change
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtraAreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}/roles:
     parameters:
@@ -6936,8 +7076,7 @@ paths:
       summary: The programs an official may ask to move to, by name
       description: >-
         Every active program by its name (D-148), since an official's own program scope may not
-        hold the one they move to; the division comes from GET /locations. A volunteer holds no
-        grant (403).
+        hold the one they move to. A volunteer holds no grant (403).
       x-permission: staff_edit_request.submit
       x-scope: self
       x-audit: none
@@ -7019,7 +7158,7 @@ paths:
       summary: "Officials' own change requests waiting for a decision"
       description: >-
         For the Department Head and the Monitoring Team (D-147, BR-289): each request with the
-        person, their current value and the names of the program or division named.
+        person, their current value and the name of the program named.
       x-permission: staff_edit_request.approve
       x-scope: global
       x-audit: none
@@ -7045,8 +7184,8 @@ paths:
       operationId: registration.staffEditRequest.decide
       summary: "Approve (the change applies at once) or reject with a reason an official's own request; never one's own"
       description: >-
-        An approval writes the change: a new contact ends the person's sessions, a new program or
-        division moves their permission version on (D-147, BR-289). The person who asked gets 403.
+        An approval writes the change: a new contact ends the person's sessions, a new program
+        moves their permission version on (D-147, BR-289). The person who asked gets 403.
       x-permission: staff_edit_request.approve
       x-scope: global
       x-audit: auth.edit_request_decided
@@ -7124,14 +7263,16 @@ paths:
     get:
       tags: [volunteers]
       operationId: volunteers.volunteer.list
-      summary: Nationwide volunteer tab with filters (masks per role)
+      summary: Volunteer tab with filters, inside the caller's reach (masks per role)
       description: >-
-        Every volunteer in every state for a holder of volunteer.view_all, newest first (O-67, D-094).
-        The category filter is refused (403) to a caller without the volunteer.rating class. A search
+        The volunteers in every state that a holder of volunteer.view_all reaches, newest first (O-67,
+        D-094, D-193): everyone for an Admin, the Department Head and the Monitoring Team; for the
+        others the volunteers whose address lies in the areas they hold on projects at work (active
+        or closing). The category filter is refused (403) to a caller without the volunteer.rating class. A search
         in digits matches the exact mobile number, and the exact NID only inside the caller's
         volunteer.view_sensitive scope.
       x-permission: volunteer.view_all
-      x-scope: global
+      x-scope: volunteer
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
@@ -7168,11 +7309,11 @@ paths:
       operationId: volunteers.volunteer.statistics
       summary: Counts of the volunteer tab for the filters in use (masks per role)
       description: >-
-        The same filters as the list (O-67): volunteers by account state, the inactive count only with
+        The same filters and the same reach as the list (O-67, D-193): volunteers by account state, the inactive count only with
         the volunteer.rating class, and their applications (all but drafts and deleted ones, approved
         or later, under review).
       x-permission: volunteer.view_all
-      x-scope: global
+      x-scope: volunteer
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
@@ -7680,7 +7821,7 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.list
-      summary: Nationwide beneficiary tab with filters (masks per role)
+      summary: Beneficiary tab with filters, inside the caller's reach (masks per role)
       description: >-
         Every beneficiary the caller's beneficiary.view_all scope reaches, newest first (O-67, D-094):
         the officials and the Media Team nationwide, the Procurement Team only the beneficiaries of
@@ -9481,6 +9622,38 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-staff/{assignmentId}/districts:
+    parameters:
+      - $ref: '#/components/parameters/AssignmentId'
+    put:
+      tags: [projects]
+      operationId: projects.staff.setDistricts
+      summary: Replace the districts of a staff member's place inside its area; none gives the whole area back
+      description: >-
+        Each district must be a district of the place's area (422 otherwise). The change is a
+        permission change of the person: it is audited on the person and the project, and the
+        person's sessions refresh. An RPM changes only the places of its own areas.
+      x-permission: project.staff_access.manage
+      x-scope: project
+      x-audit: permission_change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffDistricts' }
+      responses:
+        '200':
+          description: The staff of the project
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /project-staff/{assignmentId}/end:
     parameters:
@@ -12061,8 +12234,8 @@ paths:
       summary: "An official's own profile: identity, workplace, contact and account"
       description: >-
         The caller's own record as an official (D-147, BR-288): name, job ID, designation, roles,
-        affiliation and unit, program, division, supervisor, mobile, email, state, last login and
-        photo. A volunteer has no official profile (404; their own profile is GET /volunteers/me).
+        affiliation and unit, program, supervisor, mobile, email, state, last login,
+        photo and the extra areas held now for volunteers (D-193, BR-325). A volunteer has no official profile (404; their own profile is GET /volunteers/me).
       x-permission: authenticated
       x-scope: self
       x-audit: none

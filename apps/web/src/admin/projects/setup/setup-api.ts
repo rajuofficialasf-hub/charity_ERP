@@ -78,6 +78,12 @@ export const candidates = async (projectId: string, role: string, q: string) =>
 export const staff = (projectId: string) => api<StaffAccess[]>(`/projects/${projectId}/staff`);
 export const addStaff = (projectId: string, body: StaffCreate) =>
   api<StaffAccess[]>(`/projects/${projectId}/staff`, { method: 'POST', body });
+/** PUT /project-staff/{id}/districts: the districts of a place as a whole; none is the whole area. */
+export const setStaffDistricts = (assignmentId: string, districtIds: string[]) =>
+  api<StaffAccess[]>(`/project-staff/${assignmentId}/districts`, {
+    method: 'PUT',
+    body: { districtIds },
+  });
 export const endStaff = (assignmentId: string, reason: string) =>
   api<void>(`/project-staff/${assignmentId}/end`, { method: 'POST', body: { reason } });
 

@@ -229,4 +229,23 @@ export async function application(
   });
 }
 
+/**
+ * A beneficiary who applied to a project in the place they live. An official below the global
+ * roles reaches a person through an application of an own project (docs/BUSINESS_RULES.md, "An
+ * official sees a beneficiary only through an application"), so a test about such an official
+ * makes its people this way.
+ */
+export async function applicant(
+  db: Client,
+  ctx: {
+    project: Awaited<ReturnType<typeof project>>;
+    loc: Awaited<ReturnType<typeof locationTree>>;
+  },
+  over: Record<string, unknown> = {},
+): Promise<string> {
+  const id = (await beneficiary(db, ctx.loc, over)) as string;
+  await application(db, ctx, { beneficiary_id: id });
+  return id;
+}
+
 export { insert };

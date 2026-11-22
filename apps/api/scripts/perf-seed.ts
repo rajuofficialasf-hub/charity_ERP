@@ -305,6 +305,64 @@ async function nameKeys(prisma: PrismaClient): Promise<void> {
   );
 }
 
+/** The projects the regional accounts of the measurement work on. */
+const HELD_PROJECTS = 50;
+
+/**
+ * The places the scoped lists are measured through (docs/testing/PERFORMANCE.md, "The beneficiary
+ * tab inside a person's reach"): the Dhaka RPM holds the Dhaka division on the fifty projects with
+ * the most applications, and the Executive two of its districts on the same projects, so their
+ * lists read a real share of the data set. Written again on every run, never twice.
+ */
+async function heldAreas(prisma: PrismaClient): Promise<void> {
+  const start = Date.now();
+  await prisma.$executeRaw`
+    CREATE TEMP TABLE perf_held AS
+    SELECT project_id FROM applications GROUP BY project_id
+    ORDER BY count(*) DESC, project_id LIMIT ${HELD_PROJECTS}::int`;
+  const areas = await prisma.$executeRaw`
+    INSERT INTO project_areas (id, project_id, location_id, rpm_user_id)
+    SELECT gen_random_uuid(), h.project_id, d.id, u.id
+    FROM perf_held h
+    CROSS JOIN (SELECT id FROM locations WHERE level = 'division' AND name_en = 'Dhaka') d
+    CROSS JOIN (SELECT id FROM users WHERE email = 'rpm.dhaka@example.org') u
+    WHERE NOT EXISTS (
+      SELECT 1 FROM project_areas a WHERE a.project_id = h.project_id AND a.location_id = d.id)`;
+  const places = await prisma.$executeRaw`
+    INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
+    SELECT gen_random_uuid(), h.project_id, e.id, 'project_executive', d.id, u.id
+    FROM perf_held h
+    CROSS JOIN (SELECT id FROM locations WHERE level = 'division' AND name_en = 'Dhaka') d
+    CROSS JOIN (SELECT id FROM users WHERE email = 'executive@example.org') e
+    CROSS JOIN (SELECT id FROM users WHERE email = 'rpm.dhaka@example.org') u
+    WHERE NOT EXISTS (
+      SELECT 1 FROM project_staff s
+      WHERE s.project_id = h.project_id AND s.user_id = e.id AND s.ended_at IS NULL)`;
+  await prisma.$executeRaw`
+    INSERT INTO project_staff_districts (id, project_staff_id, location_id)
+    SELECT gen_random_uuid(), s.id, l.id
+    FROM project_staff s
+    JOIN perf_held h ON h.project_id = s.project_id
+    JOIN users e ON e.id = s.user_id AND e.email = 'executive@example.org'
+    JOIN locations l ON l.parent_id = s.area_location_id AND l.level = 'district'
+      AND l.name_en IN ('Dhaka', 'Gazipur')
+    WHERE s.ended_at IS NULL AND NOT EXISTS (
+      SELECT 1 FROM project_staff_districts d
+      WHERE d.project_staff_id = s.id AND d.location_id = l.id AND d.ended_at IS NULL)`;
+  await prisma.$executeRaw`DROP TABLE perf_held`;
+  console.warn(`perf:seed: held areas: ${areas} areas, ${places} places, ${Date.now() - start} ms`);
+}
+
+const seed = () =>
+  run('base and demo seed', 'pnpm', [
+    'exec',
+    'tsx',
+    '--conditions=@css/source',
+    'seed/run.ts',
+    '--set',
+    'all',
+  ]);
+
 async function main(): Promise<void> {
   const created = await createDatabase();
   run('migrations', 'pnpm', ['exec', 'prisma', 'migrate', 'deploy']);
@@ -315,6 +373,10 @@ async function main(): Promise<void> {
       SELECT value FROM settings WHERE key = ${MARKER}`;
     if (!created && marker.length) {
       console.warn(`perf:seed: ${database} already holds the data set (--fresh rebuilds it).`);
+      // the seed only adds and updates its own rows, so its newer rows reach the kept data set
+      // (the demo project at work, for one, which gives the Dhaka RPM the division to measure)
+      seed();
+      await heldAreas(prisma);
       await nameKeys(prisma);
       return;
     }
@@ -324,16 +386,10 @@ async function main(): Promise<void> {
     if (!created && volunteers > 0)
       throw new Error(`${database} holds a partial data set; run with --fresh`);
     run('locations', 'pnpm', ['db:load-locations']);
-    run('base and demo seed', 'pnpm', [
-      'exec',
-      'tsx',
-      '--conditions=@css/source',
-      'seed/run.ts',
-      '--set',
-      'all',
-    ]);
+    seed();
     const start = Date.now();
     await load(prisma);
+    await heldAreas(prisma);
     await nameKeys(prisma);
     console.warn(`perf:seed: done in ${Math.round((Date.now() - start) / 1000)} s.`);
   } finally {

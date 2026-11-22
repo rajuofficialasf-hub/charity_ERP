@@ -1,4 +1,8 @@
 import {
+  type ExtraAreaRequest,
+  extraAreaRequestSchema,
+  type ExtraAreaRow,
+  extraAreaRowSchema,
   type OwnerTransferRequest,
   ownerTransferRequestSchema,
   type RoleChangeRequest,
@@ -108,7 +112,13 @@ export function usersRouter(
   deps: RouteDeps,
   c: Pick<
     Container,
-    'users' | 'handover' | 'staffAccounts' | 'organogram' | 'projectsWork' | 'roleChanges'
+    | 'users'
+    | 'handover'
+    | 'staffAccounts'
+    | 'organogram'
+    | 'projectsWork'
+    | 'roleChanges'
+    | 'extraAreas'
   >,
 ): Router {
   const router = Router();
@@ -305,6 +315,60 @@ export function usersRouter(
       );
       return withEtag(res, user, updatedAt);
     },
+  });
+
+  const extraAreaOp = {
+    ...userOp,
+    permission: 'user.extra_area.manage',
+  };
+  const extraAreaList = z.object({ data: z.array(extraAreaRowSchema), meta: z.object({}) });
+  const extraAreas = (rows: ExtraAreaRow[]) =>
+    page(rows, { nextCursor: null, prevCursor: null, limit: rows.length });
+
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...extraAreaOp,
+    method: 'get',
+    path: '/users/:userId/extra-areas',
+    operationId: 'users.extraArea.list',
+    summary:
+      'The extra areas an official holds or held for volunteers, the live ones first, with who gave and who ended each',
+    audit: 'none',
+    params: { userId: uuid },
+    responses: { 200: extraAreaList, 401: null, 403: null, 404: null },
+    handler: async ({ params, req }) =>
+      extraAreas(await c.extraAreas.list(scopeOf(req), params.userId)),
+  });
+
+  defineRoute<ExtraAreaRequest, unknown, { userId: string }>(router, deps, {
+    ...extraAreaOp,
+    method: 'post',
+    path: '/users/:userId/extra-areas',
+    status: 201,
+    operationId: 'users.extraArea.give',
+    summary:
+      "Give an official a division, a district or the whole country for volunteers, inside the giver's own reach, with a reason",
+    audit: 'user.extra_area_given',
+    params: { userId: uuid },
+    body: extraAreaRequestSchema,
+    responses: { 201: extraAreaList, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      extraAreas(await c.extraAreas.give(principalOf(req), scopeOf(req), params.userId, body)),
+  });
+
+  defineRoute<ReasonRequest, unknown, { userId: string; areaId: string }>(router, deps, {
+    ...extraAreaOp,
+    method: 'post',
+    path: '/users/:userId/extra-areas/:areaId/end',
+    operationId: 'users.extraArea.end',
+    summary: 'Take an extra area away from an official, with a reason',
+    audit: 'user.extra_area_ended',
+    params: { userId: uuid, areaId: uuid },
+    body: reasonRequestSchema,
+    responses: { 200: extraAreaList, 401: null, 403: null, 404: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      extraAreas(
+        await c.extraAreas.end(principalOf(req), scopeOf(req), params.userId, params.areaId, body),
+      ),
   });
 
   defineRoute<unknown, unknown, { userId: string }>(router, deps, {

@@ -150,6 +150,19 @@ describe('the lookup of the application form', () => {
     expect(other.body.data.mobileIsCallerOwn).toBe(false);
   });
 
+  it('counts a person of the own region as near, though the person never applied to an own project', async () => {
+    // the beneficiary tab does not show this person to the RPM; the lookup's measure is the address
+    const id = await person(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    expect(ids(await list(rpm, (await row(id)).nid!))).toEqual([]);
+    const res = await lookup(rpm, { nid: (await row(id)).nid, projectId: world.a1.id });
+    expect(res.body.data.autofill.beneficiaryId).toBe(id);
+    expect((await lookupAudits(world.users.rpmDhaka)).at(-1)).toMatchObject({
+      entity_id: id,
+      new: { found: true, outsideScope: false, projectId: world.a1.id },
+    });
+  });
+
   it('fills in a profile of another region and marks its audit row as outside the region', async () => {
     const id = await person(world.rangpur);
     const rpm = await as(world.users.rpmDhaka);
@@ -272,7 +285,8 @@ describe('the search of the beneficiary tab', () => {
   });
 
   it("finds the kept profile by a retired profile's NID and BEN number", async () => {
-    const kept = await person(world.dhaka);
+    // the kept profile is an applicant of the RPM's project; the retired one keeps no application
+    const kept = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const retired = await person(world.dhaka);
     await retire(retired, kept);
     const rpm = await as(world.users.rpmDhaka);
@@ -521,7 +535,7 @@ describe('the creation of a profile', () => {
   });
 
   it('saves a mobile that another profile has, with a warning naming that profile', async () => {
-    const other = await person(world.dhaka);
+    const other = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const { mobile, ben_no } = await row(other);
     const created = await create(world.users.rpmDhaka, { mobile });
     expect(created.warnings).toEqual([

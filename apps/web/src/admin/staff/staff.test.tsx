@@ -16,6 +16,30 @@ const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
 const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
+const MONITORING: Me = { ...ME, roles: ['monitoring_team'] };
+
+const AREA_ID = '01900000-0000-7000-8000-0000000000a1';
+/** An extra area of the official as the API lists it. */
+const extraArea = (over: Record<string, unknown> = {}) => ({
+  id: AREA_ID,
+  wholeCountry: false,
+  location: {
+    id: '01900000-0000-7000-8000-0000000000a2',
+    level: 'division',
+    name: { bn: 'বরিশাল', en: 'Barishal' },
+  },
+  reason: 'বন্যার ত্রাণের প্রস্তুতি',
+  grantedAt: '2026-11-20T04:00:00.000Z',
+  grantedBy: { id: '01900000-0000-7000-8000-0000000000a3', displayName: 'ডিপার্টমেন্ট প্রধান' },
+  endedAt: null,
+  endedBy: null,
+  endReason: null,
+  ...over,
+});
+let extraRows: Record<string, unknown>[];
+let extraAnswer: number;
+let extraReads: number;
+let extraWrites: { path: string; body: unknown }[];
 
 const PROGRAM = {
   id: '01900000-0000-7000-8000-0000000000c1',
@@ -37,7 +61,6 @@ const official = (over: Record<string, unknown> = {}) => ({
   affiliation: 'department',
   affiliationUnit: null,
   homeProgramId: PROGRAM.id,
-  homeDivisionId: DIVISION.id,
   supervisorUserId: null,
   awaitingPassword: false,
   ...over,
@@ -82,7 +105,48 @@ function serve() {
   profiles = [];
   workAnswer = 'list';
   workReads = 0;
+  extraRows = [];
+  extraAnswer = 200;
+  extraReads = 0;
+  extraWrites = [];
   server.use(
+    http.get('*/api/v1/users/:userId/extra-areas', () => {
+      extraReads += 1;
+      if (extraAnswer !== 200)
+        return HttpResponse.json(
+          { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+          { status: extraAnswer },
+        );
+      return HttpResponse.json({ data: extraRows, meta: {} });
+    }),
+    http.post('*/api/v1/users/:userId/extra-areas', async ({ request }) => {
+      const body = (await request.json()) as { wholeCountry: boolean };
+      extraWrites.push({ path: 'give', body });
+      extraRows = [
+        extraArea({
+          id: '01900000-0000-7000-8000-0000000000a9',
+          ...(body.wholeCountry
+            ? { wholeCountry: true, location: null }
+            : { location: { ...DIVISION, level: 'division' } }),
+        }),
+        ...extraRows,
+      ];
+      return HttpResponse.json({ data: extraRows, meta: {} }, { status: 201 });
+    }),
+    http.post('*/api/v1/users/:userId/extra-areas/:areaId/end', async ({ request, params }) => {
+      extraWrites.push({ path: `end:${String(params.areaId)}`, body: await request.json() });
+      extraRows = extraRows.map((r) =>
+        r.id === params.areaId
+          ? {
+              ...r,
+              endedAt: '2026-11-22T04:00:00.000Z',
+              endedBy: { id: ME.id, displayName: 'আমি' },
+              endReason: 'কাজ শেষ',
+            }
+          : r,
+      );
+      return HttpResponse.json({ data: extraRows, meta: {} });
+    }),
     http.get(`*/api/v1/files/${PHOTO}/content`, () =>
       HttpResponse.arrayBuffer(new Uint8Array([137, 80, 78, 71]).buffer, {
         headers: { 'Content-Type': 'image/png' },
@@ -287,6 +351,9 @@ describe('the officials page', () => {
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
+    // an official's area comes from the projects: the account asks for a program and no area
+    expect(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: /অঞ্চল/ })).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('combobox', { name: /ভূমিকা/ }));
     // the Department Head role is an Admin's to give: the Head is not offered it
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
@@ -303,6 +370,7 @@ describe('the officials page', () => {
       homeProgramId: null,
       supervisorUserId: null,
     });
+    expect(created[0]).not.toHaveProperty('homeDivisionId');
     const linkDialog = await screen.findByRole('dialog', { name: /পাসওয়ার্ড লিঙ্ক/ });
     expect(within(linkDialog).getByText(/ইমেইল পাঠানো যায়নি/)).toBeInTheDocument();
     expect(within(linkDialog).getByRole('textbox', { name: /লিঙ্ক/ })).toHaveValue(ISSUED.link);
@@ -365,7 +433,6 @@ describe('the officials page', () => {
       affiliation: 'external',
       affiliationUnit: 'সহযোগী সংস্থা',
       homeProgramId: null,
-      homeDivisionId: null,
       supervisorUserId: null,
       email: 'p@example.org',
       mobile: null,
@@ -529,7 +596,6 @@ describe('the officials page', () => {
         affiliation: 'department',
         affiliationUnit: null,
         homeProgramId: PROGRAM.id,
-        homeDivisionId: DIVISION.id,
         supervisorUserId: null,
       },
     });
@@ -662,6 +728,8 @@ describe('the official profile', () => {
     const place = screen.getByRole('region', { name: 'ভূমিকা ও অবস্থান' });
     expect(await within(place).findByText('মানবিক সহায়তা')).toBeInTheDocument();
     expect(await within(place).findByText('রিজিওনাল প্রোগ্রাম ম্যানেজার')).toBeInTheDocument();
+    // the account names no area: none is listed with the role and the program
+    expect(within(place).queryByText(/অঞ্চল/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'কল করুন' })).toHaveAttribute(
       'href',
       'tel:01711000201',
@@ -704,6 +772,192 @@ describe('the official profile', () => {
     expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
   });
+
+  it('lists the extra areas with who gave each and why, gives one and ends one', async () => {
+    refreshAs(HEAD);
+    serve();
+    extraRows = [
+      extraArea(),
+      extraArea({
+        id: '01900000-0000-7000-8000-0000000000a4',
+        location: {
+          id: '01900000-0000-7000-8000-0000000000a5',
+          level: 'district',
+          name: { bn: 'ভোলা', en: 'Bhola' },
+        },
+        endedAt: '2026-11-21T04:00:00.000Z',
+        endedBy: { id: '01900000-0000-7000-8000-0000000000a3', displayName: 'ডিপার্টমেন্ট প্রধান' },
+        endReason: 'আর দরকার নেই',
+      }),
+    ];
+    const user = userEvent.setup();
+    const { container } = openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    const live = (await within(areas).findByText('বরিশাল')).closest('li')!;
+    expect(within(live).getByText(/^ডিপার্টমেন্ট প্রধান দিয়েছেন, /)).toBeInTheDocument();
+    expect(within(live).getByText('কারণ: বন্যার ত্রাণের প্রস্তুতি')).toBeInTheDocument();
+    // an ended area stays on the page with who ended it and why, and has no button
+    const past = within(areas).getByText('ভোলা').closest('li')!;
+    expect(within(past).getByText(/^ডিপার্টমেন্ট প্রধান শেষ করেছেন, /)).toBeInTheDocument();
+    expect(within(past).getByText('কারণ: আর দরকার নেই')).toBeInTheDocument();
+    expect(within(past).queryByRole('button')).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    // a new area needs a division and a reason; a district is optional
+    await user.click(within(areas).getByRole('button', { name: 'এলাকা যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'আরপিএম ঢাকা-কে বাড়তি এলাকা দিন' });
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /কারণ/ }),
+      'নতুন প্রকল্পের প্রস্তুতি',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'এলাকা দিন' }));
+    expect(await within(dialog).findByText('একটি বিভাগ বেছে নিন।')).toBeInTheDocument();
+    expect(extraWrites).toEqual([]);
+    await user.click(within(dialog).getByRole('combobox', { name: /বিভাগ/ }));
+    await user.click(await screen.findByRole('option', { name: 'ঢাকা' }));
+    await user.click(within(dialog).getByRole('button', { name: 'এলাকা দিন' }));
+    await waitFor(() =>
+      expect(extraWrites).toEqual([
+        {
+          path: 'give',
+          body: {
+            wholeCountry: false,
+            locationId: DIVISION.id,
+            reason: 'নতুন প্রকল্পের প্রস্তুতি',
+          },
+        },
+      ]),
+    );
+    expect(await within(areas).findByText('বাড়তি এলাকা দেওয়া হয়েছে।')).toBeInTheDocument();
+    expect(within(areas).getByText('ঢাকা')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // ending takes a reason
+    await user.click(
+      within((await within(areas).findByText('বরিশাল')).closest('li')!).getByRole('button', {
+        name: 'শেষ করুন',
+      }),
+    );
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'বরিশাল: বাড়তি এলাকা শেষ করুন',
+    });
+    const end = within(confirm).getByRole('button', { name: 'শেষ করুন' });
+    expect(end).toBeDisabled();
+    await user.type(within(confirm).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(end);
+    await waitFor(() =>
+      expect(extraWrites.at(-1)).toEqual({ path: `end:${AREA_ID}`, body: { reason: 'কাজ শেষ' } }),
+    );
+    expect(await within(areas).findByText('বাড়তি এলাকা শেষ করা হয়েছে।')).toBeInTheDocument();
+    expect(within(areas).getByText(/^আমি শেষ করেছেন, /)).toBeInTheDocument();
+  }, 20_000);
+
+  it('says so when the end of an area got no answer, and keeps the area', async () => {
+    refreshAs(HEAD);
+    serve();
+    extraRows = [extraArea()];
+    server.use(
+      http.post('*/api/v1/users/:userId/extra-areas/:areaId/end', () => HttpResponse.error()),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    await user.click(await within(areas).findByRole('button', { name: 'শেষ করুন' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.type(within(confirm).getByRole('textbox', { name: /কারণ/ }), 'কাজ শেষ');
+    await user.click(within(confirm).getByRole('button', { name: 'শেষ করুন' }));
+    expect(
+      await within(confirm).findByText('সার্ভারে পৌঁছানো যায়নি। সংযোগ দেখে আবার চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    expect(within(areas).getByText('বরিশাল')).toBeInTheDocument();
+    expect(within(areas).queryByText('বাড়তি এলাকা শেষ করা হয়েছে।')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('gives the whole country as an Admin or the Department Head alone', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    expect(await within(areas).findByText('কোনো বাড়তি এলাকা দেওয়া হয়নি।')).toBeInTheDocument();
+    await user.click(within(areas).getByRole('button', { name: 'এলাকা যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('checkbox', { name: /পুরো দেশ/ }));
+    // the whole country names no division
+    expect(within(dialog).queryByRole('combobox', { name: /বিভাগ/ })).not.toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'জাতীয় সমন্বয়');
+    await user.click(within(dialog).getByRole('button', { name: 'এলাকা দিন' }));
+    await waitFor(() =>
+      expect(extraWrites).toEqual([
+        { path: 'give', body: { wholeCountry: true, reason: 'জাতীয় সমন্বয়' } },
+      ]),
+    );
+    expect(await within(areas).findByText('পুরো দেশ')).toBeInTheDocument();
+  }, 20_000);
+
+  it('offers an RPM no whole country, and shows the refusal of an area outside the own reach', async () => {
+    refreshAs(RPM);
+    serve();
+    server.use(
+      http.post('*/api/v1/users/:userId/extra-areas', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.grant_refused',
+              messageKey: 'errors.permission.grant_refused',
+              message: 'এই অনুমতি আপনি দিতে পারেন না।',
+              requestId: 'req_x',
+            },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    await user.click(within(areas).getByRole('button', { name: 'এলাকা যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('checkbox', { name: /পুরো দেশ/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: /বিভাগ/ }));
+    await user.click(await screen.findByRole('option', { name: 'ঢাকা' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'পাশের বিভাগ');
+    await user.click(within(dialog).getByRole('button', { name: 'এলাকা দিন' }));
+    expect(await within(dialog).findByText('এই অনুমতি আপনি দিতে পারেন না।')).toBeInTheDocument();
+  }, 20_000);
+
+  it('leaves the section out for the Monitoring Team and for an official the caller does not reach, and changes nothing on the own profile', async () => {
+    // the Monitoring Team holds no right over extra areas: nothing is asked
+    refreshAs(MONITORING);
+    serve();
+    const first = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('region', { name: 'বাড়তি এলাকা' })).not.toBeInTheDocument();
+    expect(extraReads).toBe(0);
+    first.unmount();
+
+    // a PM outside the official's program is answered "not found"
+    resetClientForTests();
+    refreshAs(PM);
+    serve();
+    extraAnswer = 404;
+    const second = openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    await waitFor(() => expect(extraReads).toBeGreaterThan(0));
+    expect(screen.queryByRole('region', { name: 'বাড়তি এলাকা' })).not.toBeInTheDocument();
+    second.unmount();
+
+    // nobody gives an area to themselves: the own areas are read, with no button
+    resetClientForTests();
+    refreshAs({ ...HEAD, id: official().id });
+    serve();
+    extraRows = [extraArea()];
+    openProfile(official().id);
+    const areas = await screen.findByRole('region', { name: 'বাড়তি এলাকা' });
+    expect(await within(areas).findByText('বরিশাল')).toBeInTheDocument();
+    expect(within(areas).queryByRole('button', { name: 'এলাকা যোগ করুন' })).not.toBeInTheDocument();
+    expect(within(areas).queryByRole('button', { name: 'শেষ করুন' })).not.toBeInTheDocument();
+  }, 20_000);
 
   it("shows no devices to an RPM, who reaches volunteers' devices only", async () => {
     refreshAs(RPM);

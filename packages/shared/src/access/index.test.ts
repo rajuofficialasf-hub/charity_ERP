@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extraAreaRequestSchema,
   ownerTransferRequestSchema,
   permissionGrantRequestSchema,
   projectGrantRequestSchema,
@@ -9,6 +10,26 @@ import {
 // Request schemas of the access operations (docs/api/openapi.yaml, tag access).
 describe('access request schemas', () => {
   const userId = '0190f5a0-0000-7000-8000-000000000001';
+
+  it('takes an extra area as a location or the whole country, with a reason of three letters', () => {
+    const locationId = '0190f5a0-0000-7000-8000-000000000002';
+    // the whole country is off unless it is asked for
+    expect(extraAreaRequestSchema.parse({ locationId, reason: '  ত্রাণের প্রস্তুতি  ' })).toEqual({
+      locationId,
+      wholeCountry: false,
+      reason: 'ত্রাণের প্রস্তুতি',
+    });
+    expect(
+      extraAreaRequestSchema.parse({ wholeCountry: true, reason: 'জাতীয় সমন্বয়' }).wholeCountry,
+    ).toBe(true);
+    for (const bad of [
+      { locationId, reason: 'না' },
+      { locationId: 'dhaka', reason: 'ত্রাণের প্রস্তুতি' },
+      { locationId, reason: 'ত্রাণের প্রস্তুতি', userId },
+      { locationId },
+    ])
+      expect(extraAreaRequestSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+  });
 
   it('accepts a panel grant and trims the reason', () => {
     const parsed = permissionGrantRequestSchema.parse({

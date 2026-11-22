@@ -161,6 +161,8 @@ export function changeView(row: ChangeRow, withValue: boolean) {
 /**
  * The address, the bank details and the other objects of a volunteer, and an official's workplace
  * and references (a reference may be null), are stored as JSON text; every other field as the text.
+ * A home division is no longer asked for (docs/BUSINESS_RULES.md, "An official's account names the
+ * program"), and a request for one that still waits is read the way it was stored.
  */
 export const OBJECT_FIELDS = new Set([
   'address',
@@ -309,7 +311,6 @@ export class RegistrationsService {
         mobile: true,
         email: true,
         homeProgramId: true,
-        homeDivisionId: true,
         volunteersUser: {
           select: {
             ...pendingSelect.volunteersUser.select,
@@ -365,7 +366,6 @@ export class RegistrationsService {
       email: user.email,
       photoFileId: v?.photoFileId ?? staffPhoto?.fileId ?? null,
       homeProgramId: user.homeProgramId,
-      homeDivisionId: user.homeDivisionId,
       volunteer: v
         ? {
             id: v.id,

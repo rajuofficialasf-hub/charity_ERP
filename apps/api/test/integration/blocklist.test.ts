@@ -29,7 +29,11 @@ beforeAll(async () => {
     accounts.set(a.id, a);
     return a.id;
   };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  world = await accessWorld(
+    h.db,
+    { staff: make('staff'), volunteerUser: make('volunteer') },
+    { atWork: true },
+  );
 });
 afterAll(async () => h.close());
 
@@ -161,7 +165,7 @@ describe('blocking a beneficiary', () => {
     h.container.prisma.$transaction((tx) => h.container.beneficiaryIdentity.assertMayApply(tx, id));
 
   it('the Dhaka RPM blocks a Dhaka beneficiary with a reason, and the lookup says blocked', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka);
+    const id = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const rpm = await as(world.users.rpmDhaka);
     expect((await blockB(rpm, id, {})).status).toBe(422);
     const res = await blockB(rpm, id, { reason: 'একই পরিবার থেকে বারবার আবেদন' });
@@ -208,8 +212,8 @@ describe('blocking a beneficiary', () => {
   });
 
   it("refuses a new application for a retired profile's id when the kept profile is blocked", async () => {
-    const kept = await f.beneficiary(h.db, world.dhaka);
-    const retired = await f.beneficiary(h.db, world.dhaka);
+    const kept = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
+    const retired = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
     await blockB(await as(world.users.rpmDhaka), kept, { reason: 'যাচাই চলছে' }).expect(201);
     await expect(mayApply(retired)).rejects.toMatchObject({ code: 'beneficiary.blocked' });
@@ -244,7 +248,7 @@ describe('blocking a beneficiary', () => {
   }
 
   it('waits for a block in progress before it lets an application through', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka);
+    const id = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const block = holdRow(id, (tx) =>
       tx.blocklist.create({
         data: {
@@ -265,8 +269,8 @@ describe('blocking a beneficiary', () => {
   });
 
   it('follows a merge that commits while the gate waits, to the blocked kept profile', async () => {
-    const retiring = await f.beneficiary(h.db, world.dhaka);
-    const kept = await f.beneficiary(h.db, world.dhaka);
+    const retiring = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
+    const kept = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     await blockB(await as(world.users.rpmDhaka), kept, { reason: 'যাচাই চলছে' }).expect(201);
     const merge = holdRow(
       retiring,
@@ -282,8 +286,8 @@ describe('blocking a beneficiary', () => {
   });
 
   it("refuses a block on a retired profile's id: the block belongs on the kept profile", async () => {
-    const kept = await f.beneficiary(h.db, world.dhaka);
-    const retired = await f.beneficiary(h.db, world.dhaka);
+    const kept = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
+    const retired = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
     const res = await blockB(await as(world.users.rpmDhaka), retired, { reason: 'ভুল প্রোফাইল' });
     expect(res.status).toBe(404);
@@ -291,7 +295,7 @@ describe('blocking a beneficiary', () => {
   });
 
   it('refuses the lift to an RPM of another region, an executive, a volunteer and no login', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka);
+    const id = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     await blockB(await as(world.users.rpmDhaka), id, { reason: 'যাচাই চলছে' }).expect(201);
     const body = { reason: 'ব্লক তোলা হলো' };
     expect((await unblockB(await as(world.users.rpmRangpur), id, body)).status).toBe(404);
@@ -302,7 +306,7 @@ describe('blocking a beneficiary', () => {
   });
 
   it('refuses a second block and a lift without a block', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka);
+    const id = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const rpm = await as(world.users.rpmDhaka);
     expect((await unblockB(rpm, id, { reason: 'কোনো ব্লক নেই' })).status).toBe(409);
     await blockB(rpm, id, { reason: 'প্রথম ব্লক' }).expect(201);
@@ -310,7 +314,7 @@ describe('blocking a beneficiary', () => {
   });
 
   it('refuses an RPM of another region, an executive, a volunteer and no login', async () => {
-    const id = await f.beneficiary(h.db, world.dhaka);
+    const id = await f.applicant(h.db, { project: world.a1, loc: world.dhaka });
     const body = { reason: 'কারণ লেখা হলো' };
     expect((await blockB(await as(world.users.rpmRangpur), id, body)).status).toBe(404);
     expect((await blockB(await as(world.users.executive), id, body)).status).toBe(403);

@@ -135,7 +135,26 @@ test.describe('programs and project setup', () => {
     await expect(rpm).toHaveValue(/আরপিএম ঢাকা/);
     // the area filled in is added by Next
     await next(page).click();
-    await expect(section(page, 'স্টাফের অ্যাক্সেস')).toBeVisible();
+    const staff = section(page, 'স্টাফের অ্যাক্সেস');
+    await expect(staff).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+
+    // an official placed in two districts of the area: the row names both
+    await chooseIn(page, staff, 'ভূমিকা', 'অফিশিয়াল দায়ী');
+    const person = staff.getByRole('combobox', { name: /কর্মকর্তা/ });
+    await person.fill('অফিসিয়াল দায়ী');
+    await expect(page.getByRole('option', { name: /^অফিসিয়াল দায়ী/ }).first()).toBeVisible();
+    await person.press('ArrowDown');
+    await person.press('Enter');
+    await chooseIn(page, staff, 'এলাকা', 'ঢাকা');
+    const districts = staff.getByRole('group', { name: /জেলা/ });
+    await districts.getByRole('checkbox', { name: 'গাজীপুর' }).check();
+    await districts.getByRole('checkbox', { name: 'নরসিংদী' }).check();
+    await staff.getByRole('button', { name: 'অ্যাক্সেস দিন' }).click();
+    const placed = staff.getByRole('listitem').filter({ hasText: 'অফিসিয়াল দায়ী' });
+    await expect(placed).toContainText(/ঢাকা \(.+, .+\)/);
+    await expect(placed).toContainText('গাজীপুর');
+    await expect(placed).toContainText('নরসিংদী');
     expect((await scan(page)).violations).toEqual([]);
 
     // the rules every volunteer accepts: three parts while dawah is off; Next opens the review
@@ -337,6 +356,8 @@ test.describe('programs and project setup', () => {
       .getByRole('article', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম' })
       .getByRole('link', { name: 'হিউম্যানিটেরিয়ান প্রোগ্রাম', exact: true })
       .click();
+    // the pointer rests where the program's card was: a project card under it would turn over
+    await page.mouse.move(0, 0);
     await page
       .getByRole('article', { name: 'শীতবস্ত্র বিতরণ 2026' })
       .getByRole('link', { name: 'শীতবস্ত্র বিতরণ 2026', exact: true })

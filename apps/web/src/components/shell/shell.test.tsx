@@ -534,7 +534,13 @@ describe('app shell', () => {
     renderShellWith(engineAt({ pending: 2 }));
     await user.click(await screen.findByRole('button', { name: 'প্রোফাইল মেনু' }));
     await user.click(screen.getByRole('menuitem', { name: 'লগআউট' }));
-    const first = await screen.findByRole('alertdialog', { name: 'না পাঠানো কাজ আছে' });
+    // the logout loads the offline store's chunk to count the records, the first time it is
+    // asked for; a slower machine takes more than the default second for that load
+    const first = await screen.findByRole(
+      'alertdialog',
+      { name: 'না পাঠানো কাজ আছে' },
+      { timeout: 5000 },
+    );
     expect(first).toHaveTextContent('2টি রেকর্ড এখনো অফিসে পৌঁছায়নি');
     expect(within(first).getByRole('button', { name: 'এখনই সিঙ্ক করুন' })).toBeInTheDocument();
     expect(screen.queryByTestId('location')).toBeNull();

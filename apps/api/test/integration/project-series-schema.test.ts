@@ -81,6 +81,7 @@ describe('a project series and its sessions', () => {
          FROM projects p
          JOIN project_series s ON s.id = p.series_id
          JOIN programs g ON g.id = s.program_id
+        WHERE p.code = 'WNT'
         ORDER BY p.year`,
     );
     // the demo seed's earlier session (docs/testing/DEMO_ACCOUNTS.md) carries a name of its own year

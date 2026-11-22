@@ -45,6 +45,7 @@ import {
   canReviewDuplicates,
   canSeeBeneficiaries,
   canSeeBeneficiaryAddress,
+  seesPeopleByArea,
   canSeeBeneficiaryDetails,
   canSeeHelpHistory,
 } from '../roles';
@@ -108,6 +109,7 @@ export function BeneficiariesPage() {
         details={canSeeBeneficiaryDetails(me)}
         union={canSeeBeneficiaryAddress(me)}
         history={canSeeHelpHistory(me)}
+        byArea={seesPeopleByArea(me)}
       />
     </>
   );
@@ -122,11 +124,14 @@ function BeneficiaryTab({
   details,
   union,
   history,
+  byArea,
 }: {
   details: boolean;
   union: boolean;
   /** The times helped: the column, the filter and the order (the application history class). */
   history: boolean;
+  /** The person sees the people of the own projects alone, which an empty list says. */
+  byArea: boolean;
 }) {
   const t = useTranslations('admin.beneficiaries');
   const tp = useTranslations('admin.projects');
@@ -409,6 +414,7 @@ function BeneficiaryTab({
           ) : undefined
         }
         emptyTitle={t('empty')}
+        emptyDescription={byArea ? t('empty_scope') : undefined}
         toolbar={
           <FilterBar
             onSearch={onSearch}

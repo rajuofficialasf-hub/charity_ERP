@@ -24,7 +24,7 @@ describe('access registry', () => {
     // the Implementer is retired; the Admin joined
     expect(registry.roles.size).toBe(17);
     expect(registry.roles.has('implementer')).toBe(false);
-    expect(registry.permissions.size).toBe(160);
+    expect(registry.permissions.size).toBe(161);
     for (const role of ['admin', 'department_head', 'monitoring_team'])
       expect(registry.roles.get(role)?.globalScope, role).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([

@@ -21,7 +21,6 @@ import { useLocale, useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
 import { ApiFailure } from '../../api/client';
 import { flatErrors } from '../../lib/form-schema';
-import { locations } from '../registration/registration-api';
 import { isContact, RequestState } from './ChangeRequests';
 import { type EditFields, showSendResult, toggleDetail, useEditForm, usePicked } from './edit-form';
 import { RequestBadge } from './ProfileDetails';
@@ -36,7 +35,7 @@ import {
 
 /** The details an official asks to change, by section; the rest only the deciders change. */
 export const OFFICIAL_FIELDS = {
-  identity: ['photo', 'displayName', 'designation', 'workplace', 'homeProgramId', 'homeDivisionId'],
+  identity: ['photo', 'displayName', 'designation', 'workplace', 'homeProgramId'],
   contact: ['mobile', 'email'],
 } as const satisfies Record<string, readonly StaffEditField[]>;
 export type OfficialSection = keyof typeof OFFICIAL_FIELDS;
@@ -49,15 +48,6 @@ const MISSING = Symbol('missing');
 
 // eslint-disable-next-line security/detect-object-injection -- a fixed list of field or section names
 export const fieldLabelKey = (field: StaffEditField) => REQUEST_FIELD_LABEL[field];
-
-/** The divisions to choose from, from the public location list (cached for an hour). */
-function useDivisions() {
-  return useQuery({
-    queryKey: ['locations', 'divisions'],
-    queryFn: () => locations(),
-    staleTime: 60 * 60_000,
-  });
-}
 
 /** The current value of an official's detail as text, or the photo. */
 export function OfficialValue({
@@ -86,8 +76,6 @@ export function OfficialValue({
       );
     case 'homeProgramId':
       return me.program ? <>{localized(me.program.name, locale)}</> : empty;
-    case 'homeDivisionId':
-      return me.division ? <>{localized(me.division.name, locale)}</> : empty;
     default: {
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of field or section names
       const value = me[field];
@@ -170,8 +158,6 @@ function initialValue(me: OwnStaffProfile, field: StaffEditField): unknown {
       } satisfies Workplace;
     case 'homeProgramId':
       return me.program?.id ?? NONE;
-    case 'homeDivisionId':
-      return me.division?.id ?? NONE;
     case 'photo':
       return undefined;
     default:
@@ -191,7 +177,6 @@ function cleanValue(field: StaffEditField, value: unknown): unknown {
       return unit ? { affiliation: w.affiliation, affiliationUnit: unit } : undefined;
     }
     case 'homeProgramId':
-    case 'homeDivisionId':
       return value === NONE ? null : value;
     default: {
       const text = typeof value === 'string' ? value.trim() : '';
@@ -221,7 +206,6 @@ function ValueInput({
     queryFn: staffChoices,
     enabled: field === 'homeProgramId',
   });
-  const divisions = useDivisions();
   switch (field) {
     case 'workplace': {
       const w = value as Workplace;
@@ -262,22 +246,6 @@ function ValueInput({
             ...(choices.data?.programs ?? []).map((p) => ({
               value: p.id,
               label: localized(p.name, locale),
-            })),
-          ]}
-          error={error}
-        />
-      );
-    case 'homeDivisionId':
-      return (
-        <SelectField
-          label={label}
-          value={value as string}
-          onChange={(id) => onChange(id || NONE)}
-          options={[
-            { value: NONE, label: td('no_division') },
-            ...(divisions.data ?? []).map((d) => ({
-              value: d.id,
-              label: localized(d.name, locale),
             })),
           ]}
           error={error}

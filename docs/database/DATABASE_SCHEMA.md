@@ -184,7 +184,7 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 | password_change_required | boolean | no | false | set when a staff registration is approved with a global role; cleared when the person sets a new password (AUTH.md §3, O-66) |
 | designation | text | yes | — | staff only |
 | home_program_id | uuid | yes | — | FK programs; staff |
-| home_division_id | uuid | yes | — | FK locations (division); staff |
+| home_division_id | uuid | yes | — | FK locations (division); staff. Kept with its stored values and no longer read or written: an official's area comes from the projects (D-193, BR-327) |
 | job_id | text | yes | — | staff only; the organisation's own ID, the official's login id (D-097); stored in capitals; CHECK `^[A-Z0-9][A-Z0-9._/-]{1,31}$` and never a mobile number once dashes are removed |
 | affiliation | text | yes | — | staff only, required for staff: `department` (the department's own staff), `foundation` (another department of the Foundation) or `external` (an outside partner); a BEFORE INSERT trigger sets `department` for a staff row without one (D-097) |
 | affiliation_unit | text | yes | — | the other department or the partner organisation, ≤ 200; required exactly when the affiliation is not `department` |
@@ -510,6 +510,38 @@ Constraints: UNIQUE (project_id, location_id, rpm_user_id). Indexes: (rpm_user_i
 | [A] | | | | |
 
 Constraints: partial UNIQUE (project_id, user_id) WHERE ended_at IS NULL. Index: (user_id) WHERE ended_at IS NULL.
+
+### project_staff_districts
+The districts of a staff place inside its area (D-193, BR-324): an RPM gives a Project Executive or an Official দায়ী one or several districts of the place's `area_location_id`. A place without a live row holds its whole area. A district taken away is ended, never deleted.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| project_staff_id | uuid | no | — | FK project_staff |
+| location_id | uuid | no | — | FK locations; a district whose parent is the place's area (checked by the service) |
+| ended_at | timestamptz | yes | — | set when the district is taken from the place |
+| [A] | | | | |
+
+Constraints: partial UNIQUE (project_staff_id, location_id) WHERE ended_at IS NULL. Index: (location_id).
+
+### user_extra_areas
+The extra areas of an official (D-193, BR-325): a division, a district or the whole country in which the person sees the volunteers whether or not a project of theirs is at work there. A row names one location or the whole country, never both. One taken away is ended with who ended it and why, never deleted; the same place may be given again afterwards.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| user_id | uuid | no | — | FK users; the official who holds the area |
+| location_id | uuid | yes | — | FK locations; a division or a district (checked by the service); null for the whole country |
+| whole_country | boolean | no | false | true for the whole country |
+| reason | text | no | — | why it was given |
+| granted_by | uuid | no | — | FK users |
+| granted_at | timestamptz | no | now() | |
+| ended_at | timestamptz | yes | — | set when the area is taken away |
+| ended_by | uuid | yes | — | FK users |
+| end_reason | text | yes | — | why it was taken away |
+| [A] | | | | |
+
+Constraints: CHECK ((location_id IS NULL) = whole_country); CHECK ((ended_at IS NULL) = (ended_by IS NULL)); partial UNIQUE (user_id, location_id) WHERE ended_at IS NULL AND location_id IS NOT NULL; partial UNIQUE (user_id) WHERE ended_at IS NULL AND whole_country. Indexes: (user_id), (location_id), (granted_by), (ended_by).
 
 ### project_templates
 | Column | Type | Null | Default | Comment |

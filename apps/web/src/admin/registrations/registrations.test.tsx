@@ -61,7 +61,6 @@ const volunteerDetail = (over: Record<string, unknown> = {}) => ({
   email: 'new.volunteer@example.org',
   photoFileId: null,
   homeProgramId: null,
-  homeDivisionId: null,
   volunteer: {
     id: VOLUNTEER_ID,
     userId: VOLUNTEER_USER,
@@ -122,7 +121,6 @@ const staffDetail = {
   email: 'new.official@example.org',
   photoFileId: null,
   homeProgramId: null,
-  homeDivisionId: DIVISION,
   volunteer: null,
   blocklisted: false,
   corrections: [],

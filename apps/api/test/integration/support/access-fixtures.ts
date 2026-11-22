@@ -39,7 +39,9 @@ async function defaultStaff(db: Client, role: string): Promise<string> {
  * Dhaka RPM with the "if RPM grants" extra `application.approve`, a দাঈ-স্বেচ্ছাসেবক (both) on A1
  * (application_distribution) and A2 (application_distribution_dawah), a Local দায়ী on A1 with
  * `exam.record`, a team
- * member, the Department Head and the Monitoring Team.
+ * member, the Department Head and the Monitoring Team. The projects are drafts unless `atWork`
+ * makes them active: only the areas of a project at work show a person the volunteers living
+ * there, so a test of that reach asks for it.
  */
 /** How the world creates its accounts (the API tests pass makers whose accounts can log in). */
 export interface AccountMakers {
@@ -47,7 +49,11 @@ export interface AccountMakers {
   volunteerUser: (role: string) => Promise<string>;
 }
 
-export async function accessWorld(db: Client, makers: Partial<AccountMakers> = {}) {
+export async function accessWorld(
+  db: Client,
+  makers: Partial<AccountMakers> = {},
+  options: { atWork?: boolean } = {},
+) {
   await seedAccessCatalogue(db);
   const staffUser = makers.staff ?? ((role: string) => defaultStaff(db, role));
   const volunteerAccount =
@@ -59,9 +65,10 @@ export async function accessWorld(db: Client, makers: Partial<AccountMakers> = {
     });
   const dhaka = await locationTree(db);
   const rangpur = await locationTree(db);
-  const a1 = await project(db);
-  const a2 = await project(db, { program_id: a1.program });
-  const b1 = await project(db);
+  const state = options.atWork ? { status: 'active' } : {};
+  const a1 = await project(db, state);
+  const a2 = await project(db, { program_id: a1.program, ...state });
+  const b1 = await project(db, state);
 
   const admin = await staffUser('admin');
   const head = await staffUser('department_head');

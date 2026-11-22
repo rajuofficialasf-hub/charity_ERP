@@ -238,6 +238,14 @@ permissions:
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
+  - name: user.extra_area.manage
+    description: Give an official an extra area for volunteers (a division, a district or the whole country) and take it away, inside the giver's own reach (D-193)
+    module: M02
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+    global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
   - name: permission.view
     description: View a user's effective permissions
     module: M02
@@ -322,14 +330,14 @@ permissions:
 
   # ---- M04 Volunteer Management --------------------------------------------------------------------
   - name: volunteer.view_all
-    description: Nationwide volunteer tab with filters and statistics (sensitive fields masked per sensitive_fields)
+    description: Volunteer tab with filters and statistics, in the areas the holder has on projects at work (sensitive fields masked per sensitive_fields)
     module: M04
     sensitive: false
-    default:
-      - { role: program_manager, scope: GLOBAL }
-      - { role: regional_program_manager, scope: GLOBAL }
-      - { role: project_executive, scope: GLOBAL }
-      - { role: official_daee, scope: GLOBAL }
+    default:   # the areas of the projects at work, never the whole country (D-193)
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
   - name: volunteer.view_sensitive
     description: See volunteer NID, NID photo and bank details
     module: M04
@@ -424,14 +432,14 @@ permissions:
 
   # ---- M05 Beneficiary Master ----------------------------------------------------------------------
   - name: beneficiary.view_all
-    description: Nationwide beneficiary tab and 360 profiles (sensitive fields masked per sensitive_fields)
+    description: Beneficiary tab and 360 profiles of the people with an application in the holder's projects, inside the holder's part of each (sensitive fields masked per sensitive_fields)
     module: M05
     sensitive: false
-    default:
-      - { role: program_manager, scope: GLOBAL }
-      - { role: regional_program_manager, scope: GLOBAL }
-      - { role: project_executive, scope: GLOBAL }
-      - { role: official_daee, scope: GLOBAL }
+    default:   # through the applications of the own projects, never the whole country (D-193); the Media roles keep their limited view of everyone
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
       - { role: media_team, scope: GLOBAL }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }

@@ -196,7 +196,12 @@
       },
       "change_password": "Change password",
       "devices": "My devices",
-      "sent": "Request sent. The Department Head or the Monitoring Team will decide."
+      "sent": "Request sent. The Department Head or the Monitoring Team will decide.",
+      "extra_areas": "Extra areas",
+      "extra_areas_hint": "You see the volunteers of these areas, also with no project of yours at work there.",
+      "extra_area_given": "Given by {name}, {date}",
+      "extra_area_reason": "Reason: {reason}",
+      "whole_country": "Whole country"
     },
     "work": {
       "every_own": "Every project is open to you, so there is no separate list here.",
