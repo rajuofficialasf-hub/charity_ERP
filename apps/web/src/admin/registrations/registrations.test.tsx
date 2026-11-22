@@ -594,8 +594,11 @@ describe('volunteer registration detail', () => {
     const user = userEvent.setup();
     renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
-    // the documents beside the header open large in the photo viewer
-    await user.click(await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }));
+    // the documents beside the header open large in the photo viewer; the button comes once the
+    // photo has streamed in, which a loaded machine takes longer than a second for
+    await user.click(
+      await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }, { timeout: 4000 }),
+    );
     const viewer = await screen.findByRole('dialog', { name: 'ছবি' });
     const img = await within(viewer).findByRole('img', { name: 'ছবি' });
     expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);

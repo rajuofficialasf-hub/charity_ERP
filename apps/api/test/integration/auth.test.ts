@@ -134,31 +134,37 @@ describe('POST /auth/login', () => {
   });
 
   it('emails the Monitoring Team at the tenth lockout of a day, once', async () => {
-    const monitoring = await account(h.db, { role: 'monitoring_team' });
-    const { rows } = await h.db.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.locked'`,
-    );
-    // the lockouts of the day so far, up to nine
-    for (let i = rows[0]!.n; i < 9; i++)
-      await h.db.query(
-        `INSERT INTO audit_log (id, action, entity_type, created_at) VALUES ($1, 'auth.locked', 'user', now())`,
-        [randomUUID()],
+    // a harness of its own: the shared clock has moved on past the lockouts above, and late in
+    // the evening its day would already be tomorrow, while the audit rows take the database's time
+    const own = await authHarness();
+    try {
+      const monitoring = await account(own.db, { role: 'monitoring_team' });
+      // the lockouts of the day so far: nine
+      for (let i = 0; i < 9; i++)
+        await own.db.query(
+          `INSERT INTO audit_log (id, action, entity_type, created_at) VALUES ($1, 'auth.locked', 'user', now())`,
+          [randomUUID()],
+        );
+      const lockOut = async () => {
+        const person = await account(own.db);
+        for (let i = 1; i <= 5; i++)
+          await request(own.server())
+            .post('/api/v1/auth/login')
+            .send({ loginId: person.email, password: 'bad pass 1' });
+      };
+      await lockOut();
+      await lockOut();
+      const emails = await own.db.query(
+        `SELECT params FROM outbound_messages WHERE template_key = 'security_lockout_alert' AND recipient_user_id = $1`,
+        [monitoring.id],
       );
-    const lockOut = async () => {
-      const person = await account(h.db);
-      for (let i = 1; i <= 5; i++)
-        await post('/auth/login').send({ loginId: person.email, password: 'bad pass 1' });
-    };
-    await lockOut();
-    await lockOut();
-    const emails = await h.db.query(
-      `SELECT params FROM outbound_messages WHERE template_key = 'security_lockout_alert' AND recipient_user_id = $1`,
-      [monitoring.id],
-    );
-    expect(emails.rows).toHaveLength(1);
-    expect(emails.rows[0].params).toMatchObject({ count: 10 });
-    // email only: no in-app entry
-    expect(await notificationsOf(h.db, 'security_lockout_alert')).toEqual([]);
+      expect(emails.rows).toHaveLength(1);
+      expect(emails.rows[0].params).toMatchObject({ count: 10 });
+      // email only: no in-app entry
+      expect(await notificationsOf(own.db, 'security_lockout_alert')).toEqual([]);
+    } finally {
+      await own.close();
+    }
   });
 
   it('a success resets the failure counter', async () => {
