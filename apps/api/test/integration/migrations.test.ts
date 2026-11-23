@@ -1284,7 +1284,8 @@ describe('migrations', () => {
       for (const dir of dirs.slice(0, at)) await apply(dir);
       const loc = await locationTree(client);
       const other = await locationTree(client);
-      const [head, rpm, executive, executive2] = [
+      const [head, rpm, executive, executive2, rpm2] = [
+        await user(client),
         await user(client),
         await user(client),
         await user(client),
@@ -1314,6 +1315,8 @@ describe('migrations', () => {
         by: head,
       });
       const orphan = await area(executive2, other.district, rpm, '2026-11-03T00:00:00Z');
+      // and an area given on from that one: the whole chain ends
+      const grandchild = await area(rpm2, other.district, executive2, '2026-11-04T00:00:00Z');
       // given by someone holding no extra area there: no source
       const own = await area(executive2, loc.district, head, '2026-11-02T00:00:00Z');
       const versionOf = async (id: string) =>
@@ -1336,6 +1339,12 @@ describe('migrations', () => {
         ended_by: head,
         end_reason: 'উৎস শেষ',
       });
+      expect(await state(grandchild)).toMatchObject({
+        source_area_id: orphan,
+        ended: true,
+        ended_by: head,
+        end_reason: 'উৎস শেষ',
+      });
       expect(await state(own)).toMatchObject({ source_area_id: null, ended: false });
       expect(await versionOf(executive2)).toBe(before + 1);
       const audited = await client.query(
@@ -1348,6 +1357,11 @@ describe('migrations', () => {
           reason: 'উৎস শেষ',
         },
       ]);
+      const audited2 = await client.query(
+        `SELECT actor_user_id, reason FROM audit_log WHERE action = 'user.extra_area_ended' AND entity_id = $1`,
+        [rpm2],
+      );
+      expect(audited2.rows).toEqual([{ actor_user_id: head, reason: 'উৎস শেষ' }]);
 
       await apply(dirs[at]!, 'down.sql');
       const columns = await client.query(
