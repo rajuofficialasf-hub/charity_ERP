@@ -151,6 +151,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 { path: 'programs', element: <Navigate to="/admin/projects" replace /> },
                 {
                   path: 'templates',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(() => import('../admin/templates/TemplatesPage'), 'TemplatesPage'),
                 },
                 {
@@ -159,6 +160,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'ready-forms/:formId',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/forms/FormBuilderPage'),
                     'ReadyFormBuilderPage',
@@ -166,12 +168,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'question-library',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(() => import('../admin/forms/FormBuilderPage'), 'LibraryBuilderPage'),
                 },
                 {
                   path: 'projects',
                   // officials use the tab on a phone as on a computer: no "larger screen" notice
-                  handle: { phoneReady: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/projects/ProgramsProjectsPage'),
                     'ProgramsProjectsPage',
@@ -179,12 +181,10 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects/programs/:programId',
-                  handle: { phoneReady: true } satisfies AdminRouteHandle,
                   lazy: page(() => import('../admin/projects/ProgramPage'), 'ProgramPage'),
                 },
                 {
                   path: 'projects/series/:seriesId',
-                  handle: { phoneReady: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/projects/ProjectSeriesPage'),
                     'ProjectSeriesPage',
@@ -192,6 +192,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects/new',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/projects/setup/ProjectSetupPage'),
                     'ProjectSetupPage',
@@ -204,7 +205,6 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   children: [
                     {
                       index: true,
-                      handle: { phoneReady: true } satisfies AdminRouteHandle,
                       lazy: page(
                         () => import('../admin/projects/ProjectOverviewPage'),
                         'ProjectOverviewPage',
@@ -212,6 +212,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                     },
                     {
                       path: 'setup',
+                      handle: { desktopFirst: true } satisfies AdminRouteHandle,
                       lazy: page(
                         () => import('../admin/projects/setup/ProjectSetupPage'),
                         'ProjectSetupPage',
@@ -239,7 +240,6 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                       ] as const
                     ).map(([path, name]) => ({
                       path,
-                      handle: { phoneReady: true } satisfies AdminRouteHandle,
                       lazy: page(() => import('../admin/projects/frame/ComingSoonPage'), name),
                     })),
                   ],
@@ -257,6 +257,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'projects/:projectId/forms/:formId',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(() => import('../admin/forms/FormBuilderPage'), 'FormBuilderPage'),
                 },
                 {
@@ -353,6 +354,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'notification-templates',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/notifications/NotificationTemplatesPage'),
                     'NotificationTemplatesPage',
@@ -371,6 +373,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 },
                 {
                   path: 'permissions',
+                  handle: { desktopFirst: true } satisfies AdminRouteHandle,
                   lazy: page(
                     () => import('../admin/permissions/PermissionsPage'),
                     'PermissionsPage',
