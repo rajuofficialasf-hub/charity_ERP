@@ -12,6 +12,7 @@ import {
   login,
   PASSWORD,
   type Session,
+  sessionFrom,
 } from './support/auth-app.js';
 import { DUMMY_CODE, pendingStaffRegistration } from './support/registration.js';
 
@@ -161,6 +162,145 @@ describe('the password change', () => {
     await api().get('/api/v1/registrations').set(bearer(session)).expect(200);
     const me = await api().get('/api/v1/auth/me').set(bearer(session)).expect(200);
     expect(me.body.data.passwordChangeRequired).toBe(false);
+  });
+});
+
+describe('a permission given for the whole country through the panel', () => {
+  const panel = async (target: string, body: Record<string, unknown> = {}) =>
+    api()
+      .post('/api/v1/permission-grants')
+      .set(bearer(await login(h, accounts.get(world.users.head)!)))
+      .send({
+        userId: target,
+        permissions: ['audit.view'],
+        effect: 'grant',
+        scopeType: 'GLOBAL',
+        reason: 'Whole country for the test',
+        ...body,
+      });
+  const official = async (role = 'project_executive') => {
+    const a = await account(h.db, { role });
+    accounts.set(a.id, a);
+    return a;
+  };
+  const change = (session: Session, newPassword: string, current = PASSWORD) =>
+    api()
+      .post('/api/v1/auth/password/change')
+      .set(bearer(session))
+      .send({ currentPassword: current, newPassword });
+
+  it('asks for a new password at once, also of a session already open, and audits it', async () => {
+    const target = await official();
+    const opened = await login(h, target);
+    await api().get('/api/v1/auth/me').set(bearer(opened)).expect(200);
+    expect((await panel(target.id)).status).toBe(201);
+    expect(await flagOf(target.id)).toBe(true);
+    // the open session's token is stale at once; the refreshed one meets the password change
+    const stale = await api().get('/api/v1/me/profile').set(bearer(opened));
+    expect(stale.body.error.code).toBe('auth.token_stale');
+    const session = sessionFrom(
+      await api()
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', opened.cookieHeader)
+        .set('X-CSRF-Token', opened.csrf)
+        .expect(200),
+    );
+    const refused = await api().get('/api/v1/me/profile').set(bearer(session));
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.code).toBe('auth.password_change_required');
+    const entry = (
+      await h.db.query(
+        `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'permission_change'
+          ORDER BY created_at DESC LIMIT 1`,
+        [target.id],
+      )
+    ).rows[0].new as { passwordChangeRequired?: boolean };
+    expect(entry.passwordChangeRequired).toBe(true);
+    // 11 characters are too short while the grant lasts, 12 clear the flag
+    const short = await change(session, 'Shapla 2026').expect(422);
+    expect(short.body.error.details[0].code).toBe('validation.password_too_short');
+    await change(session, NEW_PASSWORD).expect(204);
+    expect(await flagOf(target.id)).toBe(false);
+    await api().get('/api/v1/me/profile').set(bearer(session)).expect(200);
+  });
+
+  it('sets nothing for a narrower scope, a withdrawal, or a holder of a global role', async () => {
+    const narrow = await official();
+    expect((await panel(narrow.id, { scopeType: 'SELF' })).status).toBe(201);
+    const taken = await official();
+    expect((await panel(taken.id, { effect: 'revoke' })).status).toBe(201);
+    const global = await official('monitoring_team');
+    expect((await panel(global.id)).status).toBe(201);
+    for (const id of [narrow.id, taken.id, global.id]) expect(await flagOf(id)).toBe(false);
+  });
+
+  it('keeps 12 characters for a reset while the grant lasts, and 8 again once it ended or expired', async () => {
+    const target = await official();
+    const grant = await panel(target.id);
+    const reset = (newPassword: string) =>
+      api()
+        .post('/api/v1/auth/password/reset/complete')
+        .send({ loginId: target.email, code: DUMMY_CODE, newPassword });
+    await api()
+      .post('/api/v1/auth/password/reset/start')
+      .send({ loginId: target.email })
+      .expect(204);
+    await reset('Shapla 2026').expect(422);
+    // the grant ends: the reset takes the official's own 8 again
+    await api()
+      .post(`/api/v1/permission-grants/${grant.body.data[0].id as string}/revoke`)
+      .set(bearer(await login(h, accounts.get(world.users.head)!)))
+      .send({ reason: 'Not needed any more' })
+      .expect(204);
+    await api()
+      .post('/api/v1/auth/password/reset/start')
+      .send({ loginId: target.email })
+      .expect(204);
+    await reset('Shapla 2026').expect(204);
+
+    // an expired grant asks nothing more either
+    const later = await official();
+    await panel(later.id);
+    await h.db.query(
+      `UPDATE user_permissions SET expires_at = now() - interval '1 minute' WHERE user_id = $1`,
+      [later.id],
+    );
+    const s = await login(h, later);
+    await change(s, 'Shapla 2026').expect(204);
+  });
+
+  it('is refused to a holder of the panel who is not an Admin or the Department Head', async () => {
+    const holder = await official('regional_program_manager');
+    const admin = await login(h, accounts.get(world.users.admin)!);
+    // the panel itself, at the whole country, given by an Admin
+    await api()
+      .post('/api/v1/permission-grants')
+      .set(bearer(admin))
+      .send({
+        userId: holder.id,
+        permissions: ['permission.panel.manage', 'permission.view'],
+        effect: 'grant',
+        scopeType: 'GLOBAL',
+        reason: 'A panel holder for the test',
+      })
+      .expect(201);
+    // the holder sets a 12-character password first, as the grant asks
+    const s = await login(h, holder);
+    await change(s, NEW_PASSWORD).expect(204);
+    const target = await official();
+    const refused = await api()
+      .post('/api/v1/permission-grants')
+      .set(bearer(await login(h, holder.loginId, { password: NEW_PASSWORD })))
+      .send({
+        userId: target.id,
+        permissions: ['audit.view'],
+        effect: 'grant',
+        scopeType: 'GLOBAL',
+        reason: 'Whole country from a holder',
+      });
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.params.rule).toBe('whole_country_top_roles_only');
+    expect(await flagOf(target.id)).toBe(false);
   });
 });
 

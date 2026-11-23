@@ -25,7 +25,6 @@ import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useFileDataUrl } from '../../components/FileImage';
-import { AddressFields } from '../../features/registration/AddressFields';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { EmptyValue } from '../EmptyValue';
@@ -46,6 +45,7 @@ import { useTabView } from '../use-tab-view';
 import { VolunteerSessions } from './VolunteerSessions';
 import { FILTER_KEYS, VOLUNTEERS_KEY, volunteerPage, volunteerStatistics } from './volunteers-api';
 import { ExportButton } from '../../features/exports/ExportButton';
+import { AreaFilter } from '../AreaFilter';
 import { LoadError } from '../../components/LoadError';
 
 const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
@@ -380,26 +380,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
             }
           >
             <>
-              <fieldset className="admin-filter-group">
-                <legend>{t('filter.group_area')}</legend>
-                <AddressFields
-                  optional
-                  value={{
-                    divisionId: filters.divisionId ?? null,
-                    districtId: filters.districtId ?? null,
-                    upazilaId: filters.upazilaId ?? null,
-                    unionId: filters.unionId ?? null,
-                  }}
-                  onChange={(a) =>
-                    change({
-                      divisionId: a.divisionId ?? undefined,
-                      districtId: a.districtId ?? undefined,
-                      upazilaId: a.upazilaId ?? undefined,
-                      unionId: a.unionId ?? undefined,
-                    })
-                  }
-                />
-              </fieldset>
+              <AreaFilter legend={t('filter.group_area')} filters={filters} change={change} />
               <fieldset className="admin-filter-group">
                 <legend>{t('filter.group_other')}</legend>
                 <ProjectPicker

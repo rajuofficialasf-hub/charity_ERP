@@ -1,5 +1,5 @@
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
+import { Alert, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
@@ -9,6 +9,7 @@ import { useAuth } from '../../lib/auth';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { mayGiveRole } from '../roles';
 import { decideStaff, roles } from './registrations-api';
+import { DialogActions } from '../DialogActions';
 
 type Decision = 'approve' | 'reject';
 
@@ -92,18 +93,14 @@ export function StaffDecisionDialog({
       onClose={close}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={close} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('staff.submit')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={close}
+          submitLabel={t('staff.submit')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={save} label={t('staff.title', { name })}>

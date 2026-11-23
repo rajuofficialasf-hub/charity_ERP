@@ -100,6 +100,18 @@ describe('a change of the panel', () => {
     );
   });
 
+  it('leaves a grant for the whole country to an Admin or the Head; a narrower one to any holder', () => {
+    expect(changeRefusal(registry, ADMIN, EXECUTIVE, grant('audit.view'))).toBeNull();
+    expect(changeRefusal(registry, HEAD, EXECUTIVE, grant('audit.view'))).toBeNull();
+    for (const holder of [MONITORING, PM])
+      expect(changeRefusal(registry, holder, EXECUTIVE, grant('audit.view')), holder.id).toBe(
+        'whole_country_top_roles_only',
+      );
+    expect(changeRefusal(registry, PM, EXECUTIVE, grant('audit.view', 'PROGRAM'))).toBeNull();
+    // taking away at the whole country stays open to the panel's holders
+    expect(changeRefusal(registry, PM, EXECUTIVE, revoke('audit.view'))).toBeNull();
+  });
+
   it('keeps the GLOBAL scope of the Monitoring Team, and lets a narrower revoke through', () => {
     expect(changeRefusal(registry, HEAD, MONITORING, revoke('application.view'))).toBe(
       'global_scope_protected',

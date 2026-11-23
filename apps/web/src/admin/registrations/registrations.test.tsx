@@ -401,6 +401,50 @@ describe('registration list', () => {
     expect(card('পরিবর্তনের অনুরোধ')).toBeInTheDocument();
   });
 
+  it('reads a long list page by page, and counts the whole list above the tabs', async () => {
+    const asked: string[] = [];
+    const second = { ...(edits[0] as object), id: '01900000-0000-7000-8000-0000000000e9' };
+    server.use(
+      http.get('*/api/v1/edit-requests', ({ request }) => {
+        const url = new URL(request.url);
+        asked.push(url.search);
+        return url.searchParams.get('cursor') === 'c2'
+          ? HttpResponse.json({ data: [second], meta: { ...meta, nextCursor: null } })
+          : HttpResponse.json({ data: edits, meta: { ...meta, nextCursor: 'c2', total: 62 } });
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage(HEAD);
+    const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
+    // the whole list's count, not the rows of the first page
+    await waitFor(() =>
+      expect(counts.getByText('পরিবর্তনের অনুরোধ').parentElement!).toHaveTextContent('62'),
+    );
+    await user.click(screen.getByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
+    expect(await screen.findByText('62টির মধ্যে 1টি দেখানো হচ্ছে')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'পরের পাতা' }));
+    await waitFor(() => expect(asked.some((q) => q.includes('cursor=c2'))).toBe(true));
+    // the first page asks for the count; a later page only for its rows
+    expect(asked[0]).toContain('include=total');
+    expect(asked.find((q) => q.includes('cursor=c2'))).not.toContain('include=total');
+  });
+
+  it('shows a capped count as the server gives it, never the rows loaded', async () => {
+    server.use(
+      http.get('*/api/v1/edit-requests', () =>
+        HttpResponse.json({ data: edits, meta: { ...meta, nextCursor: 'c2', total: '10000+' } }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage(HEAD);
+    const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
+    await waitFor(() =>
+      expect(counts.getByText('পরিবর্তনের অনুরোধ').parentElement!).toHaveTextContent('10000+'),
+    );
+    await user.click(screen.getByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
+    expect(await screen.findByText('10000+টির মধ্যে 1টি দেখানো হচ্ছে')).toBeInTheDocument();
+  });
+
   it('leaves out the count of a list that could not be read, never showing zero', async () => {
     server.use(
       http.get('*/api/v1/edit-requests', () =>
@@ -594,8 +638,11 @@ describe('volunteer registration detail', () => {
     const user = userEvent.setup();
     renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
-    // the documents beside the header open large in the photo viewer
-    await user.click(await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }));
+    // the documents beside the header open large in the photo viewer; the button comes once the
+    // photo has streamed in, which a loaded machine takes longer than a second for
+    await user.click(
+      await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }, { timeout: 4000 }),
+    );
     const viewer = await screen.findByRole('dialog', { name: 'ছবি' });
     const img = await within(viewer).findByRole('img', { name: 'ছবি' });
     expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);

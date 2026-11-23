@@ -1,5 +1,5 @@
 import { programCode, SHORT_DESCRIPTION_MAX } from '@css/shared/projects';
-import { Button, Dialog, Form, FormTextField, Switch } from '@/ui';
+import { Dialog, Form, FormTextField, Switch } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
   refreshProgramReads,
   updateProgram,
 } from './programs-api';
+import { DialogActions } from '../DialogActions';
 
 type ProgramFields = {
   code: string;
@@ -168,18 +169,14 @@ export function ProgramDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form

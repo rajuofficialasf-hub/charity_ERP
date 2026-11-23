@@ -204,7 +204,8 @@
       "none": "None",
       "own": "Your own request",
       "photo_now": "Photo now"
-    }
+    },
+    "shown": "Showing {shown} of {total}"
   },
   "handover": {
     "title": "Handover",

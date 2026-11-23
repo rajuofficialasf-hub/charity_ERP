@@ -26,6 +26,7 @@ import {
   nameVariantGroups,
   updateNameVariantGroup,
 } from './settings-api';
+import { DialogActions } from '../DialogActions';
 
 type GroupFields = {
   canonical: string;
@@ -156,18 +157,14 @@ function GroupDialog({
       onClose={onClose}
       dismissible={!save.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={save.isPending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={save.isPending}
+          disabled={!ready}
+        />
       }
     >
       <Form

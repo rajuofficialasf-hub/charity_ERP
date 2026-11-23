@@ -5,6 +5,8 @@ import {
   type DecisionRequest,
   decisionRequestSchema,
   type EditRequestCreate,
+  editRequestBatchSchema,
+  type EditRequestBatch,
   editRequestCreateSchema,
   type OtpCodeRequest,
   otpCodeRequestSchema,
@@ -13,6 +15,8 @@ import {
   type StaffDecision,
   staffDecisionSchema,
   type StaffEditRequestCreate,
+  staffEditRequestBatchSchema,
+  type StaffEditRequestBatch,
   staffEditRequestCreateSchema,
   VOLUNTEER_TYPES,
 } from '@css/shared/registration';
@@ -27,6 +31,10 @@ import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import type { RegistrationListQuery } from '../services/registrations.js';
 import { volunteerDetailsShape } from './volunteer-details-schema.js';
+
+/** A whole list in one answer, with the meta of a list page. */
+const whole = <T>(rows: T[]) =>
+  page(rows, { nextCursor: null, prevCursor: null, limit: rows.length });
 
 const uuid = z.uuid();
 const nullableText = z.string().nullable();
@@ -168,7 +176,10 @@ const listMeta = (rows: unknown[]) => ({ limit: rows.length, nextCursor: null, p
  */
 export function registrationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'registrations' | 'users' | 'changeRequests' | 'staffChangeRequests'>,
+  c: Pick<
+    Container,
+    'registrations' | 'users' | 'changeRequests' | 'staffChangeRequests' | 'idempotency'
+  >,
 ): Router {
   const router = Router();
 
@@ -337,6 +348,40 @@ export function registrationsRouter(
     handler: ({ body, req }) => c.changeRequests.create(principalOf(req), body),
   });
 
+  defineRoute<EditRequestBatch>(router, deps, {
+    ...editOp,
+    method: 'post',
+    path: '/me/change-requests/batch',
+    status: 201,
+    operationId: 'registration.editRequest.submitMany',
+    summary:
+      'Submit several profile edit requests at once: all of them are asked for or none is, and a refusal names the detail',
+    audit: 'auth.edit_requested',
+    rateLimit: 'default',
+    idempotency: 'header',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    body: editRequestBatchSchema,
+    responses: {
+      200: z.array(changeRequest),
+      201: z.array(changeRequest),
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ body, req, res }) => {
+      const made = await c.changeRequests.createMany(
+        principalOf(req),
+        req.get('idempotency-key'),
+        body,
+      );
+      // a repeat of the request answers the requests it made the first time
+      if (made.replay) c.idempotency.markReplay(res);
+      return whole(made.data);
+    },
+  });
+
   defineRoute<unknown, unknown, { requestId: string }>(router, deps, {
     ...editOp,
     method: 'post',
@@ -381,7 +426,7 @@ export function registrationsRouter(
     summary: 'Pending edit requests within scope',
     permission: 'edit_request.approve',
     audit: 'none',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: pageQuery.omit({ sort: true }),
     responses: { 200: z.array(changeRequest), 401: null, 403: null, 422: null },
     handler: async ({ query, req }) => {
       const { rows, meta } = await c.changeRequests.list(
@@ -437,6 +482,39 @@ export function registrationsRouter(
     body: staffEditRequestCreateSchema,
     responses: { 201: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, req }) => c.staffChangeRequests.create(principalOf(req), body),
+  });
+
+  defineRoute<StaffEditRequestBatch>(router, deps, {
+    ...staffEditOp,
+    method: 'post',
+    path: '/me/staff-change-requests/batch',
+    status: 201,
+    operationId: 'registration.staffEditRequest.submitMany',
+    summary:
+      "Ask for several changes of an official's own details at once: all of them or none, and a refusal names the detail",
+    audit: 'auth.edit_requested',
+    rateLimit: 'default',
+    idempotency: 'header',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    body: staffEditRequestBatchSchema,
+    responses: {
+      200: z.array(changeRequest),
+      201: z.array(changeRequest),
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ body, req, res }) => {
+      const made = await c.staffChangeRequests.createMany(
+        principalOf(req),
+        req.get('idempotency-key'),
+        body,
+      );
+      if (made.replay) c.idempotency.markReplay(res);
+      return whole(made.data);
+    },
   });
 
   defineRoute(router, deps, {
@@ -507,7 +585,7 @@ export function registrationsRouter(
     summary: "Officials' own change requests waiting for a decision",
     permission: 'staff_edit_request.approve',
     audit: 'none',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: pageQuery.omit({ sort: true }),
     responses: { 200: z.array(staffChangeRequest), 401: null, 403: null, 422: null },
     handler: async ({ query, req }) => {
       const { rows, meta } = await c.staffChangeRequests.list(query, principalOf(req));

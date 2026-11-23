@@ -16,6 +16,7 @@ import { type PrismaService, type Tx } from '../core/prisma.service.js';
 import { currentContext } from '../core/request-context.js';
 import { ApiError } from '../i18n/api-error.js';
 import { UserLanguageService } from '../i18n/user-language.service.js';
+import { holdsGlobalScope } from '../auth/global-scope.js';
 import { afterFailure, minutesLeft, UnknownIdLockout } from '../auth/lockout.js';
 import { normalizeLoginId } from '../auth/login-id.js';
 import { identifierHash, type OtpTarget, type OtpService } from '../auth/otp.service.js';
@@ -83,12 +84,6 @@ export class AuthService {
     return this.prisma.user
       .findFirst({ where, select: accountSelect })
       .then((user) => ({ user, key: identifierHash(this.env, `${id.kind}:${id.value}`) }));
-  }
-
-  private hasGlobalScope(tx: Tx, userId: string): Promise<boolean> {
-    return tx.userRole
-      .count({ where: { userId, revokedAt: null, role: { globalScope: true } } })
-      .then((n) => n > 0);
   }
 
   /** Audit entry written on its own, for failures that end the request with an error. */
@@ -451,7 +446,7 @@ export class AuthService {
     field: string,
   ): Promise<void> {
     const problems = checkPassword(password, {
-      minLength: minPasswordLength(await this.hasGlobalScope(tx, user.id)),
+      minLength: minPasswordLength(await holdsGlobalScope(tx, user.id, this.clock.now())),
     });
     if (problems.length)
       throw new ApiError(

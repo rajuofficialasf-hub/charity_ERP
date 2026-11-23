@@ -128,7 +128,15 @@ jobs:
           exit 1
       - name: Allow the Chromium sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - run: pnpm test
+      # a pull request runs the tests alone, so its run stays as short as before; a push to develop
+      # or main measures the coverage too and writes each package's table into the job's summary
+      # (it reports only: no minimum fails the run until the owner sets the minimums)
+      - if: github.event_name == 'pull_request'
+        run: pnpm test
+      - if: github.event_name != 'pull_request'
+        run: pnpm test:coverage
+      - if: github.event_name != 'pull_request'
+        run: node scripts/coverage-summary.mjs
       # every registered API operation answered its success status in a test (the responses were
       # validated against docs/api/openapi.yaml by the contract recorder during `pnpm test`)
       - run: pnpm --filter @css/api contract:coverage --no-run

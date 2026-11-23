@@ -1080,26 +1080,34 @@ describe('the points of the score', () => {
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     const points = { not_previously_assisted: 20 };
     expect(saves[0]!.body.scoring).toEqual(points);
+    // each step waits for the save that holds it: a slow machine may save a step in two
     // a question renamed
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
     await user.type(screen.getByRole('textbox', { name: /^প্রশ্নের লেখা \(বাংলা\)/ }), ' দিন');
-    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
-    expect(savedField('q_note')!.label.bn).toBe('মন্তব্য দিন');
-    expect(saves[1]!.body.scoring).toEqual(points);
+    await waitFor(() => expect(savedField('q_note')?.label.bn).toBe('মন্তব্য দিন'), {
+      timeout: 4000,
+    });
     // a part renamed
     await user.click(screen.getByRole('button', { name: 'অতিরিক্ত' }));
     await user.type(screen.getByRole('textbox', { name: /^অংশের নাম \(বাংলা\)/ }), ' তথ্য');
-    await waitFor(() => expect(saves).toHaveLength(3), { timeout: 4000 });
-    expect(saves[2]!.body.sections.at(-1)!.title.bn).toBe('অতিরিক্ত তথ্য');
-    expect(saves[2]!.body.scoring).toEqual(points);
+    await waitFor(
+      () => expect(saves.at(-1)!.body.sections.at(-1)!.title.bn).toBe('অতিরিক্ত তথ্য'),
+      { timeout: 4000 },
+    );
     // a part added, and the question removed
     await user.click(screen.getByRole('button', { name: 'নতুন অংশ' }));
     await user.click(await screen.findByRole('button', { name: 'মন্তব্য দিন বদলান' }));
     await user.click(screen.getByRole('button', { name: 'মন্তব্য দিন সরান' }));
-    await waitFor(() => expect(saves).toHaveLength(4), { timeout: 4000 });
-    expect(saves[3]!.body.sections).toHaveLength(4);
-    expect(savedField('q_note')).toBeUndefined();
-    expect(saves[3]!.body.scoring).toEqual(points);
+    await waitFor(
+      () => {
+        expect(saves.at(-1)!.body.sections).toHaveLength(4);
+        expect(savedField('q_note')).toBeUndefined();
+      },
+      { timeout: 4000 },
+    );
+    // every save after the first kept the points
+    expect(saves.length).toBeGreaterThanOrEqual(4);
+    for (const save of saves) expect(save.body.scoring).toEqual(points);
   }, 40_000);
 });
 

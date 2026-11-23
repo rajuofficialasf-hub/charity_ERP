@@ -1,10 +1,11 @@
 import { MEDIA_PRIORITIES, type MediaPriority, referralCreateSchema } from '@css/shared/media';
-import { Button, Dialog, Form, FormTextField, RadioGroup, Text } from '@/ui';
+import { Dialog, Form, FormTextField, RadioGroup, Text } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { referToMedia } from '../../features/media/media-api';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+import { DialogActions } from '../DialogActions';
 
 /** The referral's request, with the story left empty when none is written. */
 const REFERRAL_SCHEMA = referralCreateSchema.extend({ story: z.string().trim().max(10000) });
@@ -58,18 +59,14 @@ export function ReferralDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('action.cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {resend ? t('resend') : t('send')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('action.cancel')}
+          onCancel={onClose}
+          submitLabel={resend ? t('resend') : t('send')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form

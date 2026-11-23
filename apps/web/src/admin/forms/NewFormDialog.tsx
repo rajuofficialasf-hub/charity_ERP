@@ -1,14 +1,6 @@
 import type { FormSource } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import {
-  Button,
-  Dialog,
-  Form,
-  FormSelectField,
-  FormTextField,
-  RadioGroup,
-  SelectField,
-} from '@/ui';
+import { Dialog, Form, FormSelectField, FormTextField, RadioGroup, SelectField } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
@@ -16,6 +8,7 @@ import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { pickerProjects, PROJECTS_KEY } from '../projects/projects-api';
 import { createForm, FORMS_KEY, library, projectForms } from './forms-api';
+import { DialogActions } from '../DialogActions';
 
 /** Both names, and the template or the copied form the chosen start needs. */
 const NEW_FORM_SCHEMA = z
@@ -115,18 +108,14 @@ export function NewFormDialog({
       onClose={onClose}
       dismissible={!create.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-            {t('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={create.isPending}
-          >
-            {t('create')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={t('cancel')}
+          onCancel={onClose}
+          submitLabel={t('create')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={create.isPending}
+          disabled={!ready}
+        />
       }
     >
       <Form

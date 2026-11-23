@@ -317,7 +317,6 @@ A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: 
 | token_hash | text | yes | — | SHA-256 of the draft token issued at verification; never the token; CHECK only with verified_at |
 | verified_at | timestamptz | yes | — | both OTPs verified; CHECK only with both channel times |
 | expires_at | timestamptz | no | — | +24 hours from start, renewed by a new verification |
-| reference_lookups | smallint | no | 0 | CHECK 0–5 |
 | photo_file_id | uuid | yes | — | FK files |
 | nid_photo_file_id | uuid | yes | — | FK files; the first page (front) of the NID card |
 | nid_photo_back_file_id | uuid | yes | — | FK files; the second page (back) of the NID card (UX-18) |
@@ -325,7 +324,7 @@ A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: 
 | submitted_at | timestamptz | yes | — | CHECK set together with submitted_user_id |
 | [A] | | | | |
 
-Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07). Migrations `20261012000000_registration_drafts`, `20261013000000_registration_draft_channels` (per-channel verification and the NID back, D-090).
+Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07). The column `reference_lookups` (a count nothing read or wrote) was dropped by `20261123100000_drop_registration_draft_reference_lookups`. Migrations `20261012000000_registration_drafts`, `20261013000000_registration_draft_channels` (per-channel verification and the NID back, D-090).
 
 ### handovers
 | Column | Type | Null | Default | Comment |

@@ -13,7 +13,12 @@ import { vi, it, expect, describe, afterEach, beforeEach } from 'vitest';
 import { render, screen, within, cleanup, waitFor } from '@testing-library/react';
 
 import { resetPage, stubWidth, expectNoAxeViolations } from './local-test-support';
-import { Menu, Dialog, Drawer, UiProvider, ConfirmDialog } from './index';
+import { Menu, Dialog, Drawer, Combobox, UiProvider, ConfirmDialog } from './index';
+
+const DISTRICTS = [
+  { value: 'dhaka', label: 'Dhaka' },
+  { value: 'rangpur', label: 'Rangpur' },
+];
 
 beforeEach(() => stubWidth(false));
 
@@ -227,6 +232,35 @@ describe('the drawer', () => {
       </UiProvider>
     );
     expect(screen.getByRole('dialog', { name: 'Details' }).closest('.MuiDrawer-anchorBottom')).not.toBeNull();
+  });
+
+  it('opens a combobox list inside the bottom sheet, so it scrolls with the sheet', async () => {
+    stubWidth(true);
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Drawer open title="Filters" onClose={() => {}}>
+          <Combobox label="District" options={DISTRICTS} value={null} onChange={() => {}} />
+        </Drawer>
+      </UiProvider>
+    );
+    const sheet = screen.getByRole('dialog', { name: 'Filters' });
+    await user.click(within(sheet).getByRole('combobox', { name: 'District' }));
+    expect(sheet.contains(await screen.findByRole('listbox'))).toBe(true);
+  });
+
+  it('keeps a combobox list floating above the page in a side panel', async () => {
+    const user = userEvent.setup();
+    render(
+      <UiProvider>
+        <Drawer open title="Details" onClose={() => {}}>
+          <Combobox label="District" options={DISTRICTS} value={null} onChange={() => {}} />
+        </Drawer>
+      </UiProvider>
+    );
+    const panel = screen.getByRole('dialog', { name: 'Details' });
+    await user.click(within(panel).getByRole('combobox', { name: 'District' }));
+    expect(panel.contains(await screen.findByRole('listbox'))).toBe(false);
   });
 });
 

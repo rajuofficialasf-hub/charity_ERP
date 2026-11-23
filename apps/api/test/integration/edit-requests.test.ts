@@ -324,6 +324,180 @@ describe('edit requests', () => {
   });
 });
 
+describe('the list of waiting edit requests', () => {
+  it('pages past its first rows with a total, and a cursor of another official opens nothing', async () => {
+    // three waiting requests in Dhaka, beside whatever the other tests left
+    for (let i = 0; i < 3; i += 1) {
+      const v = await approvedVolunteer();
+      expect((await ask(v.session, { field: 'education', newValue: 'স্নাতক' })).status).toBe(201);
+    }
+    const rpm = await as(world.users.rpmDhaka);
+    const list = (s: Session, query: string) =>
+      api().get(`/api/v1/edit-requests?${query}`).set(bearer(s));
+    const first = await list(rpm, 'limit=2&include=total');
+    expect(first.status).toBe(200);
+    expect(first.body.data).toHaveLength(2);
+    const total = first.body.meta.total as number;
+    expect(total).toBeGreaterThanOrEqual(3);
+    const cursor = first.body.meta.nextCursor as string;
+    expect(cursor).toBeTruthy();
+    const second = await list(rpm, `limit=2&cursor=${encodeURIComponent(cursor)}`);
+    expect(second.status).toBe(200);
+    const seen = [...first.body.data, ...second.body.data].map((r: { id: string }) => r.id);
+    expect(new Set(seen).size).toBe(seen.length);
+    // the cursor belongs to the official who was given it
+    const other = await as(world.users.rpmRangpur);
+    expect((await list(other, `limit=2&cursor=${encodeURIComponent(cursor)}`)).status).toBe(422);
+    // the other region's count leaves Dhaka's requests out
+    const theirs = await list(other, 'limit=2&include=total');
+    expect(theirs.body.meta.total).toBeLessThan(total);
+  });
+});
+
+describe('several details at once', () => {
+  const askMany = (s: Session, requests: object[], key: string = randomUUID()) =>
+    api()
+      .post('/api/v1/me/change-requests/batch')
+      .set(bearer(s))
+      .set('Idempotency-Key', key)
+      .send({ requests });
+  const rowsOf = async (volunteerId: string) =>
+    (
+      await h.db.query(
+        `SELECT field FROM volunteer_change_requests WHERE volunteer_id = $1 AND kind = 'profile_edit'
+          ORDER BY field`,
+        [volunteerId],
+      )
+    ).rows.map((r: { field: string }) => r.field);
+
+  it('writes every detail together, each audited by its field without its value', async () => {
+    const v = await approvedVolunteer();
+    const res = await askMany(v.session, [
+      { field: 'education', newValue: 'স্নাতক', note: 'নতুন সনদ' },
+      { field: 'experience', newValue: 'তিন বছর ত্রাণ বিতরণ' },
+      { field: 'workDescription', newValue: 'শিক্ষক' },
+    ]);
+    expect(res.status).toBe(201);
+    expect(res.body.data.map((r: { field: string }) => r.field)).toEqual([
+      'education',
+      'experience',
+      'workDescription',
+    ]);
+    expect(res.body.data.every((r: { status: string }) => r.status === 'submitted')).toBe(true);
+    expect(await rowsOf(v.volunteerId)).toEqual(['education', 'experience', 'workDescription']);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'auth.edit_requested' AND entity_id = $1`,
+      [v.account.id],
+    );
+    expect(audits.rows).toHaveLength(3);
+    expect(JSON.stringify(audits.rows)).not.toContain('তিন বছর');
+  });
+
+  it('refuses all of them when one fails, names that detail and never its value', async () => {
+    const v = await approvedVolunteer();
+    const res = await askMany(v.session, [
+      { field: 'education', newValue: 'স্নাতক' },
+      { field: 'facebookId', newValue: 'not a facebook link at all' },
+    ]);
+    expect(res.status).toBe(422);
+    expect(res.body.error.details.map((d: { path: string }) => d.path)).toEqual(['facebookId']);
+    expect(JSON.stringify(res.body)).not.toContain('not a facebook link');
+    expect(await rowsOf(v.volunteerId)).toEqual([]);
+  });
+
+  it('refuses a detail with a request still open, by its name, and writes none of the others', async () => {
+    const v = await approvedVolunteer();
+    expect((await ask(v.session, { field: 'education', newValue: 'স্নাতক' })).status).toBe(201);
+    const res = await askMany(v.session, [
+      { field: 'experience', newValue: 'দুই বছর' },
+      { field: 'education', newValue: 'স্নাতকোত্তর' },
+    ]);
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toEqual([
+      expect.objectContaining({ path: 'education', code: 'registration.request_open' }),
+    ]);
+    expect(await rowsOf(v.volunteerId)).toEqual(['education']);
+  });
+
+  it('refuses a detail no request takes, one detail twice, and more than twenty', async () => {
+    const v = await approvedVolunteer();
+    expect((await askMany(v.session, [{ field: 'category', newValue: 'A' }])).status).toBe(422);
+    const twice = [
+      { field: 'education', newValue: 'স্নাতক' },
+      { field: 'education', newValue: 'স্নাতকোত্তর' },
+    ];
+    expect((await askMany(v.session, twice)).status).toBe(422);
+    const many = Array.from({ length: 21 }, () => ({ field: 'education', newValue: 'স্নাতক' }));
+    expect((await askMany(v.session, many)).status).toBe(422);
+    expect((await askMany(v.session, [])).status).toBe(422);
+    expect(await rowsOf(v.volunteerId)).toEqual([]);
+  });
+
+  it('answers a repeat of its key from the first answer, and refuses the key with another body', async () => {
+    const v = await approvedVolunteer();
+    const key = randomUUID();
+    const body = [
+      { field: 'education', newValue: 'স্নাতক' },
+      { field: 'experience', newValue: 'এক বছর' },
+    ];
+    const first = await askMany(v.session, body, key);
+    expect(first.status).toBe(201);
+    const again = await askMany(v.session, body, key);
+    expect(again.status).toBe(200);
+    expect(again.headers['idempotent-replay']).toBe('true');
+    expect(again.body.data.map((r: { id: string }) => r.id)).toEqual(
+      first.body.data.map((r: { id: string }) => r.id),
+    );
+    expect(await rowsOf(v.volunteerId)).toEqual(['education', 'experience']);
+    const other = await askMany(v.session, [{ field: 'workDescription', newValue: 'কৃষক' }], key);
+    expect(other.status).toBe(422);
+    // another person's repeat of the key is refused too, and learns nothing of the first
+    const w = await approvedVolunteer();
+    const stranger = await askMany(w.session, body, key);
+    expect(stranger.status).toBe(422);
+    expect(JSON.stringify(stranger.body)).not.toContain(first.body.data[0].id);
+  });
+
+  it('answers a repeat from the first answer even after its new mobile was verified and applied', async () => {
+    const v = await approvedVolunteer();
+    const key = randomUUID();
+    const newMobile = f.fakeMobile();
+    const body = [{ field: 'mobile', newValue: newMobile }];
+    const first = await askMany(v.session, body, key);
+    expect(first.status).toBe(201);
+    const id = first.body.data[0].id as string;
+    await api().post(`/api/v1/me/change-requests/${id}/otp`).set(bearer(v.session)).expect(204);
+    await api()
+      .post(`/api/v1/me/change-requests/${id}/otp/verify`)
+      .set(bearer(v.session))
+      .send({ code: DUMMY_CODE })
+      .expect(204);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await decide(rpm, id, { decision: 'approve' })).status).toBe(200);
+    // the mobile is now the person's own: a fresh check would refuse it, the key answers instead
+    const again = await askMany(await login(h, newMobile), body, key);
+    expect(again.status).toBe(200);
+    expect(again.body.data.map((r: { id: string }) => r.id)).toEqual([id]);
+  });
+
+  it('needs a key and a session, and an official has no grant for it', async () => {
+    const v = await approvedVolunteer();
+    const noKey = await api()
+      .post('/api/v1/me/change-requests/batch')
+      .set(bearer(v.session))
+      .send({ requests: [{ field: 'education', newValue: 'স্নাতক' }] });
+    expect(noKey.status).toBe(422);
+    await api()
+      .post('/api/v1/me/change-requests/batch')
+      .set('Idempotency-Key', randomUUID())
+      .send({ requests: [{ field: 'education', newValue: 'স্নাতক' }] })
+      .expect(401);
+    const official = await as(world.users.executive);
+    const refused = await askMany(official, [{ field: 'education', newValue: 'স্নাতক' }]);
+    expect(refused.status).toBe(403);
+  });
+});
+
 describe('contact changes', () => {
   const sendCode = (s: Session, id: string) =>
     api().post(`/api/v1/me/change-requests/${id}/otp`).set(bearer(s));

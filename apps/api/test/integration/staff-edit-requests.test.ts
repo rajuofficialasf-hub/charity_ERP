@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { jpeg } from '../support/images.js';
@@ -322,5 +323,94 @@ describe('a new email and a new photo', () => {
     expect((await upload(fresh.body.data.id)).status).toBe(201);
     // the deciders see this photo: a second upload cannot swap it
     expect((await upload(fresh.body.data.id)).status).toBe(404);
+  });
+});
+
+describe("the list of officials' waiting requests", () => {
+  it('pages past its first rows with a total', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const rpm = await official();
+      expect((await ask(rpm.session, { field: 'designation', newValue: `পদ ${i}` })).status).toBe(
+        201,
+      );
+    }
+    const s = await head();
+    const first = await api()
+      .get('/api/v1/staff-edit-requests?limit=2&include=total')
+      .set(bearer(s));
+    expect(first.status).toBe(200);
+    expect(first.body.data).toHaveLength(2);
+    expect(first.body.meta.total).toBeGreaterThanOrEqual(3);
+    const cursor = first.body.meta.nextCursor as string;
+    const second = await api()
+      .get(`/api/v1/staff-edit-requests?limit=2&cursor=${encodeURIComponent(cursor)}`)
+      .set(bearer(s));
+    expect(second.status).toBe(200);
+    expect(second.body.data.length).toBeGreaterThan(0);
+  });
+});
+
+describe('several details at once', () => {
+  const askMany = (s: Session, requests: object[], key: string = randomUUID()) =>
+    api()
+      .post('/api/v1/me/staff-change-requests/batch')
+      .set(bearer(s))
+      .set('Idempotency-Key', key)
+      .send({ requests });
+  const fieldsOf = async (userId: string) =>
+    (
+      await h.db.query(
+        `SELECT field FROM volunteer_change_requests
+          WHERE user_id = $1 AND volunteer_id IS NULL AND kind = 'profile_edit' ORDER BY field`,
+        [userId],
+      )
+    ).rows.map((r: { field: string }) => r.field);
+
+  it('writes the name and the designation together and tells the deciders of each', async () => {
+    const rpm = await official();
+    const key = randomUUID();
+    const body = [
+      { field: 'displayName', newValue: 'নতুন নাম' },
+      { field: 'designation', newValue: 'আঞ্চলিক ব্যবস্থাপক' },
+    ];
+    const res = await askMany(rpm.session, body, key);
+    expect(res.status).toBe(201);
+    expect(res.body.data.map((r: { field: string }) => r.field)).toEqual([
+      'displayName',
+      'designation',
+    ]);
+    expect(await fieldsOf(rpm.account.id)).toEqual(['designation', 'displayName']);
+    // a repeat of the key answers the same requests and writes nothing new
+    const again = await askMany(rpm.session, body, key);
+    expect(again.status).toBe(200);
+    expect(again.body.data.map((r: { id: string }) => r.id)).toEqual(
+      res.body.data.map((r: { id: string }) => r.id),
+    );
+    expect(await fieldsOf(rpm.account.id)).toEqual(['designation', 'displayName']);
+  });
+
+  it('refuses all of them when one fails, naming that detail and never its value', async () => {
+    const rpm = await official();
+    const res = await askMany(rpm.session, [
+      { field: 'designation', newValue: 'আঞ্চলিক ব্যবস্থাপক' },
+      { field: 'email', newValue: 'not-an-email-address' },
+    ]);
+    expect(res.status).toBe(422);
+    expect(res.body.error.details.map((d: { path: string }) => d.path)).toEqual(['email']);
+    expect(JSON.stringify(res.body)).not.toContain('not-an-email-address');
+    expect(await fieldsOf(rpm.account.id)).toEqual([]);
+  });
+
+  it('is an official’s alone: a volunteer has no grant, and no session is refused', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer', role: 'volunteer_general' });
+    const refused = await askMany(await login(h, volunteer), [
+      { field: 'displayName', newValue: 'নাম' },
+    ]);
+    expect(refused.status).toBe(403);
+    await api()
+      .post('/api/v1/me/staff-change-requests/batch')
+      .set('Idempotency-Key', randomUUID())
+      .send({ requests: [{ field: 'displayName', newValue: 'নাম' }] })
+      .expect(401);
   });
 });

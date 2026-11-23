@@ -21,8 +21,15 @@ export const answerRequest = (id: string, newValue: unknown) =>
 
 export const resubmit = () => api<void>('/me/registration/resubmit', { method: 'POST' });
 
-export const askEdit = (body: { field: string; newValue?: unknown; note?: string }) =>
-  api<ChangeRequest>('/me/change-requests', { method: 'POST', body });
+/** One edit request of a detail, as the batch takes it. */
+export type EditAsk = { field: string; newValue?: unknown; note?: string };
+/** Several details at once, all or none, once per key (a retry of the same send repeats it). */
+export const askEdits = (requests: EditAsk[], key: string) =>
+  api<ChangeRequest[]>('/me/change-requests/batch', {
+    method: 'POST',
+    body: { requests },
+    headers: { 'Idempotency-Key': key },
+  });
 
 export const sendContactCode = (id: string) =>
   api<void>(`/me/change-requests/${id}/otp`, { method: 'POST' });
@@ -54,8 +61,13 @@ export const projectsWorkOf = (userId: string) =>
   api<ProjectsWork>(`/users/${userId}/projects-work`);
 
 /** An official's own change request; the code routes are the official's own. */
-export const askStaffEdit = (body: { field: string; newValue?: unknown; note?: string }) =>
-  api<ChangeRequest>('/me/staff-change-requests', { method: 'POST', body });
+/** An official's several details at once, all or none, once per key. */
+export const askStaffEdits = (requests: EditAsk[], key: string) =>
+  api<ChangeRequest[]>('/me/staff-change-requests/batch', {
+    method: 'POST',
+    body: { requests },
+    headers: { 'Idempotency-Key': key },
+  });
 export const sendStaffContactCode = (id: string) =>
   api<void>(`/me/staff-change-requests/${id}/otp`, { method: 'POST' });
 export const verifyStaffContactCode = (id: string, code: string) =>

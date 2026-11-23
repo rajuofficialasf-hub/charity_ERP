@@ -713,12 +713,11 @@ describe('registration drafts and contact changes', () => {
     await expect(draft({ otp_sends: 6 })).resolves.toBeTruthy();
   });
 
-  it('a draft defaults to a volunteer with no lookups', async () => {
+  it('a draft defaults to a volunteer with no codes sent yet', async () => {
     const id = await draft();
     const row = (await db.query('SELECT * FROM registration_drafts WHERE id = $1', [id])).rows[0];
     expect(row).toMatchObject({
       kind: 'volunteer',
-      reference_lookups: 0,
       otp_sends: 0,
       verified_at: null,
       mobile_verified_at: null,
@@ -727,7 +726,7 @@ describe('registration drafts and contact changes', () => {
     await expect(draft({ kind: 'staff' })).resolves.toBeTruthy();
   });
 
-  it('refuses an unknown kind, a bad mobile, an upper-case email and more than 5 lookups', async () => {
+  it('refuses an unknown kind, a bad mobile and an upper-case email', async () => {
     await expectSqlError(
       draft({ kind: 'system' }),
       SQLSTATE.checkViolation,
@@ -743,12 +742,6 @@ describe('registration drafts and contact changes', () => {
       SQLSTATE.checkViolation,
       /registration_drafts_email_lower_check/,
     );
-    await expectSqlError(
-      draft({ reference_lookups: 6 }),
-      SQLSTATE.checkViolation,
-      /registration_drafts_reference_lookups_check/,
-    );
-    await expect(draft({ reference_lookups: 5 })).resolves.toBeTruthy();
   });
 
   it('the token goes with the verification and the submitted user with the submit time', async () => {

@@ -83,4 +83,24 @@ test.describe('own profile', () => {
       ),
     ).toBe(true);
   });
+
+  test('asks before Cancel drops the ticked details, and the section stays as it was', async ({
+    page,
+  }, info) => {
+    const project = info.project.name === 'mobile' ? 'mobile' : 'desktop';
+    await signIn(page, VOLUNTEER[project]);
+    await fromProfileMenu(page, 'আমার প্রোফাইল');
+    await page.getByRole('button', { name: 'ব্যক্তিগত তথ্য সম্পাদনা' }).click();
+    const form = page.getByRole('form', { name: 'ব্যক্তিগত তথ্য পরিবর্তনের অনুরোধ' });
+    // two details ticked; nothing is sent, so any two without a waiting request will do
+    const ticks = form.getByRole('checkbox');
+    await ticks.nth(0).check();
+    await ticks.nth(1).check();
+    await form.getByRole('button', { name: 'বাতিল' }).click();
+    const ask = page.getByRole('alertdialog', { name: 'না পাঠিয়ে চলে যাবেন?' });
+    await expect(ask).toBeVisible();
+    await ask.getByRole('button', { name: 'পরিবর্তন বাদ দিন' }).click();
+    await expect(form).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'ব্যক্তিগত তথ্য সম্পাদনা' })).toBeVisible();
+  });
 });

@@ -1,6 +1,6 @@
 import { isBirthRegNumber, isNidNumber, normalizeIdentityNumber } from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
-import { Alert, Button, Dialog, Form, FormSelectField, FormTextField, Text } from '@/ui';
+import { Alert, Dialog, Form, FormSelectField, FormTextField, Text } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -11,6 +11,7 @@ import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addIdentity, beneficiaryProfile, type IdentityKind } from './beneficiaries-api';
 import { comparePath } from './duplicates/merge-api';
+import { DialogActions } from '../DialogActions';
 
 const KINDS: IdentityKind[] = ['nid', 'birth_reg'];
 
@@ -108,18 +109,14 @@ export function IdentityDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('confirm')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={t('confirm')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={send} label={t('title')}>

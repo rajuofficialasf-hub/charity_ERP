@@ -14,6 +14,11 @@ import {
   type NameKeysJob,
   queueNameKeys,
 } from './name-keys.js';
+import {
+  FILE_DIMENSIONS_CRON,
+  FILE_DIMENSIONS_QUEUE,
+  type FileDimensionsJob,
+} from './file-dimensions.js';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats.js';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep.js';
 import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup.js';
@@ -54,6 +59,7 @@ export interface ConsumerServices {
   uploadSweep?: UploadSweep;
   localKeyCleanup?: LocalKeyCleanup;
   storageStats?: StorageStats;
+  fileDimensions?: Pick<FileDimensionsJob, 'run' | 'hasWaiting'>;
   mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
   nameKeys?: Pick<NameKeysJob, 'run' | 'hasStale'>;
   helpCounters?: Pick<HelpCountersJob, 'run'>;
@@ -143,6 +149,25 @@ export class JobConsumers {
     if (storageStats) {
       await this.jobs.work(STORAGE_STATS_QUEUE, () => storageStats.run());
       await this.jobs.schedule(STORAGE_STATS_QUEUE, STORAGE_STATS_CRON, {}, 'storage-stats');
+    }
+    // the sizes of the photos stored before the size was kept: nightly, and once now when any
+    // photo still has none (a check that fails queues the run anyway; it writes nothing then)
+    const { fileDimensions } = this.services;
+    if (fileDimensions) {
+      await this.jobs.work(FILE_DIMENSIONS_QUEUE, () => fileDimensions.run());
+      await this.jobs.schedule(FILE_DIMENSIONS_QUEUE, FILE_DIMENSIONS_CRON, {}, 'file-dimensions');
+      let waiting = true;
+      try {
+        waiting = await fileDimensions.hasWaiting();
+      } catch (error) {
+        this.logger.error({ err: error }, 'file sizes: the check for photos without a size failed');
+      }
+      try {
+        if (waiting)
+          await this.jobs.enqueue(FILE_DIMENSIONS_QUEUE, {}, { singletonKey: 'file-dimensions' });
+      } catch (error) {
+        this.logger.error({ err: error }, 'file sizes: the measuring job could not be queued');
+      }
     }
     // the stored name keys: nightly, after a change of the spelling variants, and once now when a
     // profile or a family member has none or old ones (after the migration that added them)

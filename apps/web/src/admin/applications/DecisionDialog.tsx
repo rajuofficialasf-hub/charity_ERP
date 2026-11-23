@@ -1,10 +1,11 @@
-import { Alert, Button, Dialog, Form, FormTextField, Text } from '@/ui';
+import { Alert, Dialog, Form, FormTextField, Text } from '@/ui';
 import { useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { useSchemaResolver } from '../../lib/form-schema';
 import type { CommentReason } from './applications-api';
+import { DialogActions } from '../DialogActions';
 
 /** The texts a decision sends; each one only when the decision asks for it. */
 export interface DecisionTexts {
@@ -93,19 +94,15 @@ export function DecisionDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            variant={danger ? 'danger' : 'primary'}
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {confirm}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={confirm}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+          submitVariant={danger ? 'danger' : 'primary'}
+        />
       }
     >
       <Form form={form} onSubmit={send} label={title} error={error ?? undefined}>

@@ -98,12 +98,14 @@ for (const lang of ['bn', 'en'] as const) {
         await expect(panel).toBeVisible();
         // axe measures colours: the panel's own slide and fade must have ended (the spinner and
         // the loading shapes elsewhere never end)
-        await panel.evaluate((element) =>
+        // the photo viewer fades its backdrop and its layers outside the dialog itself, so every
+        // finite animation of the page is awaited
+        await page.evaluate(() =>
           Promise.all(
-            element
-              .getAnimations({ subtree: true })
+            document
+              .getAnimations()
               .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-              .map((animation) => animation.finished),
+              .map((animation) => animation.finished.catch(() => undefined)),
           ),
         );
         const open = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
@@ -151,6 +153,48 @@ test('opens the confirm dialog and asks for the reason before it confirms', asyn
   await expect(dialog.getByRole('button', { name: 'Reject application' })).toBeEnabled();
   const results = await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
+});
+
+test('opens a list in the bottom sheet of a phone inside the sheet, where it scrolls with it', async ({
+  page,
+  baseURL,
+}, info) => {
+  test.skip(info.project.name !== 'mobile', 'the sheet is a phone’s');
+  await page.context().addCookies([{ name: 'css_locale', value: 'en', url: baseURL! }]);
+  await page.goto('/dev/asf');
+  await page.getByRole('button', { name: 'Filters (drawer)' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Filters' });
+  await expect(sheet).toBeVisible();
+  // the sheet slides in: a click meanwhile lands beside a moving field (the spinners never end)
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
+  await sheet.getByRole('combobox', { name: 'Search a district' }).click();
+  const list = page.getByRole('listbox');
+  await expect(list).toBeVisible();
+  // the list is part of the sheet, not a layer above the page
+  expect(
+    await sheet.evaluate(
+      (el, id) => el.contains(document.getElementById(id)),
+      (await list.getAttribute('id')) ?? '',
+    ),
+  ).toBe(true);
+  // the sheet's body scrolls: the list stays visible and keeps its place beside its field
+  const field = sheet.getByRole('combobox', { name: 'Search a district' });
+  const gap = async () => {
+    const [a, b] = await Promise.all([field.boundingBox(), list.boundingBox()]);
+    return Math.round((b?.y ?? 0) - (a?.y ?? 0));
+  };
+  const before = await gap();
+  await field.hover();
+  await page.mouse.wheel(0, 40);
+  await expect(list).toBeVisible();
+  await expect.poll(async () => Math.abs((await gap()) - before)).toBeLessThanOrEqual(2);
 });
 
 test('turns the flip card by the pointer on a computer and by its buttons on a phone', async ({

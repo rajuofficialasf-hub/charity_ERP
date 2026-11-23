@@ -1,4 +1,4 @@
-import { Alert, Button, Dialog, Form, FormTextField, Grid } from '@/ui';
+import { Alert, Dialog, Form, FormTextField, Grid } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
@@ -10,6 +10,7 @@ import {
   type ContactSaved,
   updateContact,
 } from './beneficiaries-api';
+import { DialogActions } from '../DialogActions';
 
 const place = z.string().nullable();
 /**
@@ -118,18 +119,14 @@ export function ContactDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={t('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={save} label={t('title')}>

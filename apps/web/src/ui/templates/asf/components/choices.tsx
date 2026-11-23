@@ -18,6 +18,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { Icon } from './icon';
 import { useLabels } from './labels';
+import { useInSheet } from './sheet-context';
 
 // ----------------------------------------------------------------------
 
@@ -190,6 +191,8 @@ export function Combobox({
   valueLabel,
 }: ComboboxProps) {
   const labels = useLabels();
+  // inside a bottom sheet the list opens in the sheet, so it scrolls with it instead of floating
+  const inSheet = useInSheet();
   // the last option chosen here, shown while a server search answers without it
   const [chosen, setChosen] = useState<ChoiceOption | null>(null);
   const known = options.find((option) => option.value === value) ?? (chosen?.value === value ? chosen : null);
@@ -198,6 +201,7 @@ export function Combobox({
     <Autocomplete<ChoiceOption, false, false, boolean>
       options={options}
       value={selected}
+      disablePortal={inSheet}
       freeSolo={freeText}
       loading={loading}
       disabled={disabled}

@@ -1,12 +1,13 @@
 import type { ReadyFormCreate } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Button, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
+import { Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { createReadyForm, READY_KEY, type ReadyFormView } from './forms-api';
+import { DialogActions } from '../DialogActions';
 
 /** Both names, and the ready form a copy starts from. */
 const READY_FORM_SCHEMA = z
@@ -97,18 +98,14 @@ export function NewReadyFormDialog({
       onClose={onClose}
       dismissible={!create.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
-            {t('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={create.isPending}
-          >
-            {t('create')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={t('cancel')}
+          onCancel={onClose}
+          submitLabel={t('create')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={create.isPending}
+          disabled={!ready}
+        />
       }
     >
       <Form

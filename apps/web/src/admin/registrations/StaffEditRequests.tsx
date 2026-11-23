@@ -11,7 +11,7 @@ import {
   Stack,
   type DataTableExtendedColumn,
 } from '@/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
@@ -22,6 +22,7 @@ import {
   type StaffEditRequestRow,
   staffEditRequests,
 } from './registrations-api';
+import { useWaitingList } from './use-waiting-list';
 import { LoadError } from '../../components/LoadError';
 import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
 
@@ -42,7 +43,7 @@ export function StaffEditRequests() {
   const queryClient = useQueryClient();
   const [refusing, setRefusing] = useState<StaffEditRequestRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const list = useQuery({ queryKey: STAFF_EDITS_KEY, queryFn: staffEditRequests });
+  const { list, rows, pagination } = useWaitingList(STAFF_EDITS_KEY, staffEditRequests);
   const decide = useMutation({
     mutationFn: ({ row, reason }: { row: StaffEditRequestRow; reason?: string }) =>
       decideStaffEdit(row.id, reason ? { decision: 'reject', reason } : { decision: 'approve' }),
@@ -127,7 +128,7 @@ export function StaffEditRequests() {
       <DataTable
         label={tr('tabs.staff_edits')}
         columns={columns}
-        rows={list.data ?? []}
+        rows={rows}
         getRowId={(r) => r.id}
         rowLabel={(r) => `${who(r)} · ${field(r)}`}
         rowActions={actions}
@@ -138,6 +139,7 @@ export function StaffEditRequests() {
           ) : undefined
         }
         emptyTitle={t('empty')}
+        cursorPagination={pagination}
         cardRenderer={(r) => (
           <div className="admin-permission-card">
             {person(r)}

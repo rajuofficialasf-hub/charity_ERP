@@ -22,10 +22,19 @@ import { useFileDataUrl } from '../../components/FileImage';
 import { ApiFailure } from '../../api/client';
 import { flatErrors } from '../../lib/form-schema';
 import { isContact, RequestState } from './ChangeRequests';
-import { type EditFields, showSendResult, toggleDetail, useEditForm, usePicked } from './edit-form';
+import {
+  type EditFields,
+  sendTogether,
+  showSendResult,
+  type TogetherOutcome,
+  toggleDetail,
+  useEditForm,
+  usePicked,
+  useSendKey,
+} from './edit-form';
 import { RequestBadge } from './ProfileDetails';
 import {
-  askStaffEdit,
+  askStaffEdits,
   type ChangeRequest,
   REQUESTS_KEY,
   STAFF_CHOICES_KEY,
@@ -303,10 +312,15 @@ export function OfficialEditSection({
   const alert = form.formState.errors.root?.server?.message;
   const waitingFor = (field: StaffEditField) => edits.find((r) => r.field === field);
 
+  const keyFor = useSendKey();
   const send = useMutation({
-    mutationFn: async ({ picked: ticked, values, note }: EditFields<StaffEditField>) => {
-      const sent: StaffEditField[] = [];
-      const failed: [StaffEditField, unknown][] = [];
+    mutationFn: async ({
+      picked: ticked,
+      values,
+      note,
+    }: EditFields<StaffEditField>): Promise<TogetherOutcome<StaffEditField>> => {
+      const requests: { field: StaffEditField; newValue?: unknown; note?: string }[] = [];
+      const missing: StaffEditField[] = [];
       for (const field of fields) {
         // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
         if (!ticked[field] || waitingFor(field)) continue;
@@ -314,44 +328,33 @@ export function OfficialEditSection({
         // eslint-disable-next-line security/detect-object-injection -- a fixed list of field names
         const value = photo ? undefined : cleanValue(field, values[field]);
         if (!photo && value === undefined) {
-          failed.push([field, MISSING]);
+          missing.push(field);
           continue;
         }
-        try {
-          await askStaffEdit({
-            field,
-            ...(photo ? {} : { newValue: value }),
-            ...(note.trim() ? { note: note.trim() } : {}),
-          });
-          sent.push(field);
-        } catch (error) {
-          failed.push([field, error]);
-        }
+        requests.push({
+          field,
+          ...(photo ? {} : { newValue: value }),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        });
       }
-      return { sent, failed };
+      // all of them or none: a detail the form cannot make holds back the others too
+      if (missing.length)
+        return { sent: [], refused: missing.map((f) => [f, tv('required')]), error: MISSING };
+      // every ticked detail is waiting already (a send whose answer the network lost): done
+      if (!requests.length) return { sent: [], refused: [], error: null };
+      return sendTogether(requests, (all) => askStaffEdits(all, keyFor(all)));
     },
-    onSuccess: ({ sent, failed }) => {
+    onSuccess: ({ refused, error }) => {
       void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
       void queryClient.invalidateQueries({ queryKey: STAFF_PROFILE_KEY });
-      if (!failed.length) {
+      if (error === null) {
         onSent();
         return;
       }
-      const message = (error: unknown) =>
-        error === MISSING
-          ? tv('required')
-          : error instanceof ApiFailure
-            ? (error.details[0]?.message ?? error.message)
-            : offline;
-      const unplaced = failed.find(
-        ([, error]) => !(error instanceof ApiFailure) && error !== MISSING,
-      );
-      showSendResult(
-        form,
-        sent,
-        failed.map(([field, error]) => [field, message(error)]),
-        sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null,
-      );
+      // nothing was sent: the details the refusal names say why, and one it does not place (or
+      // a call that reached no server) gets an alert of its own
+      const unplaced = error instanceof ApiFailure ? error.message : offline;
+      showSendResult(form, [], refused, refused.length ? t('profile.edit.none_sent') : unplaced);
     },
   });
 

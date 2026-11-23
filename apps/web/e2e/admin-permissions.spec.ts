@@ -74,12 +74,12 @@ test.describe('permission panel', () => {
     await expect(
       dialog.getByRole('list', { name: 'বাছাই করা পারমিশন' }).getByText('কার কী পারমিশন আছে দেখা'),
     ).toBeVisible();
+    // the own records, not the whole country, which would ask the demo account for a new password
     await dialog.getByRole('combobox', { name: /স্কোপ/ }).press('Enter');
     await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(dialog.getByRole('combobox', { name: /স্কোপ/ })).toContainText(
-      'সারা দেশ (GLOBAL)',
-    );
+    await settle(page);
+    await page.getByRole('option', { name: 'নিজের (SELF)' }).click();
+    await expect(dialog.getByRole('combobox', { name: /স্কোপ/ })).toContainText('নিজের (SELF)');
     const reason = `E2E: monitoring help (${info.project.name} ${Date.now() % 100000})`;
     await dialog.getByRole('textbox', { name: /কারণ/ }).fill(reason);
     await dialog.getByRole('button', { name: 'দিন', exact: true }).click();

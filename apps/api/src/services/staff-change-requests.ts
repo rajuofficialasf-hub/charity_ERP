@@ -5,6 +5,7 @@ import {
   STAFF_EDIT_FIELD_VALUES,
   STAFF_EDIT_FIELDS,
   type StaffEditField,
+  type StaffEditRequestBatch,
   type StaffEditRequestCreate,
   type StaffValueField,
 } from '@css/shared/registration';
@@ -24,8 +25,10 @@ import {
 } from '../core/pagination.js';
 import type { PrismaService, Tx } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
+import type { IdempotencyService } from '../idempotency/idempotency.service.js';
 import type { AccountEvents } from '../notifications/account-events.js';
 import { assertContactFree } from './change-requests.js';
+import { inOrder, runEditBatch } from './edit-batch.js';
 import { changeView } from './registrations.js';
 import { assertStaffRefs } from './staff-accounts.js';
 import { linkStaffPhoto, staffPhotos } from './staff-photos.js';
@@ -117,60 +120,98 @@ export class StaffChangeRequestsService {
     private readonly versions: PermissionVersionService,
     private readonly sessions: SessionService,
     private readonly events: AccountEvents,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   async create(principal: Principal, body: StaffEditRequestCreate) {
     if (principal.kind !== 'staff') throw new ApiError('permission.not_found', 404);
-    const field = body.field;
     const row = await this.prisma.$transaction(async (tx) => {
-      const [person] = await tx.$queryRaw<{ id: string }[]>`
-        SELECT id FROM users WHERE id = ${principal.userId}::uuid FOR UPDATE`;
-      if (!person) throw new ApiError('permission.not_found', 404);
+      await this.lockPerson(tx, principal.userId);
       const value =
-        field === 'photo'
+        body.field === 'photo'
           ? null
-          : await this.checkedValue(tx, principal.userId, { ...body, field });
-      // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
-      // number or a failed upload would else block the field)
-      if (isContact(field) || field === 'photo')
-        await tx.volunteerChangeRequest.updateMany({
-          where: { userId: principal.userId, volunteerId: null, kind: EDIT, field, status: 'open' },
-          data: { status: 'closed', decidedAt: this.clock.now() },
-        });
-      const busy = await tx.volunteerChangeRequest.count({
-        where: {
-          userId: principal.userId,
-          volunteerId: null,
-          kind: EDIT,
-          field,
-          status: { in: ['open', 'submitted'] },
-        },
-      });
-      if (busy) throw new ApiError('registration.request_open', 409);
-      const created = await tx.volunteerChangeRequest.create({
-        data: {
-          id: uuidv7(),
-          userId: principal.userId,
-          volunteerId: null,
-          kind: EDIT,
-          field,
-          newValue: field === 'photo' ? null : stored(field, value),
-          note: body.note ?? null,
-          requestedBy: principal.userId,
-          // a contact waits for its code, a photo for its upload
-          status: isContact(field) || field === 'photo' ? 'open' : 'submitted',
-        },
-      });
-      await this.audit.record(tx, {
-        action: 'auth.edit_requested',
-        entityType: 'user',
-        entityId: principal.userId,
-        new: { field, requestId: created.id },
-      });
-      if (created.status === 'submitted') await this.events.editRequestSubmitted(tx, created.id);
-      return created;
+          : await this.checkedValue(tx, principal.userId, { ...body, field: body.field });
+      return this.createIn(tx, principal, body, value);
     });
     return view(row);
+  }
+
+  /**
+   * Several details of the own profile in one request: each is checked as its own request is, and
+   * all of them are written in one transaction or none is; a refusal names the detail and never its
+   * value. It runs once per Idempotency-Key: a repeat with the same body answers the requests the
+   * first one made, and writes nothing.
+   */
+  async createMany(principal: Principal, key: string | undefined, body: StaffEditRequestBatch) {
+    if (principal.kind !== 'staff') throw new ApiError('permission.not_found', 404);
+    const { replay, ids } = await runEditBatch(this.idempotency, key, principal, body.requests, {
+      lock: (tx) => this.lockPerson(tx, principal.userId),
+      check: (tx, r) =>
+        r.field === 'photo'
+          ? Promise.resolve(null)
+          : this.checkedValue(tx, principal.userId, { ...r, field: r.field }),
+      write: (tx, r, value) => this.createIn(tx, principal, r, value),
+    });
+    const rows = await this.prisma.volunteerChangeRequest.findMany({
+      where: { id: { in: ids }, userId: principal.userId, volunteerId: null },
+    });
+    return { replay, data: inOrder(ids, rows).map(view) };
+  }
+
+  /** The caller's own row, locked for the requests; 404 when it is gone. */
+  private async lockPerson(tx: Tx, userId: string): Promise<void> {
+    const [person] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+    if (!person) throw new ApiError('permission.not_found', 404);
+  }
+
+  /** One edit request of an official written inside the caller's transaction, under the lock. */
+  private async createIn(
+    tx: Tx,
+    principal: Principal,
+    body: StaffEditRequestCreate,
+    value: unknown,
+  ) {
+    const field = body.field;
+    // a contact still waiting for its code, or a photo for its upload, is replaced (a mistyped
+    // number or a failed upload would else block the field)
+    if (isContact(field) || field === 'photo')
+      await tx.volunteerChangeRequest.updateMany({
+        where: { userId: principal.userId, volunteerId: null, kind: EDIT, field, status: 'open' },
+        data: { status: 'closed', decidedAt: this.clock.now() },
+      });
+    const busy = await tx.volunteerChangeRequest.count({
+      where: {
+        userId: principal.userId,
+        volunteerId: null,
+        kind: EDIT,
+        field,
+        status: { in: ['open', 'submitted'] },
+      },
+    });
+    if (busy) throw new ApiError('registration.request_open', 409);
+    const created = await tx.volunteerChangeRequest.create({
+      data: {
+        id: uuidv7(),
+        userId: principal.userId,
+        volunteerId: null,
+        kind: EDIT,
+        field,
+        newValue: field === 'photo' ? null : stored(field, value),
+        note: body.note ?? null,
+        requestedBy: principal.userId,
+        // a contact waits for its code, a photo for its upload
+        status: isContact(field) || field === 'photo' ? 'open' : 'submitted',
+      },
+    });
+    await this.audit.record(tx, {
+      action: 'auth.edit_requested',
+      entityType: 'user',
+      entityId: principal.userId,
+      new: { field, requestId: created.id },
+    });
+    if (created.status === 'submitted') await this.events.editRequestSubmitted(tx, created.id);
+    return created;
   }
 
   /**
@@ -206,12 +247,18 @@ export class StaffChangeRequestsService {
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
-    const fetched = await this.prisma.volunteerChangeRequest.findMany({
-      where: cursor ? { AND: [WAITING, keysetWhere(sort, cursor)] } : WAITING,
-      orderBy: orderBy(sort, direction),
-      take: query.limit + 1,
-      include: { user: { select: { ...PERSON, jobId: true } } },
-    });
+    const [fetched, total] = await Promise.all([
+      this.prisma.volunteerChangeRequest.findMany({
+        where: cursor ? { AND: [WAITING, keysetWhere(sort, cursor)] } : WAITING,
+        orderBy: orderBy(sort, direction),
+        take: query.limit + 1,
+        include: { user: { select: { ...PERSON, jobId: true } } },
+      }),
+      // the count above the tabs
+      query.include === 'total'
+        ? this.prisma.volunteerChangeRequest.count({ where: WAITING })
+        : undefined,
+    ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
       sort,
@@ -219,6 +266,7 @@ export class StaffChangeRequestsService {
       hadCursor: Boolean(cursor),
       secret: this.env.CURSOR_SECRET,
       binding,
+      total,
     });
     const photos = await staffPhotos(this.prisma, [...new Set(rows.map((r) => r.userId))]);
     const views = rows.map((r) => {

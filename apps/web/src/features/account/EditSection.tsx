@@ -6,10 +6,19 @@ import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../api/client';
 import { flatErrors } from '../../lib/form-schema';
 import { isContact, isPhoto } from './ChangeRequests';
-import { type EditFields, showSendResult, toggleDetail, useEditForm, usePicked } from './edit-form';
+import {
+  type EditFields,
+  sendTogether,
+  showSendResult,
+  type TogetherOutcome,
+  toggleDetail,
+  useEditForm,
+  usePicked,
+  useSendKey,
+} from './edit-form';
 import { labelKey, type ProfileField, RequestBadge, Value } from './ProfileDetails';
 import {
-  askEdit,
+  askEdits,
   type ChangeRequest,
   type OwnProfile,
   PROFILE_KEY,
@@ -24,9 +33,9 @@ const MISSING = Symbol('missing');
 /**
  * The edit mode of one section (docs/BUSINESS_RULES.md, the edit requests of an approved volunteer,
  * as amended in docs/DECISION_LOG.md): the person ticks
- * one or more details, gives the new values and one optional reason, and one request per ticked
- * detail is sent through the existing endpoint. A sent detail leaves the mode; a refused one stays
- * ticked with its message. The type has no tick (the Foundation decides it) and a detail that
+ * one or more details, gives the new values and one optional reason, and the ticked details go in
+ * one request: all of them are asked for or none is. A refused detail stays ticked with its
+ * message, and so do the others, which were not sent either. The type has no tick (the Foundation decides it) and a detail that
  * already has a request waiting shows that instead.
  */
 export function EditSection({
@@ -63,55 +72,48 @@ export function EditSection({
 
   const waitingFor = (field: ProfileField) => edits.find((r) => r.field === field);
 
+  const keyFor = useSendKey();
   const send = useMutation({
-    mutationFn: async ({ picked: ticked, values, note }: EditFields<RequestField>) => {
-      const sent: RequestField[] = [];
-      const failed: [RequestField, unknown][] = [];
+    mutationFn: async ({
+      picked: ticked,
+      values,
+      note,
+    }: EditFields<RequestField>): Promise<TogetherOutcome<RequestField>> => {
+      const requests: { field: RequestField; newValue?: unknown; note?: string }[] = [];
+      const missing: RequestField[] = [];
       for (const field of fields) {
         // a detail whose request appeared meanwhile is not asked for twice
         if (field === 'type' || !ticked[field] || waitingFor(field)) continue;
         const value = isPhoto(field) ? undefined : cleanValue(field, values[field]);
         // a value the form cannot make (a permanent address without its four levels) is not sent
         if (!isPhoto(field) && value === undefined) {
-          failed.push([field, MISSING]);
+          missing.push(field);
           continue;
         }
-        try {
-          await askEdit({
-            field,
-            ...(isPhoto(field) ? {} : { newValue: value }),
-            ...(note.trim() ? { note: note.trim() } : {}),
-          });
-          sent.push(field);
-        } catch (error) {
-          failed.push([field, error]);
-        }
+        requests.push({
+          field,
+          ...(isPhoto(field) ? {} : { newValue: value }),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        });
       }
-      return { sent, failed };
+      // all of them or none: a detail the form cannot make holds back the others too
+      if (missing.length)
+        return { sent: [], refused: missing.map((f) => [f, tv('required')]), error: MISSING };
+      // every ticked detail is waiting already (a send whose answer the network lost): done
+      if (!requests.length) return { sent: [], refused: [], error: null };
+      return sendTogether(requests, (all) => askEdits(all, keyFor(all)));
     },
-    onSuccess: ({ sent, failed }) => {
+    onSuccess: ({ refused, error }) => {
       void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
       void queryClient.invalidateQueries({ queryKey: PROFILE_KEY });
-      if (!failed.length) {
+      if (error === null) {
         onSent();
         return;
       }
-      const message = (error: unknown) =>
-        error === MISSING
-          ? tv('required')
-          : error instanceof ApiFailure
-            ? (error.details[0]?.message ?? error.message)
-            : offline;
-      // a call that reached no server, or no field to blame, gets an alert of its own
-      const unplaced = failed.find(
-        ([, error]) => !(error instanceof ApiFailure) && error !== MISSING,
-      );
-      showSendResult(
-        form,
-        sent,
-        failed.map(([field, error]) => [field, message(error)]),
-        sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null,
-      );
+      // nothing was sent: the details the refusal names say why, and one it does not place (or
+      // a call that reached no server) gets an alert of its own
+      const unplaced = error instanceof ApiFailure ? error.message : offline;
+      showSendResult(form, [], refused, refused.length ? t('profile.edit.none_sent') : unplaced);
     },
   });
 

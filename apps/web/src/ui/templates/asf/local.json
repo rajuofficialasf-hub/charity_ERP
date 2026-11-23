@@ -26,12 +26,13 @@
       "name": "Choices: Checkbox, CheckboxGroup, RadioGroup, Switch, Combobox, SelectField (extended)",
       "files": [
         "components/choices.tsx",
+        "components/sheet-context.ts",
         "components/fields.tsx",
         "components/labels.ts",
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP; each checkbox of a group carries its option as its value, as a native form sends it",
+      "note": "the choices of the ERP's forms: an \"other\" choice opening a text box inside the same field, disabled options, a select that becomes a combobox above 10 options, and a combobox for server search or free text; built for the CSS ERP; each checkbox of a group carries its option as its value, as a native form sends it; a combobox inside a bottom sheet opens its list inside the sheet, so the list scrolls with it",
       "screenshot": "docs/ui/asf-pieces/gallery-choices.png"
     },
     {
@@ -52,11 +53,12 @@
         "components/dialog.tsx",
         "components/menu.tsx",
         "components/drawer.tsx",
+        "components/sheet-context.ts",
         "components/labels.ts",
         "components/index.ts",
         "../../contract.ts"
       ],
-      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason held in react-hook-form and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP",
+      "note": "the overlays of the ERP: a dialog that stays open while saving and fills a phone for a long form, a confirm dialog with what follows, a required reason held in react-hook-form and a busy confirm, a menu of links and actions for rows and profiles, and the drawer as a bottom sheet on phones; built for the CSS ERP; the bottom sheet tells the pieces inside it so (SheetContext)",
       "screenshot": "docs/ui/asf-pieces/gallery-overlays.png"
     },
     {

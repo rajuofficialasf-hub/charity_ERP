@@ -11,6 +11,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Icon } from './icon';
 import { useLabels } from './labels';
+import { SheetContext } from './sheet-context';
 
 // ----------------------------------------------------------------------
 
@@ -41,7 +42,10 @@ export function Drawer({ open, onClose, title, children, actions, side = 'right'
           <Icon name="close" size={20} />
         </IconButton>
       </Box>
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>{children}</Box>
+      {/* a list opened in a bottom sheet opens inside it and scrolls with it */}
+      <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
+        <SheetContext.Provider value={anchor === 'bottom'}>{children}</SheetContext.Provider>
+      </Box>
       {actions && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, p: 2.5, borderTop: 1, borderColor: 'divider' }}>{actions}</Box>
       )}

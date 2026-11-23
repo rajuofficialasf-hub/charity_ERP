@@ -32,7 +32,9 @@ async function asHead(request: APIRequestContext) {
           userId,
           permissions: ['permission.view'],
           effect: 'grant',
-          scopeType: 'GLOBAL',
+          // the own records: a grant for the whole country would ask the demo account for a new
+          // password, and the other specs sign it in with the demo one
+          scopeType: 'SELF',
           reason: 'E2E: notification check',
         },
       });

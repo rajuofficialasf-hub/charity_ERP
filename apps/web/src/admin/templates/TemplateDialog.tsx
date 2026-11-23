@@ -1,9 +1,10 @@
-import { Button, Dialog, Form, FormTextField, Switch } from '@/ui';
+import { Dialog, Form, FormTextField, Switch } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { type Template, updateTemplate } from './templates-api';
+import { DialogActions } from '../DialogActions';
 
 /** A template keeps a name in both languages. */
 const TEMPLATE_SCHEMA = z.object({
@@ -72,18 +73,14 @@ export function TemplateDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form

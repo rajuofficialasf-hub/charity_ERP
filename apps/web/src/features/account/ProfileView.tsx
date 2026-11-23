@@ -195,7 +195,8 @@ function Profile() {
                 edits={edits}
                 onBusy={setBusy}
                 onDirty={setDirty}
-                onCancel={() => setEditing(false)}
+                // ticked details are never dropped without a question, by Cancel either
+                onCancel={() => (dirty ? setLeaving(current) : setEditing(false))}
                 onSent={() => {
                   setEditing(false);
                   setNotice(t('profile.edit.sent'));
@@ -220,7 +221,9 @@ function Profile() {
         open={leaving !== null}
         title={t('profile.edit.leave_title')}
         message={t('profile.edit.leave_message')}
-        confirmLabel={t('profile.edit.leave_confirm')}
+        confirmLabel={
+          leaving === current ? t('profile.edit.discard_confirm') : t('profile.edit.leave_confirm')
+        }
         onConfirm={() => {
           if (leaving) setCurrent(leaving);
           setLeaving(null);

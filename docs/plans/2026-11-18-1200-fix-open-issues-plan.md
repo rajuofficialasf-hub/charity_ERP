@@ -1,7 +1,7 @@
 ---
 title: The open issues closed
 type: fix
-status: in-progress
+status: done
 source: brainstorm
 date: 2026-11-18
 doc_review: 2026-11-18
@@ -35,14 +35,14 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **R10** A photo uploaded before its size was kept gets its resolution, read once from the stored file, so the photo viewer shows it.
 
 ### Data and clean-up
-- **R11** The locations master is checked against the official BBS geocode list the owner provides: every difference is reported and fixed with the owner's approval, and a union gets its own post code where the official list has one.
+- ~~**R11**~~ (dropped by the owner, 2026-11-22) The locations master is checked against the official BBS geocode list the owner provides: every difference is reported and fixed with the owner's approval, and a union gets its own post code where the official list has one.
 - **R12** The unused column `registration_drafts.reference_lookups` is dropped by a migration with its `down.sql`.
 - **R13** The repeated code the scripted checks list across the admin pages (dialog footers, page headers on one pattern) is moved into shared pieces where the behaviour stays the same and tests prove it.
 - **R14** Every entry of "Known issues" in `docs/STATUS.md` is checked against the code: a fixed one is removed with the change that fixed it named, an open one stays with what it waits for, and the deliberate decisions move under "Decided to leave as is". The small gallery change one entry waits for (`PageBand` missing from the asf gallery, T1.9b) is made here.
 - **R15** The officials' registrations, the volunteers' edit requests and the officials' own requests on the registrations page page past their first 100 rows, as the other lists do.
 
 ## Scope
-- In: R1 to R15.
+- In: R1 to R15, without R11 (dropped).
 - Out (not now): the preparation for production (the SMS provider, the review of the notification texts, the production storage and the MinIO conditions, a shared store for several API processes, the held `@swc/core`); the work waiting for the pilot's load test (the login limit behind one address, the public link's per-IP limit, the program cards' speed); the decisions the owner already made to leave as they are (the lookup limit's two answers, the phone notice on the other admin pages, the photo's own page with one photo, the banner's small photo, the old projects' workflow snapshots); the owner's own clean-up of the retired role `implementer` in the development database; the audit exception E-002, which is reviewed by its expiry.
 
 ## Key decisions
@@ -50,7 +50,8 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **A GLOBAL-scope permission from the panel counts as a global role for the password** (the owner: "হ্যাঁ, পরের লগইনে বদলাতে বাধ্য", then, once research showed no role is given later, "প্যানেলের সব-অঞ্চল অনুমতিতেও ১২ অক্ষর"). Governs R5.
 - **The own profile's change of several details is all or nothing, and leaving the edit mode asks first** (the owner: "সব একসঙ্গে, আর সতর্ক করো"). Governs R6 and R7.
 - **The preparation for production and the load-test work stay out** (the owner's choice of 2026-11-18). Governs Scope.
-- **The locations check and the repeated code clean-up stay in** (the owner left them in). Governs R11 and R13.
+- **The repeated code clean-up stays in** (the owner left it in), and `jscpd` is downloaded once for it (the owner: "হ্যাঁ, ডাউনলোড করো", 2026-11-22). Governs R13.
+- **The locations check is dropped** (the owner, 2026-11-22: "U16 বাদ দিন"): the locations master stays as it is. Governs R11.
 - **A flaky test is fixed at its cause, never by a retry** (`docs/testing/TEST_STRATEGY.md`). Governs R3.
 - **Coverage is reported on develop only** (the owner: "কভারেজ শুধু develop-এ"), so a pull request's run stays near 19 minutes. Governs R2 and R4.
 - **The plan review's security hardening is added whole** (the owner: "সব যোগ করো"): the profile batch takes only the allowed details, a bounded list and a key scoped to the caller, and never echoes a value; only a caller with GLOBAL reach gives a GLOBAL grant, a revoke is ended only by a caller whose reach covers it, and the pickers list only the caller's own programs, projects and places; a GLOBAL grant holds an open session to the password change too; the E2E job of a pull request holds no secret; the size backfill skips oversized files; `jscpd` runs at a pinned version without secrets. Governs R2, R5, R6, R9, R10, R13.
@@ -62,7 +63,6 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 
 ## Open questions
 - **R4:** the coverage minimums per package (lines and branches). Until the owner sets them, CI reports coverage without failing.
-- **R11:** the official BBS geocode list (the file the owner gives). Until it comes, R11 waits and the rest goes ahead.
 
 ## Technical decisions
 - **Stack profile unchanged** (`CLAUDE.md`, ST-40 to ST-45): no new runtime dependency. The repeated code is found with `jscpd` run once through `pnpm dlx` at a pinned version, with an environment that holds no `.env` value or token (NE-CFG-02), and is not added to the repository.
@@ -139,7 +139,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U5. The whole web suite on one machine without time-outs
 - **Goal:** `pnpm test` passes on the owner's machine with no web component test timing out.
@@ -166,7 +166,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done (the table of the first develop run after the merge is checked then)
 
 ### U7. A GLOBAL-scope grant asks for the 12-character password
 - **Goal:** an official given a GLOBAL-scope permission through the panel sets a password at the next sign-in, and every password of theirs needs 12 characters while the grant is active.
@@ -180,7 +180,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U8. The own profile's details in one request
 - **Goal:** a volunteer's or an official's change of several details is taken whole or not at all.
@@ -194,7 +194,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U9. The profile sends once and asks before dropping
 - **Goal:** the own profile's edit sends its ticked details in one request, and the Cancel button asks before dropping ticked details.
@@ -209,7 +209,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** U8
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U10. A list in a bottom sheet stays with the sheet
 - **Goal:** on a phone a Combobox opened inside a bottom sheet stays above the sheet and moves with it.
@@ -224,7 +224,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U11. The permission panel picks its scopes and lifts a revoke
 - **Goal:** a grant's program, project or location is chosen from a list, and a revoke override can be ended from the screen.
@@ -254,7 +254,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** file storage
-- **Status:** todo
+- **Status:** done
 
 ### U13. The unused column dropped
 - **Goal:** `registration_drafts.reference_lookups` is gone, with a reverse that restores it.
@@ -268,7 +268,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** migrations
-- **Status:** todo
+- **Status:** done
 
 ### U14. The registrations page pages past 100 rows
 - **Goal:** the officials' registrations, the edit requests and the officials' own requests show every row, page by page.
@@ -283,7 +283,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U15. The admin pages' repeated code in shared pieces
 - **Goal:** the dialog footers and page headers repeated across the admin pages come from shared pieces, with the same behaviour.
@@ -296,7 +296,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U17. Known issues that hold only what is open
 - **Goal:** `docs/STATUS.md` names no fixed problem, and the gallery shows `PageBand`.
@@ -310,7 +310,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15 (it names what they fixed; U16 is added to the status when it lands)
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U16. The locations checked against the official list
 - **Goal:** every difference between the locations master and the owner's BBS list is reported, and the approved ones are loaded.
@@ -323,7 +323,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** dropped (the owner, 2026-11-22: "U16 বাদ দিন"; the locations master stays as it is)
 
 ## Checkpoints
 - **Mode:** grouped (one by one 0, grouped 14, all at once 1; one by one's 5 moved to grouped since N is over 4)
@@ -335,8 +335,7 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - **C5** after U11: the permission panel (permissions)
 - **C6** after U12: a job that reads the stored files (file storage)
 - **C7** after U13: a migration
-- **C8** after U17 (U14, U15, U17): the paging, the clean-up and the status; U17 comes before U16 on purpose, since U16 waits for the owner's file
-- **C9** after U16: the locations check, once the owner's file is in (end)
+- **C8** after U17 (U14, U15, U17): the paging, the clean-up and the status (end; U16 was dropped)
 
 ## Verification
 - `pnpm lint`, `pnpm typecheck`, `pnpm docs:check`, `pnpm i18n:check`
@@ -348,11 +347,11 @@ The owner asked which problems the pull requests left behind (2026-11-18) and th
 - U2 and U6: revert the workflow change; nothing else depends on it.
 - U7: the flag is set per grant; a revert stops new flags, and a flagged official changes the password once.
 - U8: the batch operations are additive and the one-detail operations stay, so reverting U9 alone returns the screen to them.
-- U13: the `down.sql` restores the column with its default and check.
+- U13: the `down.sql` restores the column with its default and check. An API still on the earlier build names the column in its reads of a registration draft, so the API restarts with the new build right after `pnpm db:migrate`; between the two a registration fails.
 
 ## Progress
-- **Branch:** U3 ships alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
-- **Next:** U4 (characterize first: a refresh in flight at the sign-out), then U5, then C2
-- **Reviewed through:** C1 at fb6d6e34 (U1 and U2 went through the pull request's own six checks and develop's run after the merge, all green; no reviewer run: two small units, one a workflow change)
+- **Branch:** U4 to U17 on `fix/open-issues-rest` from develop at b3c83378 (the owner, 2026-11-22: every remaining unit before the UAT); U3 shipped alone from `test/e2e-own-accounts` (the owner's word of 2026-11-19); U4 and U5 start on a new branch from develop; U1 and U2 merged as PR #67 (fb6d6e34), the UAT scripts as PR #68
+- **Next:** the pull request into `develop` (the full run passed: three whole `pnpm test` runs, `pnpm e2e` with the two known flakes passing alone, the web contract test, the build); earlier: the full run (three whole `pnpm test` runs with no file changing under them, `pnpm e2e`, the web contract test, the build and the bundle report), then the pull request; the three whole runs of U5 at the end, once no file changes under them (a run that saw files change is not counted)
+- **Reviewed through:** C8 at the commit after `788fad7e` (U14, U15, U17; the scripted checks over the whole branch: no P1, one P0 lead dismissed: the wrong password the lockout test sends on purpose); earlier: C7 at `867c218d` (U13; two reviewers, no finding but the restart after the migration, now in Rollback); earlier: C6 at the commit after `fb9430da` (U10 and U12); C4 at the commit after `8ebfc21a` (U8 and U9); C2 and C3 together at the commit after `3e19a039` (U4 to U7, one pack; earlier: C1 at fb6d6e34 (U1 and U2 went through the pull request's own six checks and develop's run after the merge, all green; no reviewer run: two small units, one a workflow change))
 - **Uncommitted:** —
-- **Notes:** U2: develop is protected on GitHub since 2026-11-18 (the six checks required, no force push, no deletion; admins may pass). The pull request's third shard took 25 minutes once and 7 the next time; watch it. U3: the offline journeys got a demo volunteer of their own (21, 01700000121), `photo-viewer.spec.ts` (mobile) and `volunteers.spec.ts` (desktop) read their refusal as volunteer 3, and `admin.spec.ts` keeps volunteers 11 and 12, whose saved language it switches; the six specs ran together, 40 passed. The three full runs in a row of U3's Done-when are left for C2, with U4 and U5. The pull request's first shard run failed in the web contract test, not in E2E: `tests/contract/photos.contract.test.ts` (added with the photo viewer) uploaded a program's cover as the PM, whom `program.update` refuses (403). It skips without `CONTRACT_API_URL`, so it had never run; it now signs in as the Department Head and passed against the E2E API (65 of 65). A contract test is run with the API's address before it is called passing. U1 also guards the overview read of `use-sync-store.ts` (it set state after its await too) and adds `apps/web/src/lib/use-alive.ts`; the whole web suite then ran with 0 unhandled errors, 8 tests timed out under load and passed when their 5 files ran alone (U5). PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.
+- **Notes:** C8 (three reviewers, T2; no security finding): a list over 10,000 rows has the count "10000+", which the counts above the tabs and the line under the list now show as given instead of the rows loaded (`Statistic.value` takes text as well); the footer passes its variant directly; tests of `DialogActions` beside it (the area filter is proved by the three list pages' tests). U17: the 42 entries of "Known issues" became 20 open ones, each naming what it waits for, one line of what was fixed and by which change, and a new section "Decided to leave as is" for the owner's choices; `PageBand` no longer exists (it went with the earlier design set, D-150), and the gallery already shows `Stepper`, so the gallery needed nothing. U15: `jscpd@4.0.5` ran twice through `npx --yes` with an environment of the path and the user folders only (no `.env` value or token), never added to the repository: 52 repeats, then 49, 2.1% of the admin pages' lines. No piece repeated character for character in three files; grouped by overlapping lines, two kinds were: the area filter of the three nationwide lists (now `admin/AreaFilter.tsx`) and the footer of the admin dialogs (now `admin/DialogActions.tsx`, moved by a script in the 21 dialogs whose footer had exactly the common shape, each keeping its own words; the others keep theirs). The numbered pager of the three lists was already the shared `numberedPaging`; the three calls differ only in the list's words and stay. The 889 admin component tests passed unchanged. U14: the three lists page by cursor with "load more" (the pattern of the duplicates page), 50 rows a page, rather than numbered pages: the two edit-request lists had no total and are short lists of waiting work; both now give one on `include=total`, which the first page asks for, so the counts above the tabs are the whole lists'. `useWaitingList` in `admin/registrations/use-waiting-list.ts` holds the paged read for the three. U13: the migration `20261123100000_drop_registration_draft_reference_lookups` drops the column and its check, the down adds both back (every draft at 0); the round trip of every migration took about 45 s alone with this one and passed its 60 s only without load, so that test has a limit of its own, 240 s, with the reason beside it. C6 (three reviewers, T2, over U10 and U12; no security finding): the job's photo filter is one where-clause both queries share, and a test proves a size written between the read and the write is never overwritten. Two reviewers noted that a photo that cannot be measured keeps the start-time check true, so each start of the worker runs the job again; kept, and written into FILES_AND_DOCUMENTS (it reads those few photos again and writes nothing; a marker would need its own column). Dismissed: the duplicate-code leads (a batch walk by id, written in its own words per job). U12: the job reads only photos the processing finished (`clean` or `skipped`; one still waiting or refused is the processing's), walks by id in batches of 50 with no long transaction (each size written alone, only while still empty), and logs a refused or unreadable photo by id and the error's kind, never its content; the queue `file-dimensions` (stately) is new, so `pnpm db:migrate` installs it on the owner's database. U10: the Drawer tells the pieces inside a bottom sheet so (`SheetContext`, `components/sheet-context.ts`), and a Combobox there opens its list inside the sheet (`disablePortal`), so the list scrolls with it; the gallery's sheet has a district search to show it, and `asf-gallery.spec.ts` opens its list on the phone, finds it inside the sheet and scrolls; the kit files keep the kit's own formatting (`.prettierignore`), recorded in `local.json`. The gallery spec's axe check of the photo viewer failed now and then with low contrast: it awaited the animations inside the dialog only, while the viewer fades its backdrop outside it; it now awaits every finite animation of the page (also fails without this unit's change, so it was the timing). C4 (three reviewers, T2, over U8 and U9): the volunteer's batch checked its details before the key was looked up, so a repeat after its new mobile was approved answered 422; both owners now run one helper, `runEditBatch` in `edit-batch.ts`, which looks up the key first, then locks, checks and writes in one transaction with limits of its own (30 s; the default of 5 s is short for twenty requests); a send whose answer was lost left the page posting an empty list on the second press, and now counts as done once every ticked detail is waiting; the refused details are read through a type check, not a cast; unit tests beside `edit-batch.ts` and the shared batch schema. Dismissed: the two pages' send sites stay two (they share `sendTogether`, and only their detail lists differ). U9: both profile pages send the ticked details through the batch (`sendTogether` and `useSendKey` in `features/account/edit-form.ts`: a retry of the same details keeps the key, other details take a new one); a detail the form cannot make holds the others back too, since nothing may go half; the text of a partial send became "কিছুই পাঠানো হয়নি। চিহ্নিত তথ্য ঠিক করে আবার পাঠান।"; "বাতিল" with a ticked detail opens the question of the section switch with its own confirm "পরিবর্তন বাদ দিন"; the single-detail calls of the web are gone (the API keeps them). U8: `POST /me/change-requests/batch` and `POST /me/staff-change-requests/batch` (BR-328), each single create split into its check and its write (`createIn`) so the two paths share every rule; `apps/api/src/services/edit-batch.ts` holds the shared parts (every detail checked before anything is written, a refusal named by its detail, the body kept only as a hash, the answers in the order asked). The key store already in use (`IdempotencyService.runWithKey`) refuses a key reused with another body with 422, not the 409 the unit named; it keeps only the ids of the requests. A detail refused while written (a request still open) answers its own status (409) with the detail named. The answer is a whole list with the meta of a list page, as the panel's grants. C2 and C3 (three reviewers, T2, one pack for U4 to U7 while the second whole run ran): the logout's count moved at its start made a logout with a stale token fail while a refresh was on its way, so the logout now waits for that refresh first and goes out with the newest token, and the count at its end drops a refresh started during it; the two client tests set their order through the requests themselves, no clock; the password change spec sets the old password back in `finally`, and its new password is one constant. Dismissed: the save count of the score test (a self-saving draft saves after a pause, so how many saves a step makes depends on the typing; the test checks what each save holds and the points of every save); a flag left set when the grant ends before the next sign-in (intended and written in AUTH.md: the password is set once); the password literal leads of the E2E spec (the local test account's demo password); no test beside `holdsGlobalScope` (four integration tests cover it). U7: the whole country is given by an Admin or the Department Head only (`whole_country_top_roles_only`, the rule the extra areas already use), stricter than the planned "a holder of the panel at GLOBAL": the panel is the Admin's and the Head's since the Admin role, and a holder an Admin makes at another scope is refused too; a withdrawal at GLOBAL stays open to any holder. The role change of the Admin role already set the flag for a new global role, so the panel's grant was the one gap. `holdsGlobalScope` lives in `apps/api/src/auth/global-scope.ts`, read by the change, the reset and the set-password link. An open session meets the flag after its token goes stale (the grant raises the version) and the refresh. Two panel tests gave the whole country only to set up something else; they now give a region and a program, and the E2E panel spec gives the own records (SELF), so no demo account is asked for a new password; the UAT's step গ-3 gives a region, and ঢ-7 tells of the new password. U6: the grouping lives in `scripts/lib/coverage-summary.mjs` with its types beside it and its test in `packages/shared/test/`, as the rule status does; `scripts/coverage-summary.mjs` appends the table to `GITHUB_STEP_SUMMARY` and prints it; a pull request runs `pnpm test` alone. U4: the server already refused a crossed refresh (the rotation updates only a row whose session is not revoked); the new API test sends a refresh and the logout together five times and finds no cookie that opens the session afterwards, passing on the code as it was. The client accepted a refresh that answered while the logout request was still on its way (the count of sign-ins moved only after the logout's answer), shown by a new client test that failed for that reason; the count now moves when the logout starts. The password change spec could not repeat (the first round left the account on the new password); it now sets the old one back through the API and passed 6 of 6 with `--repeat-each 3 --workers 1`. U2: develop is protected on GitHub since 2026-11-18 (the six checks required, no force push, no deletion; admins may pass). The pull request's third shard took 25 minutes once and 7 the next time; watch it. U3: the offline journeys got a demo volunteer of their own (21, 01700000121), `photo-viewer.spec.ts` (mobile) and `volunteers.spec.ts` (desktop) read their refusal as volunteer 3, and `admin.spec.ts` keeps volunteers 11 and 12, whose saved language it switches; the six specs ran together, 40 passed. The three full runs in a row of U3's Done-when are left for C2, with U4 and U5. The pull request's first shard run failed in the web contract test, not in E2E: `tests/contract/photos.contract.test.ts` (added with the photo viewer) uploaded a program's cover as the PM, whom `program.update` refuses (403). It skips without `CONTRACT_API_URL`, so it had never run; it now signs in as the Department Head and passed against the E2E API (65 of 65). A contract test is run with the API's address before it is called passing. U1 also guards the overview read of `use-sync-store.ts` (it set state after its await too) and adds `apps/web/src/lib/use-alive.ts`; the whole web suite then ran with 0 unhandled errors, 8 tests timed out under load and passed when their 5 files ran alone (U5). PR #66 merged as ece97080 before this branch started; its own CI run passed the unit and API job, so the unhandled rejection of the sync test is intermittent.

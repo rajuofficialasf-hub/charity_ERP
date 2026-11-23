@@ -443,12 +443,19 @@ describe('API client', () => {
     },
   );
 
-  it('a refresh that succeeds after a logout does not sign the old session in again', async () => {
+  it('a refresh that starts during the logout and answers after it never signs the person in', async () => {
     const events: (string | undefined)[] = [];
     let release: () => void = () => {};
+    let answer: () => void = () => {};
+    let logoutArrived: () => void = () => {};
+    const arrived = new Promise<void>((r) => (logoutArrived = r));
     server.use(
       http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
-      http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+      http.post('*/api/v1/auth/logout', async () => {
+        logoutArrived();
+        await new Promise<void>((r) => (answer = r));
+        return new HttpResponse(null, { status: 204 });
+      }),
       http.post('*/api/v1/auth/refresh', async () => {
         await new Promise<void>((r) => (release = r));
         return HttpResponse.json({ data: pair(ME, 'access-late'), meta: {} });
@@ -456,12 +463,47 @@ describe('API client', () => {
     );
     await login('a', 'b');
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
+    const out = logout();
+    await arrived;
+    // another request needs a token while the logout is on its way
     const pending = refreshSession();
-    await logout();
+    answer();
+    await out;
     release();
     expect(await pending).toBeNull();
     expect(currentMe()).toBeNull();
     expect(events).toEqual(['logout']);
+  });
+
+  it('a refresh already on its way at the logout finishes first, and the logout goes out with its token', async () => {
+    const authorizations: (string | null)[] = [];
+    let release: () => void = () => {};
+    let refreshArrived: () => void = () => {};
+    const arrived = new Promise<void>((r) => (refreshArrived = r));
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/refresh', async () => {
+        refreshArrived();
+        await new Promise<void>((r) => (release = r));
+        return HttpResponse.json({ data: pair(ME, 'access-late'), meta: {} });
+      }),
+      http.post('*/api/v1/auth/logout', ({ request }) => {
+        authorizations.push(request.headers.get('Authorization'));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await login('a', 'b');
+    const pending = refreshSession();
+    await arrived;
+    const out = logout();
+    // the logout waits for the refresh: nothing has gone out yet
+    await Promise.resolve();
+    expect(authorizations).toEqual([]);
+    release();
+    await out;
+    expect(authorizations).toEqual(['Bearer access-late']);
+    expect((await pending)?.accessToken).toBe('access-late');
+    expect(currentMe()).toBeNull();
   });
 
   it('a refresh that succeeds after a newer login does not replace the new session', async () => {

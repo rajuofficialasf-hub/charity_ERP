@@ -39,6 +39,17 @@ export const QUEUES = {
     retryBackoff: false,
     expireInSeconds: 3600,
   },
+  /**
+   * The sizes of the photos stored before the size was kept: nightly and at the worker's start
+   * when any photo has none; one run at a time.
+   */
+  'file-dimensions': {
+    policy: 'stately',
+    retryLimit: 3,
+    retryDelay: 600,
+    retryBackoff: false,
+    expireInSeconds: 3600,
+  },
   /** Nightly recomputation of the suggested duplicate beneficiaries. */
   duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
   /**

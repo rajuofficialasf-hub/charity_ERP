@@ -1,11 +1,12 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, Button, Dialog, Form, RadioGroup, Text } from '@/ui';
+import { Alert, Dialog, Form, RadioGroup, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { FORMS_KEY, placeForm, READY_KEY, readyForms } from './forms-api';
+import { DialogActions } from '../DialogActions';
 
 /** The published ready form to place. */
 const PLACE_SCHEMA = z.object({
@@ -70,18 +71,14 @@ export function PlaceFormDialog({
       onClose={close}
       dismissible={!place.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={close} disabled={place.isPending}>
-            {t('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!choice}
-            loading={place.isPending}
-          >
-            {tp('place')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={t('cancel')}
+          onCancel={close}
+          submitLabel={tp('place')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={place.isPending}
+          disabled={!choice}
+        />
       }
     >
       <Form

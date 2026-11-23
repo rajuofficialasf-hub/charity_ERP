@@ -1,10 +1,11 @@
 import { isBirthRegNumber, isNidNumber, normalizeIdentityNumber } from '@css/shared/beneficiaries';
-import { Alert, Button, Dialog, Form, FormTextField, SelectField, TextField } from '@/ui';
+import { Alert, Dialog, Form, FormTextField, SelectField, TextField } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { type BeneficiaryProfile, type LockedField, requestCorrection } from './beneficiaries-api';
+import { DialogActions } from '../DialogActions';
 
 const FIELDS: LockedField[] = ['name', 'father_or_husband_name', 'nid', 'birth_reg'];
 const isNumber = (field: string) => field === 'nid' || field === 'birth_reg';
@@ -84,18 +85,14 @@ export function CorrectionDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('send')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={t('send')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={send} label={t('title')}>

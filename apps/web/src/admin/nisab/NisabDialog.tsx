@@ -1,13 +1,14 @@
 import { toEnglishDigits } from '@css/shared';
 import { isoDateInDhaka } from '@css/shared/format';
 import { NISAB_MAX_DAYS_AHEAD, nisabAddSchema, type NisabVersionView } from '@css/shared/settings';
-import { Button, Dialog, Form, FormDateField, FormTextField } from '@/ui';
+import { Dialog, Form, FormDateField, FormTextField } from '@/ui';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import type { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addNisab } from './nisab-api';
+import { DialogActions } from '../DialogActions';
 
 const DAY = 86_400_000;
 /** The request's rules, the basis note held as typed (empty when none is written). */
@@ -76,18 +77,14 @@ export function NisabDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!values.value || !values.effectiveFrom}
-            loading={pending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!values.value || !values.effectiveFrom}
+        />
       }
     >
       <p className="admin-muted">{t('hint')}</p>

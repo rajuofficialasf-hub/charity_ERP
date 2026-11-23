@@ -37,6 +37,7 @@ import { LocalKeyCleanup } from './jobs/local-key-cleanup.js';
 import { SnapshotService } from './sync/snapshot.js';
 import { SyncService } from './sync/sync.service.js';
 import { UploadSweep } from './jobs/upload-sweep.js';
+import { FileDimensionsJob } from './jobs/file-dimensions.js';
 import { StorageStats } from './jobs/storage-stats.js';
 import { FileProcessor } from './jobs/file-process.js';
 import { createScanner } from './files/scanner.js';
@@ -127,7 +128,7 @@ import { RoleChangesService } from './services/role-changes.js';
 import { OrganogramService } from './services/organogram.js';
 import { StaffAccountsService } from './services/staff-accounts.js';
 import { UsersService } from './services/users.js';
-import { createStorage, type StorageDriver } from './storage/index.js';
+import { createDriver, createStorage, type StorageDriver } from './storage/index.js';
 
 /**
  * The services of one process, built once from the validated configuration (no DI container): the
@@ -172,6 +173,7 @@ export interface Container {
   uploadSweep: UploadSweep;
   localKeyCleanup: LocalKeyCleanup;
   storageStats: StorageStats;
+  fileDimensions: FileDimensionsJob;
   fileProcessor: FileProcessor;
   uploads: UploadsService;
   registrationPhotos: RegistrationPhotosService;
@@ -662,6 +664,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         permissionVersions,
         sessions,
         accountEvents,
+        idempotency,
       ),
     staffChangeRequests:
       o.staffChangeRequests ??
@@ -673,11 +676,20 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         permissionVersions,
         sessions,
         accountEvents,
+        idempotency,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
     uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
     localKeyCleanup: o.localKeyCleanup ?? new LocalKeyCleanup(prisma, clock, logger),
     storageStats: o.storageStats ?? new StorageStats(prisma, clock, logger),
+    // a row names its driver: the current one, or the other while the files are being moved
+    fileDimensions:
+      o.fileDimensions ??
+      new FileDimensionsJob(
+        prisma,
+        (name) => (name === storage.name ? storage : createDriver(name, env)),
+        logger,
+      ),
     fileProcessor:
       o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),
   };

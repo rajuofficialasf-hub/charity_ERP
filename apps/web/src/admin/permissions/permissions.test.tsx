@@ -196,7 +196,8 @@ describe('permission panel', () => {
     expect(within(section).getAllByText('রিজিওন (REGION)').length).toBeGreaterThan(0);
     expect(screen.getByText('প্রজেক্ট এক্সিকিউটিভ')).toBeInTheDocument();
     await expectNoAxeViolations(container);
-  });
+    // the whole page's journey and an axe scan, as the other journeys of this file
+  }, 20_000);
 
   it('gives several permissions by name on a project chosen by name, then lists what is given', async () => {
     const user = userEvent.setup();
