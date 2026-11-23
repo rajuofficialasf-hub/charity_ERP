@@ -10677,6 +10677,11 @@ paths:
       tags: [applications]
       operationId: applications.application.list
       summary: Applications of a project within scope; review queue sorted by score when sort=-score
+      description: >-
+        Without a sort the list comes by arrival, the earliest sent first; sort=-score orders by the
+        score, the highest first, and an equal score by arrival. Drafts, which have not arrived, and
+        unscored applications come last; the id orders what is left equal. sort=id or sort=-id
+        orders by creation. A cursor belongs to its order and is refused by another.
       x-permission: application.view
       x-scope: application
       x-audit: none

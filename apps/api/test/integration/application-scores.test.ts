@@ -361,6 +361,61 @@ describe('the score of an application', () => {
     ).toBe(422);
   });
 
+  it('lists the office list by arrival, the earliest sent first and drafts last, and ties a score by arrival', async () => {
+    const s = await as(world.users.general);
+    // made first and sent last: the send, not the making, is the arrival
+    const made = await at(s, 'post', `/projects/${project}/applications`).send({
+      clientUuid: randomUUID(),
+      projectId: project,
+      formVersionId: versionId,
+      answers: answers('elderly', 5),
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const late = made.body.data.id as string;
+    // the tests' clock stands still unless moved: each send a second after the one before
+    h.clock.advance(1000);
+    const first = await sent('elderly', 5);
+    h.clock.advance(1000);
+    const second = await sent('elderly', 5);
+    h.clock.advance(1000);
+    await act(s, late, 'submit');
+    const rpm = await as(world.users.rpmDhaka);
+    /** Every row of an order one at a time, forward and then back from the last page. */
+    const walk = async (sort: string) => {
+      const path = (cursor?: string) =>
+        `/projects/${project}/applications?${sort}limit=1${cursor ? `&cursor=${cursor}` : ''}`;
+      const forward: { id: string; status: string }[] = [];
+      let page = await at(rpm, 'get', path());
+      for (;;) {
+        expect(page.status, JSON.stringify(page.body)).toBe(200);
+        forward.push(...page.body.data);
+        if (!page.body.meta.nextCursor) break;
+        page = await at(rpm, 'get', path(page.body.meta.nextCursor));
+      }
+      const backward: string[] = page.body.data.map((r: { id: string }) => r.id);
+      while (page.body.meta.prevCursor) {
+        page = await at(rpm, 'get', path(page.body.meta.prevCursor));
+        backward.unshift(...page.body.data.map((r: { id: string }) => r.id));
+      }
+      expect(backward).toEqual(forward.map((r) => r.id));
+      return forward;
+    };
+    const ours = (rows: { id: string }[]) =>
+      rows.map((r) => r.id).filter((id) => [first, second, late].includes(id));
+    const arrival = await walk('');
+    expect(ours(arrival)).toEqual([first, second, late]);
+    // a draft has not arrived: every one comes after every sent application
+    const firstDraft = arrival.findIndex((r) => r.status === 'draft');
+    expect(firstDraft).toBeGreaterThan(-1);
+    expect(arrival.slice(firstDraft).every((r) => r.status === 'draft')).toBe(true);
+    // the same score: the earlier sent first
+    expect(ours(await walk('sort=-score&'))).toEqual([first, second, late]);
+    // the volunteer's own list stays the newest first
+    const mine = await at(s, 'get', '/me/applications?limit=100');
+    expect(mine.status, JSON.stringify(mine.body)).toBe(200);
+    expect(ours(mine.body.data)).toEqual([second, first, late]);
+  });
+
   it('scores again after a rejection is taken back, and freezes the score of the new decision', async () => {
     const nid = fakeNid();
     const id = await sent('widow', 7, nid);

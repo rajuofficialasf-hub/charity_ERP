@@ -1,3 +1,4 @@
+import { officeKeyset, officeOrderBy, officeSort } from './list-order.js';
 import { answeredMobile, type ApprovedMobile } from './approved-mobile.js';
 import {
   APPLICATION_ACTIONS,
@@ -44,7 +45,6 @@ import {
 import { assertIfMatch, etagOf } from '../core/etag.js';
 import {
   buildPage,
-  type CursorBody,
   decodeCursor,
   keysetWhere,
   orderBy,
@@ -192,14 +192,9 @@ const CREATE_GUARDS: BuiltGuard[] = [
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
 const TEAM_MEMBER_ROLE = 'volunteer_team_member';
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Newest first by id (UUID v7 follows the time of creation and pages without gaps; a submission time can be null). */
+/** The volunteer's own list: newest first by id (UUID v7 follows the time of creation). */
 const LIST_SORT_FIELDS = ['id'];
 const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
-/** The office's review queue: the highest score first, unscored last, then the newest. */
-const SCORE_SORT = [
-  { field: 'totalScore', direction: 'desc' as const },
-  { field: 'id', direction: 'desc' as const },
-];
 /** The decisions whose comment the review screen asks for before it sends. */
 const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
 /** The states whose answers can still change the score; a decision freezes it. */
@@ -211,42 +206,6 @@ const SCORED_WHILE = ['submitted', 'under_review'];
 const CHECKED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
-
-/** The values a cursor of the score order carries: the score (or none) and the id. */
-const SCORE_CURSOR = z.tuple([z.number().nullable(), z.uuid()]);
-
-/**
- * The order of the review queue as Prisma reads it: the score high to low with the unscored last,
- * then the newest; reversed for a backward page.
- */
-function scoreOrder(direction: 'next' | 'prev'): Prisma.ApplicationOrderByWithRelationInput[] {
-  return direction === 'next'
-    ? [{ totalScore: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]
-    : [{ totalScore: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }];
-}
-
-/** The rows after a cursor in the score order, where an unscored row comes after every score. */
-function scoreKeyset(cursor: CursorBody): Prisma.ApplicationWhereInput {
-  const parsed = SCORE_CURSOR.safeParse(cursor.v);
-  if (!parsed.success)
-    throw new ApiError('validation.failed', 422, undefined, [
-      { path: 'cursor', code: 'validation.failed' },
-    ]);
-  const [score, id] = parsed.data;
-  if (cursor.d === 'next')
-    return score === null
-      ? { totalScore: null, id: { lt: id } }
-      : {
-          OR: [
-            { totalScore: { lt: score } },
-            { totalScore: score, id: { lt: id } },
-            { totalScore: null },
-          ],
-        };
-  return score === null
-    ? { OR: [{ totalScore: null, id: { gt: id } }, { totalScore: { not: null } }] }
-    : { OR: [{ totalScore: { gt: score } }, { totalScore: score, id: { gt: id } }] };
-}
 
 /** The stored breakdown of a score, as the record shows it to the office. */
 function scoreItemsOf(criteria: unknown) {
@@ -1258,7 +1217,9 @@ export class ApplicationsService {
       'project',
     );
     await this.reachedProject(viewer.principal, projectScope, projectId);
-    return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query);
+    return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query, {
+      office: true,
+    });
   }
 
   /**
@@ -1357,26 +1318,37 @@ export class ApplicationsService {
     binding: string,
     base: Prisma.ApplicationWhereInput,
     query: ApplicationFilter & PageQuery & PageNumberQuery,
+    { office = false }: { office?: boolean } = {},
   ) {
     // the score is the office's: a volunteer can neither read it nor learn its order
     const byScore = query.sort === '-score';
+    // the office's list comes by arrival unless it asks for another order; its orders put the
+    // empty values last (`list-order.ts`)
+    const officeOrder = byScore || (office && !query.sort);
     // a cursor belongs to the order it was made in, so one order never reads another's cursor
-    const sortBinding = `${binding}|${byScore ? 'score' : (query.sort ?? 'id')}`;
+    const sortBinding = `${binding}|${byScore ? 'score' : (query.sort ?? (office ? 'arrival' : 'id'))}`;
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, sortBinding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
     this.byScore(viewer, query.sort);
-    const sort = byScore ? SCORE_SORT : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
+    const sort = officeOrder
+      ? officeSort(byScore)
+      : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
     const filter = await this.listFilter(viewer, base, query);
     const now = this.clock.now();
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.application.findMany({
         where: cursor
-          ? { AND: [filter, byScore ? scoreKeyset(cursor) : keysetWhere(sort, cursor)] }
+          ? {
+              AND: [
+                filter,
+                officeOrder ? officeKeyset(byScore, cursor.v, cursor.d) : keysetWhere(sort, cursor),
+              ],
+            }
           : filter,
-        orderBy: byScore ? scoreOrder(direction) : orderBy(sort, direction),
+        orderBy: officeOrder ? officeOrderBy(byScore, direction) : orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
         select: LIST_ROW_SELECT,
