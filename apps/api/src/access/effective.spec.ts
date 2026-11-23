@@ -29,7 +29,7 @@ const on = (grants: EffectiveGrant[], projectId: string) =>
 
 // Effective permissions from their four sources (docs/security/RBAC.md, "Model").
 describe('effective permissions', () => {
-  it('gives an Admin every permission at GLOBAL, and the Department Head all but the owner transfer', () => {
+  it('gives an Admin every permission at GLOBAL, and the Department Head all but the owner transfer and the office addresses', () => {
     const admin = effectivePermissions(registry, facts({ roles: ['admin'] }), NOW);
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);
     const all = registry.permissions.size;
@@ -39,7 +39,9 @@ describe('effective permissions', () => {
     expect(names(admin)).toContain('system.owner.transfer');
     expect(names(admin)).toContain('user.role.change');
     expect(names(head)).not.toContain('system.owner.transfer');
-    expect(names(head).size).toBe(all - 1);
+    expect(names(head)).not.toContain('security.office_ips.manage');
+    expect(names(admin)).toContain('security.office_ips.manage');
+    expect(names(head).size).toBe(all - 2);
     expect(names(head)).toContain('user.role.change');
     expect(names(head)).toContain('permission.panel.manage');
   });
@@ -62,6 +64,7 @@ describe('effective permissions', () => {
       'settings.manage',
       'holiday.manage',
       'provider.settings.manage',
+      'security.office_ips.manage',
       'system.health.view',
       'notification.template.manage',
       'location.manage',
