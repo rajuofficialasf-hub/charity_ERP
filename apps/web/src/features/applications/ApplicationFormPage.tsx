@@ -9,7 +9,7 @@ import { Alert, Button, Card, Icon, LinkButton, Skeleton, Stack, Text } from '@/
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { uuidv7 } from '@css/shared';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
 import { AccountPage } from '../../components/AccountPage';
@@ -88,13 +88,16 @@ const NOT_REFUSED: Record<string, string> = {};
 export function ApplicationFormPage() {
   const t = useTranslations('applications.new');
   const { applicationId } = useParams();
+  // "another application" leads to this same address as a new step of the history: the new
+  // application starts empty, not on the screen of the one just sent
+  const { key } = useLocation();
   return (
     <AccountPage title={() => (applicationId ? t('edit_title') : t('title'))}>
       {(me) =>
         applicationId ? (
           <EditDraft me={me} applicationId={applicationId} />
         ) : (
-          <NewApplication me={me} />
+          <NewApplication key={key} me={me} />
         )
       }
     </AccountPage>
