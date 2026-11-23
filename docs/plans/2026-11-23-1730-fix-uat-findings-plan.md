@@ -131,13 +131,13 @@ Owner, in chat on 2026-11-23:
 - **Approach:** `addFamilyMemberQuestions` appends a part "পরিবারের সদস্য" with a repeat group (standard column `beneficiary_family_members`) holding name, relationship (`relationship_code`, reference list), age (`age_years`), monthly income (`monthly_income`); offered once per beneficiary application form; optional.
 - **Tests:**
   - unit: the helper adds the group once with the four columns and passes the definition check (`draft.test.ts`, `definition.test.ts`).
-  - integration: an application on such a form puts its rows into the profile's family when it is submitted, as the existing family-list path does (`beneficiary-family-members`); a reviewer outside the region sees no member names (`TS-13`).
-  - e2e: `form-builder.spec.ts` — press "পরিবারের সদস্যের প্রশ্নগুলো যোগ করুন", publish, submit with one member "ছেলে"; the profile's "পরিবার" lists the member.
+  - integration: covered by `apps/api/test/integration/family-members.test.ts` (rows written from any list with the family-members column, the relationship list checked, other volunteers and the Media and Procurement Teams given no member); no server change.
+  - component (in place of e2e): `PublishChecklist.test.tsx` — the button "পরিবারের সদস্যের প্রশ্নগুলো যোগ করুন" saves the part with the list and goes away. The owner's repeat of scene ঢ checks the whole flow.
 - **Done when:** scene ঢ can be run.
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U5. "আরেকটি আবেদন" starts a new application
 - **Goal:** after sending, the volunteer can start the next application in one press.
@@ -478,7 +478,7 @@ Owner, in chat on 2026-11-23:
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
 - **Updated:** 2026-11-23 23:10
-- **Next:** U4: the one-press family members list in `apps/web/src/admin/forms/draft.ts` (test first in `draft.test.ts`)
+- **Next:** U5: "আরেকটি আবেদন" starts a new application (`ApplicationFormPage.tsx` :570), test first
 - **Reviewed through:** C3 at 1526c068 (T2 review; the source race fixed, the rest in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it.
