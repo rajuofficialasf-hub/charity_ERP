@@ -258,7 +258,17 @@
       "old": "Before",
       "new": "After",
       "when": "When",
-      "none": "empty"
+      "none": "empty",
+      "who": "Who and why",
+      "changed_by": "Changed by {name}",
+      "opened_by": "Opened by {name}",
+      "opened_reason": "Reason: {reason}",
+      "entered_by": "New answer by {name}",
+      "accepted_by": "Accepted by {name}",
+      "returned_by": "Sent back by {name}",
+      "returned_reason": "Why it was sent back: {reason}",
+      "cancelled_by": "Cancelled by {name}",
+      "returned": "Sent back"
     },
     "bulk": {
       "outcome": "{done} done, {failed} not done",

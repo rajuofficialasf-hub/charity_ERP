@@ -258,7 +258,17 @@
       "old": "আগে",
       "new": "পরে",
       "when": "কখন",
-      "none": "খালি"
+      "none": "খালি",
+      "who": "কে ও কেন",
+      "changed_by": "বদলেছেন: {name}",
+      "opened_by": "খুলেছেন: {name}",
+      "opened_reason": "কারণ: {reason}",
+      "entered_by": "নতুন উত্তর দিয়েছেন: {name}",
+      "accepted_by": "গ্রহণ করেছেন: {name}",
+      "returned_by": "ফেরত দিয়েছেন: {name}",
+      "returned_reason": "ফেরতের কারণ: {reason}",
+      "cancelled_by": "বাতিল করেছেন: {name}",
+      "returned": "ফেরত দেওয়া হয়েছে"
     },
     "bulk": {
       "outcome": "{done}টি হয়েছে, {failed}টি হয়নি",

@@ -202,6 +202,13 @@ export const fieldChangeSchema = z.object({
   newValue: z.unknown(),
   reason: z.string().nullable(),
   createdAt: dateTime,
+  /** How an unlock ended; a sent-back value never reached the answer. */
+  decision: z.enum(['accepted', 'refused', 'cancelled']).nullable().default(null),
+  decisionReason: z.string().nullable().default(null),
+  changedByName: z.string().nullable().default(null),
+  requestedByName: z.string().nullable().default(null),
+  enteredByName: z.string().nullable().default(null),
+  decidedByName: z.string().nullable().default(null),
 });
 export type FieldChange = z.infer<typeof fieldChangeSchema>;
 

@@ -717,6 +717,73 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('names in the change log who changed, who opened and why, who decided, and marks an answer sent back', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const base = {
+      kind: 'unlock',
+      reason: 'গ্রামের নাম ভুল',
+      createdAt: '2026-11-04T10:00:00Z',
+      changedByName: 'করিম আরপিএম',
+      requestedByName: 'করিম আরপিএম',
+      enteredByName: 'নমুনা স্বেচ্ছাসেবক',
+      decisionReason: null,
+    };
+    server.use(
+      http.get(`*/api/v1/applications/${A1}/changes`, () =>
+        HttpResponse.json({
+          data: [
+            {
+              ...base,
+              id: 'c3',
+              field: 'village',
+              oldValue: { t: 'short_text', v: 'নমুনা গ্রাম' },
+              newValue: { t: 'short_text', v: 'ভুল গ্রাম' },
+              decision: 'refused',
+              decisionReason: 'গ্রাম মেলেনি',
+              decidedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+            {
+              ...base,
+              id: 'c2',
+              field: 'village',
+              oldValue: { t: 'short_text', v: 'পুরনো গ্রাম' },
+              newValue: { t: 'short_text', v: 'নমুনা গ্রাম' },
+              decision: 'accepted',
+              decidedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+            {
+              id: 'c1',
+              field: 'office_note',
+              kind: 'review_edit',
+              oldValue: null,
+              newValue: { t: 'short_text', v: 'যাচাই হয়েছে' },
+              reason: null,
+              createdAt: '2026-11-03T10:00:00Z',
+              changedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+          ],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+    );
+    const view = openReview();
+    const log = await screen.findByRole('table', { name: 'পরিবর্তনের লগ' });
+    const rows = await within(log).findAllByRole('row');
+    // the header, then the newest first
+    const [returned, accepted, edited] = rows.slice(1);
+    expect(returned).toHaveTextContent('ফেরত দেওয়া হয়েছে');
+    expect(returned).toHaveTextContent('ফেরত দিয়েছেন: সেলিনা এক্সিকিউটিভ');
+    expect(returned).toHaveTextContent('ফেরতের কারণ: গ্রাম মেলেনি');
+    expect(accepted).toHaveTextContent('খুলেছেন: করিম আরপিএম');
+    expect(accepted).toHaveTextContent('কারণ: গ্রামের নাম ভুল');
+    expect(accepted).toHaveTextContent('নতুন উত্তর দিয়েছেন: নমুনা স্বেচ্ছাসেবক');
+    expect(accepted).toHaveTextContent('গ্রহণ করেছেন: সেলিনা এক্সিকিউটিভ');
+    expect(accepted).not.toHaveTextContent('ফেরত দেওয়া হয়েছে');
+    expect(edited).toHaveTextContent('বদলেছেন: সেলিনা এক্সিকিউটিভ');
+    await expectNoAxeViolations(view.container);
+  });
+
   it('shows how often the person was helped before, by year and project, and none for a role that may not know', async () => {
     refreshAs(EXECUTIVE);
     serve();

@@ -41,6 +41,11 @@ export const fieldChangeView = z.object({
   decidedAt: z.string().nullable(),
   decision: z.enum(UNLOCK_DECISIONS).nullable(),
   decisionReason: z.string().nullable(),
+  /** The names of the people of the change, as the office reads the log. */
+  changedByName: z.string().nullable(),
+  requestedByName: z.string().nullable(),
+  enteredByName: z.string().nullable(),
+  decidedByName: z.string().nullable(),
 });
 export type FieldChangeView = z.infer<typeof fieldChangeView>;
 
@@ -110,7 +115,11 @@ export async function readTimeline(
   });
 }
 
-/** The logged changes of an application's answers, newest first. */
+/**
+ * The logged changes of an application's answers, newest first, with the names of who made each
+ * change, who opened an unlock and why, who entered its value and who decided it. An unlock whose
+ * value was sent back stays in the log with that value and its decision, the answer unchanged.
+ */
 export async function readChanges(
   tx: Tx,
   applicationId: string,
@@ -125,6 +134,19 @@ export async function readChanges(
     orderBy: { id: 'desc' },
     take: page.limit,
   });
+  // the people of every step, read once for the page
+  const ids = [
+    ...new Set(rows.flatMap((r) => [r.createdBy, r.requestedBy, r.enteredBy, r.decidedBy])),
+  ].filter((id): id is string => id !== null);
+  const people = new Map(
+    (
+      await tx.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, displayName: true },
+      })
+    ).map((u) => [u.id, u.displayName]),
+  );
+  const nameOf = (id: string | null) => (id ? (people.get(id) ?? null) : null);
   return rows.map((r) => ({
     id: r.id,
     field: r.field,
@@ -142,5 +164,9 @@ export async function readChanges(
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     decision: fieldChangeView.shape.decision.parse(r.decision),
     decisionReason: r.decisionReason,
+    changedByName: nameOf(r.createdBy),
+    requestedByName: nameOf(r.requestedBy),
+    enteredByName: nameOf(r.enteredBy),
+    decidedByName: nameOf(r.decidedBy),
   }));
 }
