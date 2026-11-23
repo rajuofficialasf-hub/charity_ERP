@@ -168,7 +168,9 @@ describe('migrations', () => {
     } finally {
       await client.end();
     }
-  });
+    // every migration up, down and up again with a snapshot each time: the time grows with each
+    // new migration (about 45 s alone with 57 of them), more on a loaded machine
+  }, 240_000);
 
   it('the registration drafts down.sql removes contact-change codes and staff photo links and keeps the rest', async () => {
     const db = await freshDatabase('regdown');

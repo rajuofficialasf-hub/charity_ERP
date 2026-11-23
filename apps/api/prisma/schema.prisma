@@ -502,7 +502,6 @@ model RegistrationDraft {
   tokenHash          String?   @map("token_hash")
   verifiedAt         DateTime? @map("verified_at") @db.Timestamptz(6)
   expiresAt          DateTime  @map("expires_at") @db.Timestamptz(6)
-  referenceLookups   Int       @default(0) @map("reference_lookups") @db.SmallInt
   photoFileId        String?   @map("photo_file_id") @db.Uuid
   nidPhotoFileId     String?   @map("nid_photo_file_id") @db.Uuid
   nidPhotoBackFileId String?   @map("nid_photo_back_file_id") @db.Uuid
