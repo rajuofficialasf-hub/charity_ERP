@@ -26,6 +26,7 @@ void startInlineConsumers(env, container.jobs, logger, {
   localKeyCleanup: container.localKeyCleanup,
   uploadSweep: container.uploadSweep,
   storageStats: container.storageStats,
+  fileDimensions: container.fileDimensions,
   mergeCandidates: container.beneficiaryMergeCandidates,
   nameKeys: container.nameKeys,
   helpCounters: container.helpCounters,
