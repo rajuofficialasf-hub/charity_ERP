@@ -741,6 +741,7 @@
   },
   "place": {
     "button": "Place a ready form",
+    "builders_only": "The Monitoring Team builds the forms of this project and their scoring. You can place a ready form.",
     "title": "Place a ready form",
     "note": "A placed form arrives published on the project. It is not changed here; when the ready form has a newer version, you can take it.",
     "choose": "Form to place",

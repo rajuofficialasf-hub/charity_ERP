@@ -11,6 +11,26 @@ export const DEV_APP_ORIGIN = 'http://127.0.0.1:3000';
 const appOriginSchema = z.url().default(DEV_APP_ORIGIN);
 
 /**
+ * Whether an origin points at this machine only (localhost, 127.0.0.0/8, ::1, 0.0.0.0); a value
+ * that is no URL is left to the URL check, which names it.
+ */
+function isLoopbackOrigin(origin: string): boolean {
+  let host: string;
+  try {
+    host = new URL(origin).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return false;
+  }
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '[::1]' ||
+    host === '0.0.0.0' ||
+    /^127(\.\d{1,3}){3}$/.test(host)
+  );
+}
+
+/**
  * The PWA's origin as the API reads it: the named one, checked as a URL, or the developer default
  * when none is named. The seed of the department's own officials writes its links with it, so
  * they open the same page as the links the API sends.
@@ -182,7 +202,15 @@ const envSchema = z
         path: ['OTP_DUMMY_CODE'],
         message: 'required when OTP_DUMMY_ENABLED=true',
       });
-    if (env.NODE_ENV === 'production' && !env.APP_ORIGIN.startsWith('https://'))
+    // an unset value is the loopback default: a link built on it opens nowhere but this machine
+    if (env.NODE_ENV === 'production' && isLoopbackOrigin(env.APP_ORIGIN))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_ORIGIN'],
+        message:
+          "set it to the app's own address; unset or loopback, the links sent out would not open elsewhere",
+      });
+    else if (env.NODE_ENV === 'production' && !env.APP_ORIGIN.startsWith('https://'))
       ctx.addIssue({
         code: 'custom',
         path: ['APP_ORIGIN'],

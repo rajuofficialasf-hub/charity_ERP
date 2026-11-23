@@ -50,6 +50,9 @@
   "extra_area": {
     "source_ended": "উৎস শেষ"
   },
+  "contact": {
+    "from_approval": "আবেদনের অনুমোদনে বদল"
+  },
   "notification": {
     "permission_granted": "অনুমতি দেওয়া হয়েছে: {permission}",
     "permission_denied": "অনুমতি তুলে নেওয়া হয়েছে: {permission}",

@@ -190,13 +190,13 @@ Owner, in chat on 2026-11-23:
 - **Tests:**
   - unit: differing names show "নাম মেলে না" and need the second press.
   - integration: the verify read returns the matched profile's fields to an official in reach and refuses (403/404) one outside the region (`TS-13`).
-  - e2e: `public-link.spec.ts` — entry "কোনো এক মানুষ" on a known NID; the dialog shows both names and "নাম মেলে না".
+  - e2e: `offline.spec.ts` ("an offline entry on a known number with another name waits for the office, which links it", the mobile project): the dialog shows the entry's name in "এন্ট্রিতে লেখা" beside "প্রোফাইলে আছে", "নাম মেলে না। …", and links on "তবু যুক্ত করুন". That journey is the B-14 case itself, so it replaced the `public-link.spec.ts` line. As built, the profile side comes from the audited lookup the dialog already ran (it returns the name, the father's or husband's name, the mobile and the village), so no new read was added and the lookup's own tests cover its scope and audit.
   - existing: covered in part by `apps/web/src/admin/applications/applications.test.tsx` (:1871).
 - **Done when:** ছ-3 shows the comparison.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U9. A new mobile reaches the profile at approval
 - **Goal:** a changed mobile is used for the family match and kept on the profile.
@@ -210,7 +210,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U10. Arrival order oldest first
 - **Goal:** the list's arrival order and score ties follow arrival.
@@ -224,7 +224,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U11. Change log with who and why
 - **Goal:** the change log tells who opened, who decided and why, and marks a sent-back answer.
@@ -238,7 +238,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U12. Export BEN format and PDF failure
 - **Goal:** exports show BEN numbers as on screen, and an impossible PDF says so at once.
@@ -246,13 +246,13 @@ Owner, in chat on 2026-11-23:
 - **Files:** `apps/api/src/exports/rows.ts` (:455), `apps/api/src/jobs/export-run.ts` (:168–185), `apps/web/src/features/exports/ExportProgress.tsx`, `docs/ops/DEPLOYMENT.md`, `README.md` (:117)
 - **Approach:** `formatBenNo` as in `beneficiary-family.ts:85`; a small no-retry set beside `KEPT_CODES` (export-run.ts:37) holding `export.pdf_unavailable`, and the catch (:170–180) calls `fail(job, code, …)` and returns instead of rethrowing for it; the web already maps the code (`exports-api.ts:13`), so the dialog only gains the text "এই সার্ভারে এখন PDF বানানো যাচ্ছে না। Excel বা CSV নিন।".
 - **Tests:**
-  - unit: the beneficiary row's `ben_no` is "BEN-0000166" (`xlsx.spec.ts`, `csv.spec.ts`).
+  - unit: replaced by an integration case in `exports.test.ts` ("writes the BEN number as the screens show it"), since the number is formatted where the rows are read, not by the writers; the column's kind is text now, not number.
   - integration: a renderer that throws `export.pdf_unavailable` fails the job on the first attempt (`exports.test.ts`).
 - **Done when:** ঞ-1's file shows BEN-… and ঞ-4 fails within seconds with the message.
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U13. The big-screen notice only on setup screens
 - **Goal:** officials see no "big screen" notice on pages meant for phones.
@@ -261,13 +261,13 @@ Owner, in chat on 2026-11-23:
 - **Approach:** invert the route flag to `desktopFirst` on the form builder, project setup, permission panel, template and checklist editors.
 - **Tests:**
   - unit: notice on a desktop-first route, none on the volunteer list (`admin.test.tsx` :118–133 updated).
-  - e2e: `screens.spec.ts` at 360 px — no "এই পর্দা বড় স্ক্রিনে ভালো চলে।" on `/admin/applications/<id>`, present on `/admin/projects/<id>/setup`.
+  - e2e: as built, the specs that already read the notice carry it: `admin.spec.ts` (none on the beneficiary tab on a phone or a computer), `admin-permissions.spec.ts` (present on the permission panel on a phone), `projects.spec.ts` (none on the programs tab, present on a new project); run on the mobile and desktop projects.
   - existing: covered by `apps/web/src/admin/admin.test.tsx`.
 - **Done when:** ঠ-4's 17 pages show the notice only on setup and forms.
 - **Depends on:** U1
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U14. Wrong texts and demo data
 - **Goal:** the small wrong texts are right.
@@ -282,7 +282,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U15. Application lists and entry
 - **Goal:** the list and the entry screen take fewer presses and fewer mistakes.
@@ -476,9 +476,9 @@ Owner, in chat on 2026-11-23:
 - Code from abandoned attempts is removed
 
 ## Progress
-- **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
-- **Updated:** 2026-11-24 01:10
-- **Next:** PR 1 (U1–U7) is complete; ask the owner before pushing and opening it into develop, then U8 (PR 2)
-- **Reviewed through:** C4 at 2bdb9f5f (T2 review of U6–U7; fixes in Notes)
+- **Branch:** `fix/uat-findings-2` (PR 2, U8–U14; from develop at 4c031b84, where PR 1 merged as #82)
+- **Updated:** 2026-11-24 12:30
+- **Next:** PR 2 complete; run the web contract test locally, then ask the owner before pushing it into develop; then U15 (PR 3)
+- **Reviewed through:** C7 at 31d96fb6 (T2 review of U10–U14, the end of PR 2)
 - **Uncommitted:** none
-- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it. U7: the office list lives in memory (`OfficeAddresses`), read at start, after each change and once a minute, so the limiter never reads the database; a new permission `security.office_ips.manage` (the Admin alone, a key permission) guards `GET`/`PUT /admin/office-addresses`; an IPv6 entry covers its /56. The demo seed of U2 was reformatted by prettier in the U7 commit (formatting only). C4 review: an IPv6 office entry in the /56 of zeros (`::1`, `::ffff:a.b.c.d`) covered every IPv4 client through Node's BlockList, so the setting refuses it and the matcher passes it over; submits keep a cap of 100 a day per address against made-up draft ids; the service parses the stored list instead of casting it. Dismissed: the secret-scan hit on the test's wrong password (now a random value) and the duplicate-code hit on closing JSX lines.
+- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it. U7: the office list lives in memory (`OfficeAddresses`), read at start, after each change and once a minute, so the limiter never reads the database; a new permission `security.office_ips.manage` (the Admin alone, a key permission) guards `GET`/`PUT /admin/office-addresses`; an IPv6 entry covers its /56. The demo seed of U2 was reformatted by prettier in the U7 commit (formatting only). C4 review: an IPv6 office entry in the /56 of zeros (`::1`, `::ffff:a.b.c.d`) covered every IPv4 client through Node's BlockList, so the setting refuses it and the matcher passes it over; submits keep a cap of 100 a day per address against made-up draft ids; the service parses the stored list instead of casting it. Dismissed: the secret-scan hit on the test's wrong password (now a random value) and the duplicate-code hit on closing JSX lines. C5 review: the offline journey on a known number with another name (`offline.spec.ts`) is the B-14 case itself, so it became U8's e2e and now presses twice; the component test checks the linked profile and volunteer after the second press. Run it with the first journey of its file (`-g "network returns|another name"`), since the file is serial. U9: the new mobile is written by the engine at every move that records the approval (`ApprovalWrites`, the `ApprovedMobile` service), not by a workflow effect, because the effects are named in the templates stored per project and a new one would not reach existing projects; the workflow engine is now built after the contact service in the container. C6 review: the approval writes the number only for an approver who may edit the person's contact (the contact-edit permission the send path asks, now `BeneficiaryContactService.mayEdit` for both), and never over a profile mobile changed after the send, a volunteer's own number or another profile's; the record's `profileMobileChange.kept` names which, per caller. A new number takes no owner, since the contact write clears the owner of a changed number. Dismissed: the unit-test lead on `answeredMobile` (the integration tests run it on the real database). U10: the office's orders live in `applications/list-order.ts` (arrival, and score with ties by arrival, empty values last, the id last), used by the list and its export alike; the tests' clock stands still, so a test of arrival order moves it between sends. U11: the change log's rows carry the names of each step (`changedByName`, `requestedByName`, `enteredByName`, `decidedByName`), read once per page; a sent-back unlock keeps `kind: unlock` with `decision: refused` rather than a new kind, and the screen marks it. U14: `NODE_ENV` has no staging value, so "outside development and test" is production, where an unset or loopback `APP_ORIGIN` now names the setting; a role the system gave reads `grantedBy: null`; `designation_changed` carries the reader's own designation, added to the in-app parameters; a PM who does not build forms opening a project's own form reads that the Monitoring Team builds forms and scoring, with "তৈরি ফর্ম বসান". Other fields of an official's own request still get the volunteer's "can now be changed" notice (left as found). C7 review: the arrival order is the office's only (a volunteer's project list keeps the newest first); the loopback check of `APP_ORIGIN` reads a malformed value as no loopback and counts 0.0.0.0 and a trailing dot; `list-order.spec.ts` tests the order's shapes and a bad cursor. Dismissed: the duplicate-code lead on an Alert with an action (shared JSX shape only).

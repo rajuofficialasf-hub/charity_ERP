@@ -16,6 +16,8 @@ Severity levels, who to contact, first actions, communication to field users dur
 ## 4. Common tasks
 Revoke a device session, unlock an account, re-send donor emails, re-run a failed sync batch, regenerate an export, rotate a secret.
 
+The API refuses to start with "APP_ORIGIN: set it to the app's own address" (D-204): production has no app address, or a loopback one, so every set-password link would open only on the server itself. Set `APP_ORIGIN` to the address officials open the app at (https) and start again.
+
 Exempting the office from the per-address rate limits (D-198): an Admin opens the settings' "নিরাপত্তা" tab from the office network, checks that "এই কম্পিউটারের ঠিকানা" shows the office's public address (if it shows the proxy's address or a private one, `TRUST_PROXY` does not name Caddy and every user looks like one client; fix that first), and adds it, or the office's range up to a /24. The list reaches the API at once; another API instance reads it within a minute. Remove an address when the office moves.
 
 Rotating `LOCAL_KEY_SECRET` (the seal of the device keys, AUTH.md §5): set `LOCAL_KEY_PREVIOUS_SECRET` to the current value and `LOCAL_KEY_SECRET` to the new one, restart the api and the worker; every session is re-sealed under the new secret at its next refresh (within 30 days, the refresh window), and a key the previous secret sealed still opens meanwhile. After 30 days clear `LOCAL_KEY_PREVIOUS_SECRET` and restart again; a session that never refreshed in that time has ended and its key is dropped by the nightly cleanup anyway.

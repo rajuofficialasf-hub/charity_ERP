@@ -304,7 +304,7 @@ The management screens and admin settings live under `/admin` (`apps/web/src/adm
 
 - The admin pages use the app bar and the sidebar of §4.1; the separate admin top bar and admin sidebar of UX-15 are gone.
 - Content: the page header of §4.2, then cards; maximum width `--content-max`.
-- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable. A page officials use on a phone as much as on a computer carries `handle: { phoneReady: true }` on its route (`AdminRouteHandle` of `admin/AdminLayout.tsx`) and shows no notice: the programs and projects tab, a program's page and a project's page (D-176).
+- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px on a setup screen only; the pages stay readable. A setup screen carries `handle: { desktopFirst: true }` on its route (`AdminRouteHandle` of `admin/AdminLayout.tsx`): the template library, the form builder (a ready form, the question library, a project's form), a new project and a project's setup, the permission panel and the notification texts (D-203). Every other page, review, approval, lookup, lists and profiles included, is used on a phone as on a computer and shows no notice (UX-03, D-176).
 - Audience: Department Head, Monitoring Team and Program Managers; any other signed-in user sees a "no access" page. Navigation only hides; the server enforces every admin permission.
 
 ## 5. Component inventory

@@ -75,6 +75,7 @@ import { AuditLogService } from './services/audit-log.js';
 import { ChannelsService } from './services/channels.js';
 import { OfficeAddressesService } from './services/office-addresses.js';
 import { OfficeAddresses } from './rate-limit/office-addresses.js';
+import { ApprovedMobile } from './applications/approved-mobile.js';
 import { NisabService } from './services/nisab.js';
 import { ProjectQuotasService } from './services/project-quotas.js';
 import { ScoringService } from './applications/scoring.js';
@@ -237,6 +238,7 @@ export interface Container {
   channels: ChannelsService;
   /** The office addresses the rate limiter exempts, held in memory. */
   officeAddresses: OfficeAddresses;
+  approvedMobile: ApprovedMobile;
   officeAddressSettings: OfficeAddressesService;
   notifications: NotificationService;
   delivery: NotificationDelivery;
@@ -356,15 +358,6 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const forms = o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary);
   const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
   const scoring = o.scoring ?? new ScoringService(clock, nisab);
-  const workflow =
-    o.workflow ??
-    new WorkflowEngine(
-      access,
-      audit,
-      clock,
-      applicationEvents,
-      new WorkflowSideEffects(scoring, clock),
-    );
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const officeAddresses =
     o.officeAddresses ??
@@ -400,6 +393,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
       matchKeys,
+    );
+  // a known person's new mobile reaches the profile with the approval, on every path of it
+  const approvedMobile = o.approvedMobile ?? new ApprovedMobile(beneficiaryContact);
+  const workflow =
+    o.workflow ??
+    new WorkflowEngine(
+      access,
+      audit,
+      clock,
+      applicationEvents,
+      new WorkflowSideEffects(scoring, clock),
+      approvedMobile,
     );
   // the field unlock of approved applications; the record lists its waiting steps
   const unlocks =
@@ -440,6 +445,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       mediaReferrals,
       new PersonSignals(access, beneficiaryFamily, beneficiaryMergeCandidates),
       beneficiaryMatch,
+      approvedMobile,
     );
   const built = {
     env,
@@ -598,6 +604,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
     channels: o.channels ?? new ChannelsService(env, settings),
     officeAddresses,
+    approvedMobile,
     officeAddressSettings:
       o.officeAddressSettings ?? new OfficeAddressesService(settings, officeAddresses),
     notifications,

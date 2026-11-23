@@ -197,6 +197,22 @@ describe('loadEnv', () => {
     );
     // the set-password link goes out by email, so it must point at the https origin
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
+    // an unset or loopback address names the setting to set, so no link carries 127.0.0.1
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(
+      /APP_ORIGIN: set it to the app's own address/,
+    );
+    for (const loopback of [
+      'https://localhost',
+      'https://localhost.',
+      'https://127.0.0.1:3000',
+      'https://[::1]',
+      'https://0.0.0.0',
+    ])
+      expect(() => loadEnv({ ...production, APP_ORIGIN: loopback }), loopback).toThrow(
+        /APP_ORIGIN: set it to the app's own address/,
+      );
+    // development and test keep the loopback default
+    expect(loadEnv({ ...base, NODE_ENV: 'test' }).APP_ORIGIN).toBe(DEV_APP_ORIGIN);
     // production starts only with a real virus scanner, which joins with the first deployment;
     // until then the scanner is the one thing a production configuration lacks
     const refusal = (() => {

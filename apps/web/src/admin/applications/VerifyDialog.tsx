@@ -1,4 +1,9 @@
-import { formatBenNo } from '@css/shared/beneficiaries';
+import {
+  formatBenNo,
+  matchKey,
+  nameVariantsOf,
+  startingNameVariantRows,
+} from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
 import {
   Alert,
@@ -7,11 +12,12 @@ import {
   Dialog,
   Form,
   FormSelectField,
+  Grid,
   Skeleton,
   Text,
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -20,8 +26,19 @@ import { ApiFailure } from '../../api/client';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
-import { identityNumberOf, type OfficeApplication, officeAct } from './applications-api';
+import {
+  identityNumberOf,
+  type OfficeApplication,
+  officeAct,
+  textAnswerOf,
+} from './applications-api';
 import { LoadError } from '../../components/LoadError';
+
+/**
+ * The starting spellings of names, for the comparison of the two names: a spelling the office
+ * added later only makes a warning more likely, never less.
+ */
+const VARIANTS = nameVariantsOf(startingNameVariantRows());
 
 /** The volunteer who takes the application, or none: it stays the office's. */
 const VERIFY_SCHEMA = z.object({ ownerVolunteerId: z.string() });
@@ -49,7 +66,8 @@ async function allVolunteers(projectId: string) {
  * a new profile of an entry that waits for another reason: on a match it makes none, the record
  * is read again, and the dialog shows that line with the profile to compare; a second press then
  * makes the profile. Either way the application may take a volunteer of the project as its owner,
- * or stay the office's.
+ * or stay the office's. A profile found by the number is shown beside the entry's own answers; when
+ * the two names differ by their name key, the link asks a second press.
  */
 export function VerifyDialog({
   application: a,
@@ -71,6 +89,8 @@ export function VerifyDialog({
   const number = identityNumberOf(a);
   // the match the server found at this dialog's own press, until the record read again says so
   const [matched, setMatched] = useState(false);
+  // a link to a profile of another name is pressed twice
+  const [askedAgain, setAskedAgain] = useState(false);
   const blockedMatch = matched || a.flags.includes('blocked_name_match');
   const form = useForm<VerifyFields>({
     resolver: useSchemaResolver(VERIFY_SCHEMA),
@@ -105,8 +125,16 @@ export function VerifyDialog({
           ? 'verify_link'
           : 'verify_create'
       : null;
+  const entryName = textAnswerOf(a, 'name');
+  const namesDiffer = Boolean(
+    found && matchKey(entryName ?? '', VARIANTS) !== matchKey(found.name, VARIANTS),
+  );
   const send = async ({ ownerVolunteerId }: VerifyFields) => {
     if (!action) return;
+    if (action === 'verify_link' && namesDiffer && !askedAgain) {
+      setAskedAgain(true);
+      return;
+    }
     try {
       await officeAct(a.id, etag, action, {
         ...(action === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
@@ -141,7 +169,13 @@ export function VerifyDialog({
             disabled={!action || people.isError}
             loading={pending}
           >
-            {t(action === 'verify_create' ? 'confirm_create' : 'confirm_link')}
+            {t(
+              action === 'verify_create'
+                ? 'confirm_create'
+                : askedAgain
+                  ? 'confirm_link_anyway'
+                  : 'confirm_link',
+            )}
           </Button>
         </>
       }
@@ -155,16 +189,30 @@ export function VerifyDialog({
           <Alert tone="error">{t('blocked')}</Alert>
         ) : found ? (
           <>
-            <Text>
-              <strong>{t('profile')}</strong>
-            </Text>
-            <DescriptionList
-              items={[
-                { label: t('ben_no'), value: formatBenNo(found.benNo) },
-                { label: t('name'), value: found.name },
-                { label: t('father'), value: found.fatherOrHusbandName },
-              ]}
-            />
+            <Grid columns={{ base: 1, md: 2 }} gap={2}>
+              <Side title={t('entry_side')}>
+                <DescriptionList
+                  items={[
+                    { label: t('name'), value: entryName },
+                    { label: t('father'), value: textAnswerOf(a, 'father_or_husband_name') },
+                    { label: t('mobile'), value: textAnswerOf(a, 'mobile') },
+                    { label: t('village'), value: textAnswerOf(a, 'village') },
+                  ]}
+                />
+              </Side>
+              <Side title={t('profile_side')}>
+                <DescriptionList
+                  items={[
+                    { label: t('ben_no'), value: formatBenNo(found.benNo) },
+                    { label: t('name'), value: found.name },
+                    { label: t('father'), value: found.fatherOrHusbandName },
+                    { label: t('mobile'), value: found.mobile },
+                    { label: t('village'), value: found.village },
+                  ]}
+                />
+              </Side>
+            </Grid>
+            {namesDiffer ? <Alert tone="warning">{t('name_mismatch')}</Alert> : null}
           </>
         ) : blockedMatch ? (
           <>
@@ -200,5 +248,18 @@ export function VerifyDialog({
         )}
       </Form>
     </Dialog>
+  );
+}
+
+/** One side of the comparison, named for a screen reader as a group. */
+function Side({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <div role="group" aria-labelledby={id}>
+      <Text>
+        <strong id={id}>{title}</strong>
+      </Text>
+      {children}
+    </div>
   );
 }

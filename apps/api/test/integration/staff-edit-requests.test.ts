@@ -89,7 +89,11 @@ describe("an official's own request", () => {
     // the profile shows the new designation, and the person is told
     const profile = await api().get('/api/v1/me/profile').set(bearer(rpm.session));
     expect(profile.body.data.designation).toBe('আঞ্চলিক ব্যবস্থাপক');
-    expect(await notificationsOf(h.db, 'edit_request_approved', rpm.account.id)).toHaveLength(1);
+    // the new designation is in place already, so the notice says so, not that it may change
+    const told = await notificationsOf(h.db, 'designation_changed', rpm.account.id);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.params).toMatchObject({ designation: 'আঞ্চলিক ব্যবস্থাপক' });
+    expect(await notificationsOf(h.db, 'edit_request_approved', rpm.account.id)).toHaveLength(0);
     // a second request of the same field may follow once this one is decided
     expect((await ask(rpm.session, { field: 'designation', newValue: 'অন্য পদবি' })).status).toBe(
       201,

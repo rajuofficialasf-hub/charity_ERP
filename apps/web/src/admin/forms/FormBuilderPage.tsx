@@ -11,6 +11,7 @@ import {
   EmptyState,
   Icon,
   IconButton,
+  LinkButton,
   Page,
   Skeleton,
   Stack,
@@ -707,7 +708,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         {
           value: 'question',
           label: t('question_settings'),
-          content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
+          content: settings ?? (builder ? <Text tone="muted">{t('read_only_pane')}</Text> : null),
         },
         {
           value: 'form',
@@ -978,6 +979,22 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
       </div>
       {failure ? <Alert tone="error">{failure.message}</Alert> : null}
       {placed ? <Alert tone="info">{tp('placed_note')}</Alert> : null}
+      {scope === 'project' && !builder && !placed ? (
+        // a PM does not build forms: the Monitoring Team does, scoring included; a ready form is
+        // the PM's way to give the project its form
+        <Alert
+          tone="info"
+          action={
+            me && canPlaceForms(me) ? (
+              <LinkButton variant="secondary" to={`/admin/projects/${projectId}/forms?new=1`}>
+                {tp('button')}
+              </LinkButton>
+            ) : undefined
+          }
+        >
+          {tp('builders_only')}
+        </Alert>
+      ) : null}
       {placed && form?.newerVersionNo && me && canPlaceForms(me) && !viewing ? (
         <Alert
           tone="info"
@@ -990,7 +1007,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           {tp('newer', { n: String(form.newerVersionNo) })}
         </Alert>
       ) : null}
-      {!isDraft && !placed ? <Alert tone="info">{t('read_only')}</Alert> : null}
+      {!isDraft && !placed && builder ? <Alert tone="info">{t('read_only')}</Alert> : null}
       {save.refused ? <Alert tone="warning">{t('no_official')}</Alert> : null}
       {unplaced.map((message) => (
         <Alert key={message} tone="error">

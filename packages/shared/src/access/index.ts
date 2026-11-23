@@ -140,7 +140,8 @@ export const roleHistoryRowSchema = z.object({
   roleKey: z.string(),
   name: z.object({ bn: z.string(), en: z.string() }),
   grantedAt: z.string(),
-  grantedBy: namedUserSchema,
+  /** Who gave the role; null when the system gave it (the seed or a job), not a person. */
+  grantedBy: namedUserSchema.nullable(),
   revokedAt: z.string().nullable(),
   revokedBy: namedUserSchema.nullable(),
 });

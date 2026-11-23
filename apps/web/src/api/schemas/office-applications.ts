@@ -130,6 +130,18 @@ export const officeApplicationSchema = applicationSchema.extend({
     .default([]),
   /** How many open probable pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int().default(0),
+  /** The mobile the approval writes to the known person's profile; null when none changes. */
+  profileMobileChange: z
+    .object({
+      from: z.string().nullable(),
+      to: z.string(),
+      /** Why the number stays on the application; null when the approval writes it. */
+      kept: z
+        .enum(['other_profile', 'volunteer_mobile', 'not_allowed', 'profile_changed'])
+        .nullable(),
+    })
+    .nullable()
+    .default(null),
   /**
    * The same person's other sent applications in this project on a profile merged with this one;
    * all three fields null where the caller does not reach that application.
@@ -190,6 +202,13 @@ export const fieldChangeSchema = z.object({
   newValue: z.unknown(),
   reason: z.string().nullable(),
   createdAt: dateTime,
+  /** How an unlock ended; a sent-back value never reached the answer. */
+  decision: z.enum(['accepted', 'refused', 'cancelled']).nullable().default(null),
+  decisionReason: z.string().nullable().default(null),
+  changedByName: z.string().nullable().default(null),
+  requestedByName: z.string().nullable().default(null),
+  enteredByName: z.string().nullable().default(null),
+  decidedByName: z.string().nullable().default(null),
 });
 export type FieldChange = z.infer<typeof fieldChangeSchema>;
 

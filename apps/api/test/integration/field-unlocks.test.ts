@@ -149,6 +149,14 @@ beforeAll(async () => {
 });
 afterAll(async () => h.close());
 
+/** A person's name as the log shows it. */
+const nameOf = async (userId: string) =>
+  (
+    await h.db.query<{ display_name: string }>('SELECT display_name FROM users WHERE id = $1', [
+      userId,
+    ])
+  ).rows[0]!.display_name;
+
 describe('an unlock from opening to the decision', () => {
   it('is opened by the RPM, filled by the owner volunteer and accepted by another official, every step logged', async () => {
     const id = await approved();
@@ -227,6 +235,10 @@ describe('an unlock from opening to the decision', () => {
         enteredBy: world.users.general,
         decidedBy: world.users.executive,
         decision: 'accepted',
+        // the log names the people of each step, as the office reads it
+        requestedByName: await nameOf(world.users.rpmDhaka),
+        enteredByName: await nameOf(world.users.general),
+        decidedByName: await nameOf(world.users.executive),
       }),
     );
     expect(await auditActions(id)).toEqual([
@@ -249,6 +261,19 @@ describe('an unlock from opening to the decision', () => {
       decisionReason: 'সংখ্যা মেলেনি',
     });
     expect(await answerOf(rpm, id, 'q_count')).toEqual({ t: 'number', v: 3 });
+    // the log keeps the value sent back with who sent it back and why; the answer stays
+    const log = await at(rpm, 'get', `/applications/${id}/changes`);
+    expect(log.body.data).toContainEqual(
+      expect.objectContaining({
+        field: 'q_count',
+        kind: 'unlock',
+        oldValue: { t: 'number', v: 3 },
+        newValue: { t: 'number', v: 9 },
+        decision: 'refused',
+        decisionReason: 'সংখ্যা মেলেনি',
+        decidedByName: await nameOf(world.users.rpmDhaka),
+      }),
+    );
     // a decided unlock takes no further step
     expect((await decide(rpm, unlockId, { decision: 'accept' })).body.error.code).toBe(
       'application.unlock_not_open',

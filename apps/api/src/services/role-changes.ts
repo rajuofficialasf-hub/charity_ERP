@@ -220,18 +220,21 @@ export class RoleChangesService {
         grantedAt: true,
         revokedAt: true,
         role: { select: { nameBn: true, nameEn: true } },
-        grantedByRef: { select: { id: true, displayName: true } },
-        revokedByRef: { select: { id: true, displayName: true } },
+        grantedByRef: { select: { id: true, displayName: true, kind: true } },
+        revokedByRef: { select: { id: true, displayName: true, kind: true } },
       },
     });
+    // a role the seed or a job gave has no person behind it: the screen names the system itself
+    const person = (u: { id: string; displayName: string; kind: string } | null) =>
+      u && u.kind !== 'system' ? { id: u.id, displayName: u.displayName } : null;
     return rows.map((r) => ({
       id: r.id,
       roleKey: r.roleKey,
       name: { bn: r.role.nameBn, en: r.role.nameEn },
       grantedAt: r.grantedAt.toISOString(),
-      grantedBy: r.grantedByRef,
+      grantedBy: person(r.grantedByRef),
       revokedAt: r.revokedAt?.toISOString() ?? null,
-      revokedBy: r.revokedByRef,
+      revokedBy: person(r.revokedByRef),
     }));
   }
 

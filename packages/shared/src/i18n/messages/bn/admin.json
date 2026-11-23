@@ -1679,6 +1679,7 @@
       "title": "রোলের ইতিহাস",
       "now": "এখন",
       "given_by": "{name} দিয়েছেন, {date}",
+      "given_by_system": "সিস্টেম দিয়েছেন, {date}",
       "ended_by": "{name} শেষ করেছেন, {date}",
       "none": "কোনো রোল দেওয়া নেই।"
     }

@@ -16,8 +16,8 @@
     "current_password_invalid": "The current password is incorrect.",
     "password_confirmation_failed": "The password is incorrect.",
     "password_unchanged": "The new password must differ from the current one.",
-    "invitation_invalid": "This link is not valid. Ask the admin for a new link.",
-    "invitation_expired": "This link has expired or was already used. Ask the admin for a new link."
+    "invitation_invalid": "This link is not valid. Ask an Admin or the Department Head for a new link.",
+    "invitation_expired": "This link has expired or was already used. Ask an Admin or the Department Head for a new link."
   },
   "otp": {
     "invalid": "The code is incorrect.",

@@ -108,9 +108,16 @@ export class BeneficiaryContactService {
   /**
    * Writes the fields of `body` that differ from the profile, each with its change-log row, the
    * own-mobile rule and the shared-mobile warning, then the audit entry; the submission of an
-   * application writes a known person's new mobile or address the same way.
+   * application writes a known person's new mobile or address the same way, and its approval the
+   * new mobile, with why the change came (`reason`) on each log row and in the audit entry.
    */
-  async apply(tx: Tx, actor: Principal, before: ContactRow, change: ContactChange) {
+  async apply(
+    tx: Tx,
+    actor: Principal,
+    before: ContactRow,
+    change: ContactChange,
+    options: { reason?: string } = {},
+  ) {
     const body = withOwner(before, change);
     const changed = CONTACT_FIELDS.filter(
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
@@ -119,18 +126,11 @@ export class BeneficiaryContactService {
     if (body.unionId !== undefined) await this.assertChain(tx, body);
     let warnings: Awaited<ReturnType<BeneficiaryIdentityService['sharedMobile']>> = [];
     if (body.mobile !== undefined && changed.includes('mobile')) {
-      // the volunteers an application of the person belongs to, as the database checks them
-      const applications = await tx.application.findMany({
-        where: { beneficiaryId: before.id, status: { not: 'deleted' } },
-        select: { createdByUserId: true, ownerVolunteer: { select: { userId: true } } },
-      });
-      await this.identity.assertNotVolunteerMobile(tx, body.mobile, [
-        actor.userId,
-        ...applications.flatMap((a) => [
-          ...(a.ownerVolunteer ? [a.ownerVolunteer.userId] : []),
-          ...(a.createdByUserId ? [a.createdByUserId] : []),
-        ]),
-      ]);
+      await this.identity.assertNotVolunteerMobile(
+        tx,
+        body.mobile,
+        await this.volunteersOf(tx, actor, before.id),
+      );
       warnings = await this.identity.sharedMobile(tx, actor, body.mobile, before.id);
     }
     const pick = (row: Record<ContactField, unknown>) =>
@@ -163,6 +163,7 @@ export class BeneficiaryContactService {
           // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
           newValue: (after[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
           kind: 'contact_update',
+          reason: options.reason ?? null,
           createdBy: actor.userId,
         })),
       });
@@ -177,8 +178,61 @@ export class BeneficiaryContactService {
       entityId: before.id,
       old: pick(before) as Prisma.InputJsonValue,
       new: pick(after) as Prisma.InputJsonValue,
+      ...(options.reason ? { reason: options.reason } : {}),
     });
     return { after, warnings, changed };
+  }
+
+  /**
+   * Whether the caller may write the profile's contact data: the contact-edit permission with a
+   * scope that reaches the profile, as the contact route requires. A submission writes a known
+   * person's new contact data only then, and an approval its new mobile.
+   */
+  async mayEdit(tx: Tx, actor: Principal, beneficiaryId: string): Promise<boolean> {
+    const access = await this.access.load(actor.userId, tx);
+    const scope = await this.access.sensitiveScope(
+      actor,
+      access,
+      'beneficiary.contact.edit',
+      'beneficiary',
+    );
+    return !!scope && (await this.access.reaches(scope, { beneficiaryId }, tx));
+  }
+
+  /** Whether the own-mobile rule refuses the number for the profile, as a write would check it. */
+  async isVolunteerMobile(
+    tx: Tx,
+    actor: Principal,
+    beneficiaryId: string,
+    mobile: string,
+  ): Promise<boolean> {
+    try {
+      await this.identity.assertNotVolunteerMobile(
+        tx,
+        mobile,
+        await this.volunteersOf(tx, actor, beneficiaryId),
+      );
+      return false;
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'beneficiary.mobile_is_volunteer_mobile')
+        return true;
+      throw error;
+    }
+  }
+
+  /** The writer and the volunteers an application of the person belongs to, as the database checks them. */
+  private async volunteersOf(tx: Tx, actor: Principal, beneficiaryId: string): Promise<string[]> {
+    const applications = await tx.application.findMany({
+      where: { beneficiaryId, status: { not: 'deleted' } },
+      select: { createdByUserId: true, ownerVolunteer: { select: { userId: true } } },
+    });
+    return [
+      actor.userId,
+      ...applications.flatMap((a) => [
+        ...(a.ownerVolunteer ? [a.ownerVolunteer.userId] : []),
+        ...(a.createdByUserId ? [a.createdByUserId] : []),
+      ]),
+    ];
   }
 
   /** The name keys of a profile that moves to another village. */

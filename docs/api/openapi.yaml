@@ -1229,7 +1229,11 @@ components:
         roleKey: { type: string }
         name: { $ref: '#/components/schemas/Bilingual' }
         grantedAt: { type: string, format: date-time }
-        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        grantedBy:
+          description: Who gave the role; null when the system gave it (the seed or a job), not a person
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
         revokedAt: { type: [string, 'null'], format: date-time }
         revokedBy:
           oneOf:
@@ -4188,6 +4192,26 @@ components:
                     properties:
                       level: { type: string, enum: [probable] }
             samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
+            profileMobileChange:
+              x-sensitive-class: beneficiary.contact
+              description: >-
+                The mobile the caller's approval writes to the known person's profile (BR-334): the
+                profile's number, the application's, and `kept`, why it stays on the application
+                instead (another live profile has it, it is a volunteer's own number, the caller may
+                not edit the person's contact data, or the profile's mobile changed after the
+                application was sent); `kept` is null when the approval writes it. Null when the
+                application gives no other number, and for a caller who does not see the contact
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [from, to, kept]
+                  properties:
+                    from: { type: [string, 'null'] }
+                    to: { type: string }
+                    kept:
+                      type: [string, 'null']
+                      enum: [other_profile, volunteer_mobile, not_allowed, profile_changed, null]
+                - type: 'null'
             mergedTwins:
               type: array
               description: >-
@@ -4661,6 +4685,10 @@ components:
         decidedAt: { type: [string, 'null'], format: date-time }
         decision: { type: [string, 'null'], enum: [accepted, refused, cancelled, null] }
         decisionReason: { type: [string, 'null'] }
+        changedByName: { type: [string, 'null'], description: Who made the change }
+        requestedByName: { type: [string, 'null'], description: Who opened an unlock }
+        enteredByName: { type: [string, 'null'], description: Who entered the new value of an unlock }
+        decidedByName: { type: [string, 'null'], description: 'Who accepted, sent back or cancelled an unlock; a sent-back value never reached the answer' }
     FieldChangeList:
       type: object
       required: [data, meta]
@@ -10657,6 +10685,11 @@ paths:
       tags: [applications]
       operationId: applications.application.list
       summary: Applications of a project within scope; review queue sorted by score when sort=-score
+      description: >-
+        Without a sort the list comes by arrival, the earliest sent first; sort=-score orders by the
+        score, the highest first, and an equal score by arrival. Drafts, which have not arrived, and
+        unscored applications come last; the id orders what is left equal. sort=id or sort=-id
+        orders by creation. A cursor belongs to its order and is refused by another.
       x-permission: application.view
       x-scope: application
       x-audit: none

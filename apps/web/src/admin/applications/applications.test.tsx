@@ -717,6 +717,73 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('names in the change log who changed, who opened and why, who decided, and marks an answer sent back', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    const base = {
+      kind: 'unlock',
+      reason: 'গ্রামের নাম ভুল',
+      createdAt: '2026-11-04T10:00:00Z',
+      changedByName: 'করিম আরপিএম',
+      requestedByName: 'করিম আরপিএম',
+      enteredByName: 'নমুনা স্বেচ্ছাসেবক',
+      decisionReason: null,
+    };
+    server.use(
+      http.get(`*/api/v1/applications/${A1}/changes`, () =>
+        HttpResponse.json({
+          data: [
+            {
+              ...base,
+              id: 'c3',
+              field: 'village',
+              oldValue: { t: 'short_text', v: 'নমুনা গ্রাম' },
+              newValue: { t: 'short_text', v: 'ভুল গ্রাম' },
+              decision: 'refused',
+              decisionReason: 'গ্রাম মেলেনি',
+              decidedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+            {
+              ...base,
+              id: 'c2',
+              field: 'village',
+              oldValue: { t: 'short_text', v: 'পুরনো গ্রাম' },
+              newValue: { t: 'short_text', v: 'নমুনা গ্রাম' },
+              decision: 'accepted',
+              decidedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+            {
+              id: 'c1',
+              field: 'office_note',
+              kind: 'review_edit',
+              oldValue: null,
+              newValue: { t: 'short_text', v: 'যাচাই হয়েছে' },
+              reason: null,
+              createdAt: '2026-11-03T10:00:00Z',
+              changedByName: 'সেলিনা এক্সিকিউটিভ',
+            },
+          ],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+    );
+    const view = openReview();
+    const log = await screen.findByRole('table', { name: 'পরিবর্তনের লগ' });
+    const rows = await within(log).findAllByRole('row');
+    // the header, then the newest first
+    const [returned, accepted, edited] = rows.slice(1);
+    expect(returned).toHaveTextContent('ফেরত দেওয়া হয়েছে');
+    expect(returned).toHaveTextContent('ফেরত দিয়েছেন: সেলিনা এক্সিকিউটিভ');
+    expect(returned).toHaveTextContent('ফেরতের কারণ: গ্রাম মেলেনি');
+    expect(accepted).toHaveTextContent('খুলেছেন: করিম আরপিএম');
+    expect(accepted).toHaveTextContent('কারণ: গ্রামের নাম ভুল');
+    expect(accepted).toHaveTextContent('নতুন উত্তর দিয়েছেন: নমুনা স্বেচ্ছাসেবক');
+    expect(accepted).toHaveTextContent('গ্রহণ করেছেন: সেলিনা এক্সিকিউটিভ');
+    expect(accepted).not.toHaveTextContent('ফেরত দেওয়া হয়েছে');
+    expect(edited).toHaveTextContent('বদলেছেন: সেলিনা এক্সিকিউটিভ');
+    await expectNoAxeViolations(view.container);
+  });
+
   it('shows how often the person was helped before, by year and project, and none for a role that may not know', async () => {
     refreshAs(EXECUTIVE);
     serve();
@@ -1235,6 +1302,49 @@ describe('the review page', () => {
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'আলাদা পরিবার' } });
   });
 
+  it('tells the approver the profile’s mobile will change, or that another profile has the number', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let kept: string | null = null;
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            profileMobileChange: { from: '01711111111', to: '01822222222', kept },
+            decisionHints: { approve: [], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText('প্রোফাইলের মোবাইল বদলাবে: 01711111111 → 01822222222'),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(within(approve).getByRole('button', { name: 'বাতিল' }));
+    // a number another profile has is not written; the approver is told so
+    kept = 'other_profile';
+    view.unmount();
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));
+    const again = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(again).getByText(
+        '01822222222 নম্বরটি আরেকটি প্রোফাইলের, তাই প্রোফাইলে বসবে না; আবেদনেই থাকবে।',
+      ),
+    ).toBeInTheDocument();
+    expect(within(again).queryByText(/প্রোফাইলের মোবাইল বদলাবে/)).toBeNull();
+  });
+
   it('says the project holds the same person, and asks why before an approval', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
@@ -1572,7 +1682,7 @@ describe('the review page', () => {
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
   });
 
-  it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
+  async function openLinkCase(profileName: string) {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
@@ -1596,7 +1706,7 @@ describe('the review page', () => {
             autofill: {
               beneficiaryId: PERSON,
               benNo: 7,
-              name: 'পুরনো উপকারভোগী',
+              name: profileName,
               fatherOrHusbandName: 'পুরনো পিতা',
               motherName: null,
               mobile: '01711111111',
@@ -1649,12 +1759,17 @@ describe('the review page', () => {
     await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
     expect(await within(dialog).findByText('BEN-0000007')).toBeInTheDocument();
-    expect(within(dialog).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
-    await expectNoAxeViolations(view.container);
     await user.click(
       within(dialog).getByRole('combobox', { name: /দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক/ }),
     );
     await user.click(await screen.findByRole('option', { name: 'করিম উদ্দিন' }));
+    return { user, view, dialog, PERSON, VOLUNTEER_ID };
+  }
+
+  it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
+    // the same name with a title before it is the same name
+    const { user, dialog, PERSON, VOLUNTEER_ID } = await openLinkCase('মোছাঃ নমুনা উপকারভোগী');
+    expect(within(dialog).queryByText(/নাম মেলে না/)).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({
@@ -1666,6 +1781,33 @@ describe('the review page', () => {
         'এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the entry beside the profile, and asks once more when the names differ', async () => {
+    const { user, view, dialog, PERSON, VOLUNTEER_ID } = await openLinkCase('পুরনো উপকারভোগী');
+    // the entry and the profile, side by side
+    const entry = within(dialog).getByRole('group', { name: 'এন্ট্রিতে লেখা' });
+    const profile = within(dialog).getByRole('group', { name: 'প্রোফাইলে আছে' });
+    expect(within(entry).getByText('নমুনা উপকারভোগী')).toBeInTheDocument();
+    expect(within(entry).getByText('নমুনা পিতা')).toBeInTheDocument();
+    expect(within(profile).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
+    expect(within(profile).getByText('পুরনো পিতা')).toBeInTheDocument();
+    expect(within(profile).getByText('01711111111')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'নাম মেলে না। একই মানুষ কিনা নিশ্চিত হয়ে তবেই এই প্রোফাইলের সঙ্গে যুক্ত করুন।',
+      ),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    // the first press asks again; only the second links
+    await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
+    expect(acted).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: 'তবু যুক্ত করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({
+      action: 'verify_link',
+      body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
+    });
   });
 
   it('creates a profile for a new number, names a blocked person, and tells of a failed lookup', async () => {

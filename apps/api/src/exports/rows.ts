@@ -1,4 +1,5 @@
-import { beneficiaryFilterSchema } from '@css/shared/beneficiaries';
+import { officeKeyset, officeOrderBy } from '../applications/list-order.js';
+import { beneficiaryFilterSchema, formatBenNo } from '@css/shared/beneficiaries';
 import { columnsOf, type ExportList } from '@css/shared/exports';
 import { volunteerFilterSchema } from '@css/shared/volunteers';
 import { z, type ZodType } from 'zod';
@@ -79,7 +80,8 @@ export interface FrozenList {
 /** Where a batch ends: the last row's id, and its score in the score order. */
 export interface BatchCursor {
   id: string;
-  score?: number | null;
+  /** The values of the office's order of applications, the id last (`list-order.ts`). */
+  values?: (number | string | null)[];
 }
 
 export interface FreezeInput {
@@ -452,7 +454,8 @@ export class ExportRows {
       id: b.id,
       cells: {
         name: b.name,
-        ben_no: b.benNo,
+        // as the screens show it: BEN- and seven digits
+        ben_no: formatBenNo(b.benNo),
         father: b.fatherOrHusbandName,
         area: area(names, b.upazilaId, b.districtId),
         status: coded(b.status, 'beneficiary.status'),
@@ -480,10 +483,10 @@ export class ExportRows {
   private async applicationRows(frozen: FrozenList, after: BatchCursor | null, size: number) {
     const where = frozen.where as Prisma.ApplicationWhereInput;
     const found = await this.prisma.application.findMany({
-      where: after ? { AND: [where, this.applicationKeyset(frozen.byScore, after)] } : where,
-      orderBy: frozen.byScore
-        ? [{ totalScore: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]
-        : { id: 'desc' },
+      where: after?.values
+        ? { AND: [where, officeKeyset(frozen.byScore, after.values, 'next')] }
+        : where,
+      orderBy: officeOrderBy(frozen.byScore, 'next'),
       take: size,
       select: {
         id: true,
@@ -529,22 +532,17 @@ export class ExportRows {
     return {
       rows,
       last: last
-        ? { id: last.id, score: last.totalScore === null ? null : Number(last.totalScore) }
+        ? {
+            id: last.id,
+            values: [
+              ...(frozen.byScore
+                ? [last.totalScore === null ? null : Number(last.totalScore)]
+                : []),
+              last.submittedAt?.toISOString() ?? null,
+              last.id,
+            ],
+          }
         : null,
-    };
-  }
-
-  /** The rows after a cursor in the list's order; in the score order an unscored row comes last. */
-  private applicationKeyset(byScore: boolean, after: BatchCursor): Prisma.ApplicationWhereInput {
-    if (!byScore) return { id: { lt: after.id } };
-    if (after.score === null || after.score === undefined)
-      return { totalScore: null, id: { lt: after.id } };
-    return {
-      OR: [
-        { totalScore: { lt: after.score } },
-        { totalScore: after.score, id: { lt: after.id } },
-        { totalScore: null },
-      ],
     };
   }
 }

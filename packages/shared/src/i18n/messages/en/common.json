@@ -50,6 +50,9 @@
   "extra_area": {
     "source_ended": "Its source ended"
   },
+  "contact": {
+    "from_approval": "Changed with the application's approval"
+  },
   "notification": {
     "permission_granted": "Permission given: {permission}",
     "permission_denied": "Permission taken away: {permission}",

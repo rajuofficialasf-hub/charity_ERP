@@ -45,9 +45,14 @@ void everyReasonListed;
 
 /** The identity number an application's answers give, read from its answer, or null. */
 export function identityNumberOf(a: OfficeApplication): string | null {
+  return textAnswerOf(a, 'nid_or_birth_reg');
+}
+
+/** The text an application's answer under a standard column holds, trimmed; null when empty. */
+export function textAnswerOf(a: OfficeApplication, standardColumn: string): string | null {
   const field = a.form.sections
     .flatMap((s) => s.fields)
-    .find((f) => f.standardColumn === 'nid_or_birth_reg');
+    .find((f) => f.standardColumn === standardColumn);
   const answer = field ? a.answers.find((x) => x.fieldKey === field.fieldKey) : undefined;
   const parsed = answer ? answerValueSchema.safeParse(answer.value) : undefined;
   const value = parsed?.success && 'v' in parsed.data ? parsed.data.v : undefined;

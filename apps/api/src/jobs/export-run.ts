@@ -35,6 +35,8 @@ export interface ExportJobData {
 
 /** The codes a failed job may keep; any other failure is stored as a plain failure. */
 const KEPT_CODES = new Set(['export.pdf_unavailable', 'export.pdf_failed']);
+/** The failures another attempt cannot mend: the job ends at once, and its requester is told. */
+const FINAL_CODES = new Set(['export.pdf_unavailable']);
 
 /** The media type of each format's file. */
 const MIME = new Map<string, string>([
@@ -169,7 +171,10 @@ export class ExportRunner {
       await this.removeOtherAttempts(job, attempt);
     } catch (error) {
       await this.storage.remove('exports', key).catch(() => undefined);
-      const last = attempt >= QUEUES.exports.retryLimit;
+      // a server that cannot make a PDF now will not on the next try
+      const last =
+        attempt >= QUEUES.exports.retryLimit ||
+        (error instanceof ApiError && FINAL_CODES.has(error.code));
       this.logger?.error({ err: error, jobId, attempt, last }, 'export job failed');
       if (!last) throw error;
       await this.fail(

@@ -3,6 +3,7 @@ import type { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ExportRunner } from '../../src/jobs/export-run.js';
+import { ApiError } from '../../src/i18n/api-error.js';
 import { exportDownload } from '../../src/exports/download.js';
 import { filterHeading } from '../../src/exports/heading.js';
 import { ExportSweep } from '../../src/jobs/export-sweep.js';
@@ -447,6 +448,53 @@ describe('the rows of an export job', () => {
       .trimEnd()
       .split('\r\n');
     expect(lines).toEqual(['নাম', 'প্রথম', 'দ্বিতীয়']);
+  });
+
+  it('writes the BEN number as the screens show it', async () => {
+    const { s, id } = await job({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['ben_no'],
+      filters: { divisionId: world.dhaka.division },
+    });
+    await runner().run(id, 0);
+    const done = (await at(s, 'get', `/exports/${id}`)).body.data;
+    expect(done.status).toBe('done');
+    const lines = (await contentOf(done.fileId))
+      .subarray(3)
+      .toString('utf8')
+      .trimEnd()
+      .split('\r\n');
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines.slice(1)) expect(line).toMatch(/^BEN-\d{7}$/);
+  });
+
+  it('fails a PDF this server cannot make on the first attempt, saying so', async () => {
+    const { s, id } = await job({
+      kind: 'beneficiaries',
+      format: 'pdf',
+      columns: ['name'],
+      filters: { divisionId: world.dhaka.division },
+    });
+    const unavailable = {
+      render: async () => {
+        throw new ApiError('export.pdf_unavailable', 503);
+      },
+    };
+    const run = new ExportRunner(
+      h.container.prisma,
+      h.container.storage,
+      h.container.clock,
+      h.container.exportRows,
+      h.container.exportQuestions,
+      unavailable,
+    );
+    // the first of the queue's attempts ends the job; no retry is left to wait for
+    await run.run(id, 0);
+    expect((await at(s, 'get', `/exports/${id}`)).body.data).toMatchObject({
+      status: 'failed',
+      errorCode: 'export.pdf_unavailable',
+    });
   });
 
   it('holds the header row when no row matches', async () => {

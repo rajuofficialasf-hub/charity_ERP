@@ -222,6 +222,14 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'designation_changed',
+    variables: ['designation'],
+    channels: inApp(
+      { title: 'পদবি বদলেছে', body: 'আপনার পদবি বদলানো হয়েছে: {{designation}}' },
+      { title: 'Designation changed', body: 'Your designation is now {{designation}}.' },
+    ),
+  },
+  {
     key: 'edit_request_closed',
     variables: ['field_name'],
     channels: inApp(
@@ -818,6 +826,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   region_name: { bn: 'ঢাকা বিভাগ', en: 'Dhaka division' },
   applicant_name: 'নমুনা আবেদনকারী',
   field_name: { bn: 'মোবাইল নম্বর', en: 'Mobile number' },
+  designation: 'আঞ্চলিক ব্যবস্থাপক',
   note: 'সঠিক নম্বর দিন',
   reason: 'নমুনা কারণ',
   summary: { bn: 'অনুমোদনের অনুমতি যোগ হয়েছে', en: 'the approval permission was added' },
@@ -855,6 +864,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'new_date',
   'region_name',
   'field_name',
+  // the reader's own new designation
+  'designation',
   'project_name',
   'result',
   'reason',

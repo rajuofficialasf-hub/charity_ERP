@@ -305,7 +305,18 @@ test.describe('the offline journeys', () => {
       await desk.getByRole('button', { name: 'যাচাই করুন' }).click();
       const dialog = desk.getByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
       await expect(dialog).toBeVisible();
+      // the entry stands beside the profile its number has, and the other name asks again
+      await expect(
+        dialog.getByRole('group', { name: 'এন্ট্রিতে লেখা' }).getByText(name),
+      ).toBeVisible();
+      await expect(dialog.getByRole('group', { name: 'প্রোফাইলে আছে' })).toBeVisible();
+      await expect(
+        dialog.getByText(
+          'নাম মেলে না। একই মানুষ কিনা নিশ্চিত হয়ে তবেই এই প্রোফাইলের সঙ্গে যুক্ত করুন।',
+        ),
+      ).toBeVisible();
       await dialog.getByRole('button', { name: 'যুক্ত করুন' }).click();
+      await dialog.getByRole('button', { name: 'তবু যুক্ত করুন' }).click();
       await expect(
         desk.getByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।'),
       ).toBeVisible();

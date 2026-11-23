@@ -172,6 +172,23 @@ export class AccountEvents {
     });
   }
 
+  /** An official whose request for a new designation was approved: it is in place now. */
+  async designationChanged(
+    tx: Tx,
+    requestId: string,
+    ownerId: string,
+    designation: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'designation_changed',
+      recipients: [{ user: ownerId }],
+      params: { designation },
+      about: requestId,
+      actorId,
+    });
+  }
+
   /** The person whose account was blocked or unblocked; the audit log keeps the official record. */
   async blockChanged(tx: Tx, userId: string, blocked: boolean, actorId: string): Promise<void> {
     await this.notifications.publish(tx, {

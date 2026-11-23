@@ -164,7 +164,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     name: 'অফিসিয়াল দায়ী',
     email: 'daee',
     mobileIndex: 9,
-    designation: 'অফিশিয়াল দায়ী',
+    designation: 'অফিসিয়াল দায়ী',
     jobId: 'CSS-302',
     supervisor: 'rpm_dhaka',
   },
@@ -181,7 +181,7 @@ export const DEMO_STAFF: DemoStaff[] = [
   {
     key: 'media_director',
     role: 'media_director',
-    name: 'মিডিয়া ডিরেক্টর (নমুনা)',
+    name: 'মিডিয়া ডিরেক্টর',
     email: 'media.director',
     mobileIndex: 15,
     designation: 'মিডিয়া ডিরেক্টর',
@@ -191,7 +191,7 @@ export const DEMO_STAFF: DemoStaff[] = [
   {
     key: 'media_ad',
     role: 'media_assistant_director',
-    name: 'মিডিয়া অ্যাসিস্ট্যান্ট ডিরেক্টর (নমুনা)',
+    name: 'মিডিয়া অ্যাসিস্ট্যান্ট ডিরেক্টর',
     email: 'media.ad',
     mobileIndex: 16,
     designation: 'মিডিয়া সহকারী ডিরেক্টর',

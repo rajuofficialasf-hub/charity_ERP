@@ -30,6 +30,7 @@ const ROUTES: Record<string, (p: Record<string, unknown>) => string | null> = {
   edit_request_submitted: () => '/admin/registrations',
   edit_request_approved: () => '/account/profile',
   edit_request_closed: () => '/account/profile',
+  designation_changed: () => '/account/profile',
   permission_changed: () => '/',
   account_blocked: () => null,
   account_unblocked: () => '/',

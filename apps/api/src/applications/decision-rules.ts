@@ -1,3 +1,4 @@
+import { answeredMobile } from './approved-mobile.js';
 import type { Tx } from '../core/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
@@ -183,7 +184,14 @@ export async function repeatReasons(tx: Tx, applicationId: string): Promise<Comm
   if (rules.repeatFamily === 'hold') {
     const family = new BeneficiaryFamilyService();
     if (
-      (await family.matches(tx, me.projectId, me.beneficiaryId)).length > 0 ||
+      (
+        await family.matches(
+          tx,
+          me.projectId,
+          me.beneficiaryId,
+          await answeredMobile(tx, applicationId),
+        )
+      ).length > 0 ||
       (await family.memberInProject(tx, me.projectId, me.beneficiaryId))
     )
       reasons.push('family_match');

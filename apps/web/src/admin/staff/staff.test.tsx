@@ -130,7 +130,8 @@ function serve() {
       roleKey: 'project_executive',
       name: { bn: 'প্রজেক্ট এক্সিকিউটিভ', en: 'Project Executive' },
       grantedAt: '2026-10-01T04:00:00.000Z',
-      grantedBy: HEAD_USER,
+      // the seed gave it: the system, not a person
+      grantedBy: null,
       revokedAt: '2026-11-01T04:00:00.000Z',
       revokedBy: HEAD_USER,
     },
@@ -1015,6 +1016,7 @@ describe('the official profile', () => {
     expect(within(now).getByText(/^ডিপার্টমেন্ট প্রধান দিয়েছেন, /)).toBeInTheDocument();
     const before = within(history).getByText('প্রজেক্ট এক্সিকিউটিভ').closest('li')!;
     expect(within(before).getByText(/^ডিপার্টমেন্ট প্রধান শেষ করেছেন, /)).toBeInTheDocument();
+    expect(within(before).getByText(/^সিস্টেম দিয়েছেন, /)).toBeInTheDocument();
     expect(within(before).queryByText('এখন')).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 

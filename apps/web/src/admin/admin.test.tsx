@@ -24,9 +24,9 @@ const renderAdmin = (locale: 'bn' | 'en' = 'bn', path = '/admin/page') =>
         children: [
           { path: 'page', element: <h1>অ্যাডমিন পাতা</h1> },
           {
-            path: 'everywhere',
-            handle: { phoneReady: true } satisfies AdminRouteHandle,
-            element: <h1>ফোনেও কাজের পাতা</h1>,
+            path: 'setup',
+            handle: { desktopFirst: true } satisfies AdminRouteHandle,
+            element: <h1>সেটআপের পাতা</h1>,
           },
         ],
       },
@@ -115,18 +115,19 @@ describe('admin area', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
   });
 
-  it('says on a phone that a setup page is best on a larger screen, and not on a page used on a phone as much', async () => {
+  it('says on a phone that a setup page is best on a larger screen, and nothing on any other page', async () => {
     stubScreen(360);
     refreshAs(HEAD);
-    const first = renderAdmin('bn', '/admin/page');
+    const first = renderAdmin('bn', '/admin/setup');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
+      await screen.findByRole('heading', { level: 1, name: 'সেটআপের পাতা' }),
     ).toBeInTheDocument();
     expect(screen.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।')).toBeInTheDocument();
     first.unmount();
-    renderAdmin('bn', '/admin/everywhere');
+    // a page with no mark is one officials use on a phone as on a computer
+    renderAdmin('bn', '/admin/page');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'ফোনেও কাজের পাতা' }),
+      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
     ).toBeInTheDocument();
     expect(screen.queryByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।')).not.toBeInTheDocument();
   });
