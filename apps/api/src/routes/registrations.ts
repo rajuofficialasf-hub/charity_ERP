@@ -426,7 +426,7 @@ export function registrationsRouter(
     summary: 'Pending edit requests within scope',
     permission: 'edit_request.approve',
     audit: 'none',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: pageQuery.omit({ sort: true }),
     responses: { 200: z.array(changeRequest), 401: null, 403: null, 422: null },
     handler: async ({ query, req }) => {
       const { rows, meta } = await c.changeRequests.list(
@@ -585,7 +585,7 @@ export function registrationsRouter(
     summary: "Officials' own change requests waiting for a decision",
     permission: 'staff_edit_request.approve',
     audit: 'none',
-    query: pageQuery.omit({ sort: true, include: true }),
+    query: pageQuery.omit({ sort: true }),
     responses: { 200: z.array(staffChangeRequest), 401: null, 403: null, 422: null },
     handler: async ({ query, req }) => {
       const { rows, meta } = await c.staffChangeRequests.list(query, principalOf(req));

@@ -247,12 +247,18 @@ export class StaffChangeRequestsService {
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
-    const fetched = await this.prisma.volunteerChangeRequest.findMany({
-      where: cursor ? { AND: [WAITING, keysetWhere(sort, cursor)] } : WAITING,
-      orderBy: orderBy(sort, direction),
-      take: query.limit + 1,
-      include: { user: { select: { ...PERSON, jobId: true } } },
-    });
+    const [fetched, total] = await Promise.all([
+      this.prisma.volunteerChangeRequest.findMany({
+        where: cursor ? { AND: [WAITING, keysetWhere(sort, cursor)] } : WAITING,
+        orderBy: orderBy(sort, direction),
+        take: query.limit + 1,
+        include: { user: { select: { ...PERSON, jobId: true } } },
+      }),
+      // the count above the tabs
+      query.include === 'total'
+        ? this.prisma.volunteerChangeRequest.count({ where: WAITING })
+        : undefined,
+    ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
       sort,
@@ -260,6 +266,7 @@ export class StaffChangeRequestsService {
       hadCursor: Boolean(cursor),
       secret: this.env.CURSOR_SECRET,
       binding,
+      total,
     });
     const photos = await staffPhotos(this.prisma, [...new Set(rows.map((r) => r.userId))]);
     const views = rows.map((r) => {

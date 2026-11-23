@@ -1,5 +1,5 @@
 import { Alert, Button, ConfirmDialog, DataTable, Stack, type DataTableExtendedColumn } from '@/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { formatDate } from '@css/shared/format';
 import { useTranslations } from 'use-intl';
@@ -13,6 +13,7 @@ import { FIELD_LABEL, type RequestField } from '../../features/account/profile-a
 import { ApiFailure } from '../../api/client';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
+import { useWaitingList } from './use-waiting-list';
 import { LoadError } from '../../components/LoadError';
 import { OpenablePhoto } from '../../features/photos/OpenablePhoto';
 
@@ -30,7 +31,7 @@ export function EditRequests() {
   const queryClient = useQueryClient();
   const [refusing, setRefusing] = useState<EditRequestRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const list = useQuery({ queryKey: EDITS_KEY, queryFn: editRequests });
+  const { list, rows, pagination } = useWaitingList(EDITS_KEY, editRequests);
   const decide = useMutation({
     mutationFn: ({ row, reason }: { row: EditRequestRow; reason?: string }) =>
       decideEdit(row.id, reason ? { decision: 'reject', reason } : { decision: 'approve' }),
@@ -130,7 +131,7 @@ export function EditRequests() {
       <DataTable
         label={tr('tabs.edits')}
         columns={columns}
-        rows={list.data ?? []}
+        rows={rows}
         getRowId={(r) => r.id}
         rowLabel={(r) => `${who(r)} · ${field(r)}`}
         rowActions={actions}
@@ -141,6 +142,7 @@ export function EditRequests() {
           ) : undefined
         }
         emptyTitle={t('empty')}
+        cursorPagination={pagination}
         cardRenderer={(r) => (
           <div className="admin-permission-card">
             <strong>{who(r)}</strong>

@@ -21,12 +21,29 @@ export const LIST_KEY = ['admin', 'registrations'] as const;
 export const detailKey = (userId: string) => ['admin', 'registrations', userId] as const;
 export const EDITS_KEY = ['admin', 'edit-requests'] as const;
 
+/** One page of a list of this page, with its cursor and, on the first page, its count. */
+export interface ListPage<T> {
+  data: T[];
+  meta: { nextCursor: string | null; total?: number | '10000+' };
+}
+/** Rows per page of the lists of this page. */
+export const LIST_PAGE = 50;
+/** A list read page by page: the first page asks for the count as well. */
+const paged =
+  <T>(path: string) =>
+  (cursor: string | null) =>
+    api<ListPage<T>>(
+      `${path}${path.includes('?') ? '&' : '?'}limit=${LIST_PAGE}${
+        cursor ? `&cursor=${encodeURIComponent(cursor)}` : '&include=total'
+      }`,
+      { envelope: true },
+    );
+
 /**
- * The pending staff registrations (the first 100). Volunteer registrations are reviewed in the
+ * The pending staff registrations, page by page. Volunteer registrations are reviewed in the
  * volunteer tab; a staff registration has no correction step.
  */
-export const pendingStaffRegistrations = () =>
-  api<PendingRegistration[]>('/registrations?limit=100&kind=staff');
+export const pendingStaffRegistrations = paged<PendingRegistration>('/registrations?kind=staff');
 export const registrationDetail = (userId: string) =>
   api<RegistrationDetailView>(`/registrations/${userId}`);
 export const approve = (userId: string) =>
@@ -46,7 +63,7 @@ export const block = (volunteerId: string, reason: string) =>
   api<unknown>(`/volunteers/${volunteerId}/block`, { method: 'POST', body: { reason } });
 export const unblock = (volunteerId: string, reason: string) =>
   api<unknown>(`/volunteers/${volunteerId}/unblock`, { method: 'POST', body: { reason } });
-export const editRequests = () => api<EditRequestRow[]>('/edit-requests?limit=100');
+export const editRequests = paged<EditRequestRow>('/edit-requests');
 export const decideEdit = (
   id: string,
   body: { decision: 'approve' } | { decision: 'reject'; reason: string },
@@ -54,7 +71,7 @@ export const decideEdit = (
 export const roles = () => api<RoleInfo[]>('/roles');
 
 export const STAFF_EDITS_KEY = ['admin', 'staff-edit-requests'] as const;
-export const staffEditRequests = () => api<StaffEditRequestRow[]>('/staff-edit-requests?limit=100');
+export const staffEditRequests = paged<StaffEditRequestRow>('/staff-edit-requests');
 export const decideStaffEdit = (
   id: string,
   body: { decision: 'approve' } | { decision: 'reject'; reason: string },

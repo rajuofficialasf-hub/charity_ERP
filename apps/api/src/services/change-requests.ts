@@ -336,12 +336,18 @@ export class ChangeRequestsService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const filter = waitingWhere(scope);
-    const fetched = await this.prisma.volunteerChangeRequest.findMany({
-      where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
-      orderBy: orderBy(sort, direction),
-      take: query.limit + 1,
-      include: { user: { select: { displayName: true } } },
-    });
+    const [fetched, total] = await Promise.all([
+      this.prisma.volunteerChangeRequest.findMany({
+        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
+        orderBy: orderBy(sort, direction),
+        take: query.limit + 1,
+        include: { user: { select: { displayName: true } } },
+      }),
+      // the count of the same scope, for the count above the tabs
+      query.include === 'total'
+        ? this.prisma.volunteerChangeRequest.count({ where: filter })
+        : undefined,
+    ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
       sort,
@@ -349,6 +355,7 @@ export class ChangeRequestsService {
       hadCursor: Boolean(cursor),
       secret: this.env.CURSOR_SECRET,
       binding,
+      total,
     });
     return {
       // the approver sees who asked

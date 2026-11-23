@@ -324,6 +324,36 @@ describe('edit requests', () => {
   });
 });
 
+describe('the list of waiting edit requests', () => {
+  it('pages past its first rows with a total, and a cursor of another official opens nothing', async () => {
+    // three waiting requests in Dhaka, beside whatever the other tests left
+    for (let i = 0; i < 3; i += 1) {
+      const v = await approvedVolunteer();
+      expect((await ask(v.session, { field: 'education', newValue: 'স্নাতক' })).status).toBe(201);
+    }
+    const rpm = await as(world.users.rpmDhaka);
+    const list = (s: Session, query: string) =>
+      api().get(`/api/v1/edit-requests?${query}`).set(bearer(s));
+    const first = await list(rpm, 'limit=2&include=total');
+    expect(first.status).toBe(200);
+    expect(first.body.data).toHaveLength(2);
+    const total = first.body.meta.total as number;
+    expect(total).toBeGreaterThanOrEqual(3);
+    const cursor = first.body.meta.nextCursor as string;
+    expect(cursor).toBeTruthy();
+    const second = await list(rpm, `limit=2&cursor=${encodeURIComponent(cursor)}`);
+    expect(second.status).toBe(200);
+    const seen = [...first.body.data, ...second.body.data].map((r: { id: string }) => r.id);
+    expect(new Set(seen).size).toBe(seen.length);
+    // the cursor belongs to the official who was given it
+    const other = await as(world.users.rpmRangpur);
+    expect((await list(other, `limit=2&cursor=${encodeURIComponent(cursor)}`)).status).toBe(422);
+    // the other region's count leaves Dhaka's requests out
+    const theirs = await list(other, 'limit=2&include=total');
+    expect(theirs.body.meta.total).toBeLessThan(total);
+  });
+});
+
 describe('several details at once', () => {
   const askMany = (s: Session, requests: object[], key: string = randomUUID()) =>
     api()

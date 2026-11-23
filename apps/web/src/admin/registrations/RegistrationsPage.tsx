@@ -1,7 +1,6 @@
 import type { Locale } from '@css/shared/i18n';
 import { formatDateTime } from '@css/shared/format';
 import { Alert, Chip, DataTable, Page, PersonCell, Tabs, type DataTableExtendedColumn } from '@/ui';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -22,6 +21,7 @@ import {
   STAFF_EDITS_KEY,
   staffEditRequests,
 } from './registrations-api';
+import { useWaitingList } from './use-waiting-list';
 import { LoadError } from '../../components/LoadError';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
@@ -105,55 +105,47 @@ function WaitingCounts({
   const t = useTranslations('admin.registrations');
   // the same reads as the lists below (the staff registrations only), so a tab opens on rows
   // already loaded
-  const pending = useQuery({
-    queryKey: LIST_KEY,
-    queryFn: pendingStaffRegistrations,
-    enabled: staff,
-  });
-  const requests = useQuery({ queryKey: EDITS_KEY, queryFn: editRequests, enabled: edits });
-  const staffRequests = useQuery({
-    queryKey: STAFF_EDITS_KEY,
-    queryFn: staffEditRequests,
-    enabled: staffEdits,
-  });
+  const pending = useWaitingList(LIST_KEY, pendingStaffRegistrations, staff);
+  const requests = useWaitingList(EDITS_KEY, editRequests, edits);
+  const staffRequests = useWaitingList(STAFF_EDITS_KEY, staffEditRequests, staffEdits);
   return (
     <StatisticsBar
       label={t('stats.label')}
       loading={
-        (staff && pending.isPending) ||
-        (edits && requests.isPending) ||
-        (staffEdits && staffRequests.isPending)
+        (staff && pending.list.isPending) ||
+        (edits && requests.list.isPending) ||
+        (staffEdits && staffRequests.list.isPending)
       }
       items={[
         // a list that could not be read shows its error below, never a count of zero
-        ...(staff && !pending.error
+        ...(staff && !pending.list.error
           ? [
               {
                 key: 'pending',
                 label: t('tabs.pending'),
-                value: pending.data?.length ?? 0,
+                value: pending.total,
                 icon: 'user-check' as const,
                 tone: 'warning' as const,
               },
             ]
           : []),
-        ...(edits && !requests.error
+        ...(edits && !requests.list.error
           ? [
               {
                 key: 'edits',
                 label: t('tabs.edits'),
-                value: requests.data?.length ?? 0,
+                value: requests.total,
                 icon: 'file-edit' as const,
                 tone: 'info' as const,
               },
             ]
           : []),
-        ...(staffEdits && !staffRequests.error
+        ...(staffEdits && !staffRequests.list.error
           ? [
               {
                 key: 'staff-edits',
                 label: t('tabs.staff_edits'),
-                value: staffRequests.data?.length ?? 0,
+                value: staffRequests.total,
                 icon: 'file-edit' as const,
                 tone: 'info' as const,
               },
@@ -168,7 +160,7 @@ function PendingList() {
   const t = useTranslations('admin.registrations');
   const tr = useTranslations('registration.form.types');
   const locale = useLocale() as Locale;
-  const list = useQuery({ queryKey: LIST_KEY, queryFn: pendingStaffRegistrations });
+  const { list, rows, pagination } = useWaitingList(LIST_KEY, pendingStaffRegistrations);
   const kind = (r: PendingRegistration) =>
     r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer');
   const type = (r: PendingRegistration) =>
@@ -203,7 +195,7 @@ function PendingList() {
     <DataTable
       label={t('tabs.pending')}
       columns={columns}
-      rows={list.data ?? []}
+      rows={rows}
       getRowId={(r) => r.userId}
       rowLabel={(r) => r.displayName}
       loading={list.isPending}
@@ -213,6 +205,7 @@ function PendingList() {
         ) : undefined
       }
       emptyTitle={t('empty')}
+      cursorPagination={pagination}
       cardRenderer={(r) => (
         <div className="admin-permission-card">
           {name(r)}

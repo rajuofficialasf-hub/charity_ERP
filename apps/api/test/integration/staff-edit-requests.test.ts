@@ -326,6 +326,30 @@ describe('a new email and a new photo', () => {
   });
 });
 
+describe("the list of officials' waiting requests", () => {
+  it('pages past its first rows with a total', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const rpm = await official();
+      expect((await ask(rpm.session, { field: 'designation', newValue: `পদ ${i}` })).status).toBe(
+        201,
+      );
+    }
+    const s = await head();
+    const first = await api()
+      .get('/api/v1/staff-edit-requests?limit=2&include=total')
+      .set(bearer(s));
+    expect(first.status).toBe(200);
+    expect(first.body.data).toHaveLength(2);
+    expect(first.body.meta.total).toBeGreaterThanOrEqual(3);
+    const cursor = first.body.meta.nextCursor as string;
+    const second = await api()
+      .get(`/api/v1/staff-edit-requests?limit=2&cursor=${encodeURIComponent(cursor)}`)
+      .set(bearer(s));
+    expect(second.status).toBe(200);
+    expect(second.body.data.length).toBeGreaterThan(0);
+  });
+});
+
 describe('several details at once', () => {
   const askMany = (s: Session, requests: object[], key: string = randomUUID()) =>
     api()
