@@ -169,6 +169,19 @@ describe.skipIf(!contractBase())('the person’s own screens', () => {
       }),
       204,
     );
+    // several details at once, all or none, once per key
+    const many = expectContract(
+      await call(
+        volunteer,
+        'POST',
+        '/me/change-requests/batch',
+        { requests: [{ field: 'education', newValue: 'স্নাতক' }] },
+        { 'Idempotency-Key': crypto.randomUUID() },
+      ),
+      201,
+      z.array(changeRequestSchema),
+    );
+    expect(many.map((r) => r.field)).toEqual(['education']);
     const photo = expectContract(
       await call(volunteer, 'POST', '/me/change-requests', { field: 'photo' }),
       201,
@@ -221,6 +234,18 @@ describe.skipIf(!contractBase())('the person’s own screens', () => {
       201,
       changeRequestSchema,
     );
+    const many = expectContract(
+      await call(
+        official,
+        'POST',
+        '/me/staff-change-requests/batch',
+        { requests: [{ field: 'designation', newValue: 'প্রোগ্রাম অফিসার' }] },
+        { 'Idempotency-Key': crypto.randomUUID() },
+      ),
+      201,
+      z.array(changeRequestSchema),
+    );
+    expect(many.map((r) => r.field)).toEqual(['designation']);
     expectStatus(await call(official, 'POST', `/me/staff-change-requests/${request.id}/otp`), 204);
     expectStatus(
       await call(official, 'POST', `/me/staff-change-requests/${request.id}/otp/verify`, {
