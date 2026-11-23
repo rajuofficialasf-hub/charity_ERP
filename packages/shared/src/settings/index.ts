@@ -153,12 +153,75 @@ export type SmsProviderSetting = z.infer<typeof smsProviderSettingSchema>;
  */
 export const matchDailyLimitSchema = intInRange(1, 10_000);
 
+/** The most office addresses kept; each is one network the office reaches the server from. */
+export const OFFICE_ADDRESSES_MAX = 20;
+/** The widest ranges an entry may name: a /24 of IPv4, a /56 of IPv6 (the client the limiter counts). */
+const OFFICE_PREFIX_MIN = { ipv4: 24, ipv6: 56 } as const;
+const ipv4 = z.ipv4();
+const ipv6 = z.ipv6();
+const cidrv4 = z.cidrv4();
+const cidrv6 = z.cidrv6();
+
+/**
+ * Whether an IPv6 address (or the address of a range) lies in the /56 of zeros, where loopback,
+ * the unspecified address and the IPv4 addresses in their IPv6 form are: an entry there would
+ * cover every IPv4 client, since an IPv6 entry counts as its whole /56.
+ */
+export function inZeroIpv6Network(raw: string): boolean {
+  const address = (raw.split('/')[0] ?? '').toLowerCase();
+  const halves = address.split('::');
+  // a dotted IPv4 tail stands for the last two groups
+  const groupsOf = (part: string) =>
+    part === '' ? [] : part.split(':').flatMap((g) => (g.includes('.') ? ['1', '1'] : [g]));
+  const front = groupsOf(halves[0] ?? '');
+  const back = halves.length > 1 ? groupsOf(halves[1] ?? '') : [];
+  const zeros = Math.max(0, 8 - front.length - back.length);
+  const groups = halves.length > 1 ? [...front, ...Array<string>(zeros).fill('0'), ...back] : front;
+  const value = (i: number) => parseInt(groups.at(i) ?? '0', 16);
+  // the first 56 bits: three whole groups and the high byte of the fourth
+  return value(0) === 0 && value(1) === 0 && value(2) === 0 && value(3) >> 8 === 0;
+}
+
+/** Whether a text is one address, or a range no wider than the office prefixes allow. */
+function isOfficeAddress(raw: string): boolean {
+  if (ipv4.safeParse(raw).success) return true;
+  if (ipv6.safeParse(raw).success) return !inZeroIpv6Network(raw);
+  const prefix = Number(raw.slice(raw.lastIndexOf('/') + 1));
+  if (cidrv4.safeParse(raw).success) return prefix >= OFFICE_PREFIX_MIN.ipv4;
+  if (cidrv6.safeParse(raw).success)
+    return prefix >= OFFICE_PREFIX_MIN.ipv6 && !inZeroIpv6Network(raw);
+  return false;
+}
+
+/**
+ * The office addresses an Admin lists: requests from them skip the per-address rate limits, while
+ * the per-account and per-draft limits apply to everyone. Single addresses or ranges no wider than
+ * a /24 (IPv4) or a /56 (IPv6), at most twenty, each once.
+ */
+export const officeAddressesSchema = z.strictObject({
+  addresses: z
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .max(64, { message: 'validation.office_address' })
+        .refine(isOfficeAddress, { message: 'validation.office_address' }),
+    )
+    .max(OFFICE_ADDRESSES_MAX, { message: 'validation.office_addresses_too_many' })
+    .refine((list) => new Set(list).size === list.length, {
+      message: 'validation.office_address_repeated',
+    }),
+});
+export type OfficeAddressesSetting = z.infer<typeof officeAddressesSchema>;
+
 export const SETTING_SCHEMAS = {
   organisation: organisationSettingSchema,
   localization: localizationSettingSchema,
   'monitoring.thresholds': monitoringThresholdsSchema,
   'sms.provider': smsProviderSettingSchema,
   'lookup.match_daily_limit': matchDailyLimitSchema,
+  'security.office_ips': officeAddressesSchema,
 } as const;
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
 export const SETTING_KEYS = Object.keys(SETTING_SCHEMAS) as SettingKey[];
@@ -202,6 +265,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
   },
   'sms.provider': { provider: null, senderId: null, enabled: false, endpoint: null },
   'lookup.match_daily_limit': 60,
+  'security.office_ips': { addresses: [] },
 };
 
 /** A setting change: the whole value of the key, validated by the key's schema. */

@@ -1,7 +1,13 @@
 import { uuidv7 } from '@css/shared';
 import type { ExtraAreaRequest, ExtraAreaRow } from '@css/shared/access';
 import type { ReasonRequest } from '@css/shared/auth';
-import { extraAreaRefusal, type HardRule, type VolunteerReach } from '../access/hard-rules.js';
+import { translate } from '@css/shared/i18n';
+import {
+  extraAreaRefusal,
+  type HardRule,
+  isTopRole,
+  type VolunteerReach,
+} from '../access/hard-rules.js';
 import type { Scope } from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
@@ -18,6 +24,11 @@ import type { AccountEvents } from '../notifications/account-events.js';
 const AREA_LEVELS: readonly string[] = ['division', 'district'];
 /** The permission whose reach says where the giver sees volunteers. */
 const VOLUNTEER_TAB = 'volunteer.view_all';
+/**
+ * The reason an area passed on from another one ends with when that source ends, stored in the
+ * department's working language as the reasons officials write are.
+ */
+const SOURCE_ENDED = translate('bn', 'common.extra_area.source_ended');
 
 const invalid = (path: string) =>
   new ApiError('validation.failed', 422, undefined, [{ path, code: 'validation.option_unknown' }]);
@@ -88,8 +99,8 @@ interface Place {
  * volunteers; the whole country is an Admin's or the Department Head's to give; nobody gives one
  * to themselves. Whoever gave an area may always take it away again, also after losing the reach
  * it was given from. Each change is audited on the person, raises the person's permission version
- * and is told to the person. An area that was given on stands on its own when the giver's is
- * ended.
+ * and is told to the person. An area given on from an extra area the giver holds ends with that
+ * source, along the whole chain.
  */
 export class ExtraAreasService {
   constructor(
@@ -152,9 +163,15 @@ export class ExtraAreasService {
     };
   }
 
-  private async rule(tx: Tx, actor: Principal, userId: string, place: Place) {
+  private async rule(
+    tx: Tx,
+    actor: Principal,
+    userId: string,
+    place: Place,
+    roles?: readonly string[],
+  ) {
     return extraAreaRefusal(
-      { id: actor.userId, roles: await this.access.rolesOf(actor.userId, tx) },
+      { id: actor.userId, roles: roles ?? (await this.access.rolesOf(actor.userId, tx)) },
       userId,
       place,
       await this.reachOf(tx, actor),
@@ -181,10 +198,19 @@ export class ExtraAreasService {
       refused = await this.prisma.$transaction(async (tx) => {
         const user = await this.official(tx, actor, scope, userId);
         const place = await this.placeOf(tx, body);
-        const rule = await this.rule(tx, actor, user.id, place);
+        const roles = await this.access.rolesOf(actor.userId, tx);
+        const rule = await this.rule(tx, actor, user.id, place, roles);
         if (rule) return { rule, place };
         // an account that waits, is blocked or closed takes no new reach
         if (user.state !== 'active') throw new ApiError('user.extra_area_inactive', 409);
+        // the giver's source is locked before it is named: a source being ended meanwhile is
+        // either ended before this reads it, or waits until this area exists and ends it too
+        const found = await this.sourceOf(tx, actor, place, roles);
+        if (found === 'ended') {
+          const again = await this.rule(tx, actor, user.id, place, roles);
+          if (again) return { rule: again, place };
+        }
+        const source = found === 'ended' ? null : found;
         const id = uuidv7();
         await tx.userExtraArea.create({
           data: {
@@ -192,6 +218,7 @@ export class ExtraAreasService {
             userId: user.id,
             locationId: place.locationId,
             wholeCountry: place.wholeCountry,
+            sourceAreaId: source,
             reason: body.reason,
             grantedBy: actor.userId,
             grantedAt: this.clock.now(),
@@ -217,8 +244,99 @@ export class ExtraAreasService {
     return this.list(scope, userId);
   }
 
-  /** Takes an extra area away, with a reason; the areas given on from it stay. */
+  /**
+   * The giver's own live extra area the place is passed on from: the same place, the division of
+   * a district, or the whole country, the closest first, locked so that ending it waits for this
+   * give. An Admin and the Department Head reach every place by their role, so what they give
+   * comes from no extra area. Answers `ended` when every such area ended meanwhile.
+   */
+  private async sourceOf(
+    tx: Tx,
+    actor: Principal,
+    place: Place,
+    roles: readonly string[],
+  ): Promise<string | null | 'ended'> {
+    if (isTopRole(roles)) return null;
+    const held = await tx.userExtraArea.findMany({
+      where: {
+        userId: actor.userId,
+        endedAt: null,
+        OR: [
+          { wholeCountry: true },
+          ...[place.locationId, place.parentId]
+            .filter((id): id is string => id !== null)
+            .map((locationId) => ({ locationId })),
+        ],
+      },
+      select: { id: true, locationId: true, wholeCountry: true },
+    });
+    const rank = (r: (typeof held)[number]) =>
+      r.locationId === place.locationId ? 0 : r.wholeCountry ? 2 : 1;
+    for (const candidate of held.sort((a, b) => rank(a) - rank(b))) {
+      const live = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM user_extra_areas
+        WHERE id = ${candidate.id}::uuid AND ended_at IS NULL
+        FOR SHARE`;
+      if (live.length) return candidate.id;
+    }
+    // every source the giver held ended while this was waiting: the reach is read again
+    return held.length ? 'ended' : null;
+  }
+
+  /**
+   * Ends every live area passed on from the given one, along the whole chain, by the same hand:
+   * each audited with the reason that its source ended and refreshing the person's permissions.
+   * Answers the people whose areas ended.
+   */
+  private async endPassedOn(tx: Tx, actor: Principal, sourceId: string): Promise<string[]> {
+    const chain = await tx.$queryRaw<
+      {
+        id: string;
+        user_id: string;
+        location_id: string | null;
+        whole_country: boolean;
+        name_bn: string | null;
+        name_en: string | null;
+      }[]
+    >`
+      WITH RECURSIVE passed(id) AS (
+        SELECT id FROM user_extra_areas WHERE source_area_id = ${sourceId}::uuid AND ended_at IS NULL
+        UNION
+        SELECT u.id FROM user_extra_areas u JOIN passed p ON u.source_area_id = p.id
+        WHERE u.ended_at IS NULL
+      )
+      SELECT u.id, u.user_id, u.location_id, u.whole_country, l.name_bn, l.name_en
+      FROM user_extra_areas u JOIN passed p ON p.id = u.id
+      LEFT JOIN locations l ON l.id = u.location_id`;
+    for (const row of chain) {
+      await tx.userExtraArea.update({
+        where: { id: row.id },
+        data: {
+          endedAt: this.clock.now(),
+          endedBy: actor.userId,
+          endReason: SOURCE_ENDED,
+          updatedBy: actor.userId,
+        },
+      });
+      await this.versions.bump(tx, row.user_id, {
+        action: 'user.extra_area_ended',
+        old: { id: row.id, locationId: row.location_id, wholeCountry: row.whole_country },
+        reason: SOURCE_ENDED,
+      });
+      await this.events.extraAreaChanged(
+        tx,
+        row.user_id,
+        'ended',
+        row.name_bn !== null && row.name_en !== null ? { bn: row.name_bn, en: row.name_en } : null,
+        actor.userId,
+      );
+    }
+    return [...new Set(chain.map((r) => r.user_id))];
+  }
+
+  /** Takes an extra area away, with a reason; the areas passed on from it end with it. */
   async end(actor: Principal, scope: Scope, userId: string, areaId: string, body: ReasonRequest) {
+    let passedOnTo: string[] = [];
     const refused = await this.prisma.$transaction(async (tx) => {
       const user = await this.official(tx, actor, scope, userId);
       const row = await tx.userExtraArea.findFirst({
@@ -255,10 +373,11 @@ export class ExtraAreasService {
         reason: body.reason,
       });
       await this.events.extraAreaChanged(tx, user.id, 'ended', place.name, actor.userId);
+      passedOnTo = await this.endPassedOn(tx, actor, areaId);
       return null;
     });
     if (refused) return this.refuse(userId, refused.rule, refused.place, body.reason);
-    this.versions.settled(userId);
+    this.versions.settled(userId, ...passedOnTo);
     return this.list(scope, userId);
   }
 

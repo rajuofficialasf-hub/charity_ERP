@@ -13,6 +13,8 @@ import {
 import { at, type Caller, call, type Sent, signIn } from './session';
 
 /** The demo accounts the cases act as (docs/testing/DEMO_ACCOUNTS.md). */
+/** The Main Admin: the office addresses are the Admin's alone. */
+export const ADMIN = 'CSS-000';
 export const HEAD = 'CSS-001';
 export const MONITORING = 'CSS-002';
 export const PM_HUM = 'CSS-102';

@@ -1,5 +1,6 @@
 import { Alert, ConfirmDialog } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../api/client';
 import { ReasonDialog } from '../../projects/ReasonDialog';
@@ -19,7 +20,8 @@ const CLASH_KINDS = [
 
 /**
  * What a refused merge names: the projects with an application still waiting for a decision
- * (by name where the caller reaches the project) and the records both profiles hold, or the
+ * (by name, with a link to open that application, where the caller reaches the project) and the
+ * records both profiles hold, or the
  * profile that must be kept because it alone has an identity document.
  */
 export function ConflictList({
@@ -37,23 +39,42 @@ export function ConflictList({
     return kept ? <p>{kept.message}</p> : null;
   }
   if (error.code !== 'beneficiary.merge_conflict') return null;
-  const lines = error.details.map((d) => {
+  const lines = error.details.map((d): { text: string; applicationId?: string } => {
     const kind = d.path?.split('.')[0] ?? '';
     if (kind === 'applications') {
       const id = d.params?.projectId;
+      const applicationId = d.params?.applicationId;
       return id
-        ? t('application', { project: projectName(id) ?? t('project_unknown') })
-        : t('hidden');
+        ? {
+            text: t('application', { project: projectName(id) ?? t('project_unknown') }),
+            ...(applicationId ? { applicationId } : {}),
+          }
+        : { text: t('hidden') };
     }
     const clash = CLASH_KINDS.find((k) => k === kind);
-    return clash ? t(clash) : t('other');
+    return { text: clash ? t(clash) : t('other') };
   });
-  const unique = [...new Set(lines)];
+  // a line with an application to open stays one line per application; the others once each
+  const seen = new Set<string>();
+  const unique = lines.filter((line) => {
+    if (line.applicationId !== undefined) return true;
+    if (seen.has(line.text)) return false;
+    seen.add(line.text);
+    return true;
+  });
   if (!unique.length) return null;
   return (
     <ul>
       {unique.map((line) => (
-        <li key={line}>{line}</li>
+        <li key={line.applicationId ?? line.text}>
+          {line.text}
+          {line.applicationId ? (
+            <>
+              {' '}
+              <Link to={`/admin/applications/${line.applicationId}`}>{t('open_application')}</Link>
+            </>
+          ) : null}
+        </li>
       ))}
     </ul>
   );

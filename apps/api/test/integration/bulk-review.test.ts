@@ -295,6 +295,78 @@ describe('the review screen in bulk', () => {
     ).toBe(422);
   });
 
+  it('refuses the rows a full quota asks a comment for, and approves them with one shared comment', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const ids = await Promise.all([submitted(), submitted()]);
+    await h.db.query(`UPDATE applications SET status = 'reviewed' WHERE id = ANY($1::uuid[])`, [
+      ids,
+    ]);
+    // a district quota of one, already reached by an approval of its own
+    const earlier = await submitted();
+    await h.db.query(
+      `UPDATE applications SET status = 'implementation', approved_at = now() WHERE id = $1`,
+      [earlier],
+    );
+    const quota = await insert(h.db, 'project_quotas', {
+      id: randomUUID(),
+      project_id: project,
+      level: 'district',
+      location_id: world.dhaka.district,
+      target: 1,
+      updated_at: new Date(),
+    });
+    try {
+      const body = { action: 'approve', rows: await rows(rpm, ids) };
+      const without = await bulk(rpm, randomUUID(), body);
+      expect(without.status, JSON.stringify(without.body)).toBe(200);
+      expect(
+        (without.body.data.results as { result: string; code: string | null }[]).map((r) => [
+          r.result,
+          r.code,
+        ]),
+      ).toEqual([
+        ['failed', 'workflow.comment_required'],
+        ['failed', 'workflow.comment_required'],
+      ]);
+      // an empty comment is no comment
+      const blank = await bulk(rpm, randomUUID(), { ...body, comment: '   ' });
+      expect(
+        (blank.body.data.results as { code: string | null }[]).every(
+          (r) => r.code === 'workflow.comment_required',
+        ),
+      ).toBe(true);
+      const key = randomUUID();
+      const withComment = await bulk(rpm, key, { ...body, comment: 'এলাকার চাহিদা বেশি' });
+      expect(withComment.status, JSON.stringify(withComment.body)).toBe(200);
+      expect(
+        (withComment.body.data.results as { result: string; status: string }[]).map((r) => [
+          r.result,
+          r.status,
+        ]),
+      ).toEqual([
+        ['done', 'implementation'],
+        ['done', 'implementation'],
+      ]);
+      const stored = await h.db.query<{ decision_comment: string }>(
+        'SELECT decision_comment FROM applications WHERE id = ANY($1::uuid[])',
+        [ids],
+      );
+      expect(stored.rows.map((r) => r.decision_comment)).toEqual([
+        'এলাকার চাহিদা বেশি',
+        'এলাকার চাহিদা বেশি',
+      ]);
+      // the comment is part of what the key stands for
+      expect((await bulk(rpm, key, { ...body, comment: 'অন্য মন্তব্য' })).status).toBe(422);
+      expect((await bulk(rpm, key, body)).status).toBe(422);
+      // a comment longer than a decision's comment is a bad request
+      expect((await bulk(rpm, randomUUID(), { ...body, comment: 'ক'.repeat(2001) })).status).toBe(
+        422,
+      );
+    } finally {
+      await h.db.query('DELETE FROM project_quotas WHERE id = $1', [quota]);
+    }
+  });
+
   it('takes a full page of fifty rows in one request', async () => {
     const executive = await as(world.users.executive);
     const ids = [];

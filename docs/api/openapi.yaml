@@ -4188,6 +4188,20 @@ components:
                     properties:
                       level: { type: string, enum: [probable] }
             samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
+            mergedTwins:
+              type: array
+              description: >-
+                The same person's other sent applications in this project, on a profile merged with
+                this one (BR-329); each named only where the caller's application scope reaches it,
+                else all three fields are null. Empty for a volunteer.
+              items:
+                type: object
+                additionalProperties: false
+                required: [applicationId, appNo, status]
+                properties:
+                  applicationId: { type: [string, 'null'], format: uuid }
+                  appNo: { type: [string, 'null'] }
+                  status: { type: [string, 'null'] }
             helpedBefore:
               x-sensitive-class: beneficiary.application_history
               description: >-
@@ -4779,6 +4793,13 @@ components:
               clientUuid: { $ref: '#/components/schemas/Uuid' }
               applicationId: { $ref: '#/components/schemas/Uuid' }
               ifMatch: { type: string, maxLength: 64 }
+        comment:
+          type: string
+          maxLength: 2000
+          description: >-
+            One comment for every row's decision, as a single decision takes it: a row whose
+            decision asks for a comment (against the score order, a full quota, a repeat) fails
+            with workflow.comment_required without it
     BulkRequest:
       type: object
       required: [rows]
@@ -5413,6 +5434,32 @@ components:
                 config: { $ref: '#/components/schemas/SmsProviderSetting' }
                 updatedAt: { type: [string, 'null'], format: date-time }
             otpDummy: { type: boolean }
+        meta: { $ref: '#/components/schemas/Meta' }
+    OfficeAddressesSetting:
+      type: object
+      additionalProperties: false
+      required: [addresses]
+      description: >-
+        The office addresses (DECISION_LOG D-198): single IPv4 or IPv6 addresses, or ranges no wider
+        than /24 (IPv4) or /56 (IPv6), at most 20, each once. An IPv6 entry covers its /56.
+      properties:
+        addresses:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 64 }
+    OfficeAddressesResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [addresses, updatedAt, yourAddress]
+          properties:
+            addresses: { type: array, items: { type: string } }
+            updatedAt: { type: [string, 'null'], format: date-time }
+            yourAddress:
+              type: [string, 'null']
+              description: The caller's address as the server sees it through the trusted proxy
         meta: { $ref: '#/components/schemas/Meta' }
     StorageFigure:
       type: object
@@ -13293,6 +13340,56 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChannelsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/office-addresses:
+    get:
+      tags: [admin]
+      operationId: admin.officeAddresses.get
+      summary: The office addresses the per-address rate limits exempt, and the caller’s own address
+      description: >-
+        DECISION_LOG D-198. A request from a listed address skips the rate-limit windows counted by
+        the client address; the windows of a login id, a code's address, a registration draft, a
+        session or a user still count it. The Admin alone holds the permission.
+      x-permission: security.office_ips.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfficeAddressesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [admin]
+      operationId: admin.officeAddresses.set
+      summary: Replace the office addresses; the rate limiter reads them at once
+      description: >-
+        Stored as the security.office_ips setting, audited as settings.change with the old and the
+        new list. An address that is not one, a range wider than /24 or /56, a repeat or a 21st
+        entry answers 422 (validation.office_address, validation.office_address_repeated,
+        validation.office_addresses_too_many).
+      x-permission: security.office_ips.manage
+      x-scope: global
+      x-audit: settings.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OfficeAddressesSetting' }
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfficeAddressesResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Unprocessable' }

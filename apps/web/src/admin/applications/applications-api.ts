@@ -233,6 +233,8 @@ export const bulkReview = (
   body: {
     action: 'send_for_approval' | 'approve';
     rows: { clientUuid: string; applicationId: string; ifMatch: string }[];
+    /** One comment for every row's decision. */
+    comment?: string;
   },
 ) =>
   api<BulkReview>(`/projects/${projectId}/bulk/review`, {

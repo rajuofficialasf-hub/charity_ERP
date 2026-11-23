@@ -292,7 +292,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | password-reset | 5 per hour per login id (normalized spelling); 20 per hour per IP (D-075) | login id, IP |
 | refresh | 60 per hour | device session |
 | public-form | 20 per hour per route (O-08, NFR-41): the public form read, the public submission and the public photo upload each have their own budget per address | IP |
-| registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
+| registration | 10 registration drafts started per IP per day; a submit counts by its draft, 5 per hour and 10 per day, so a new draft never resets another's count, and 100 submits per IP per day; 20 requests per hour per IP; plus the `otp-request` windows (D-082, D-198) | IP, draft, address |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
 | list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
@@ -303,6 +303,8 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | file-download | 120 photo downloads per hour per user; each carries the photo's place and is audited (D-181) | user |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
+
+Office addresses (D-198): a request from an address an Admin lists in the settings (`security.office_ips`, `GET`/`PUT /admin/office-addresses`; single addresses or ranges no wider than /24 for IPv4 and /56 for IPv6, at most 20; an IPv6 entry counts as its /56, so one in the /56 of zeros, such as loopback or an IPv4 address in its IPv6 form, is refused because it would cover every IPv4 client) skips every window keyed by the client address (the IP column above), so a training day from one office Wi-Fi is not held. The windows of a login id, a code's address or draft, a registration draft, a device session or a user count it as anyone's. The API holds the list in memory, reads it at start, after each change and once a minute; until the first read and with an empty list nobody is exempt. The address is the one `trust proxy` yields (`TRUST_PROXY`), an IPv6 address grouped by its /56.
 
 ## 11. Authentication headers and token refresh
 
@@ -332,7 +334,7 @@ Idempotency-Key: <uuid>
 ```
 
 - Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others (one savepoint per row inside the batch's transaction).
-- The review screen uses the same pattern for the common cycle: `POST /api/v1/projects/{projectId}/bulk/review` with `{ "action": "review" | "approve", "rows": [ { "clientUuid", "applicationId", "ifMatch" } ] }`; `ifMatch` is the row's `etag` from the list, so a row that changed since the list was read fails with `conflict.stale_version` while the others pass. The request is refused as a whole (403) when the caller holds no permission for the action at all, and (422) when the Idempotency-Key was used by someone else or with another request.
+- The review screen uses the same pattern for the common cycle: `POST /api/v1/projects/{projectId}/bulk/review` with `{ "action": "review" | "send_for_approval" | "approve", "rows": [ { "clientUuid", "applicationId", "ifMatch" } ], "comment"?: "…" }`; `ifMatch` is the row's `etag` from the list, so a row that changed since the list was read fails with `conflict.stale_version` while the others pass. The optional `comment` goes to every row's decision as a single decision takes it: a row whose decision asks for a comment (against the score order, a full quota, a repeat) fails with `workflow.comment_required` without one, and the comment is part of what the Idempotency-Key stands for. The request is refused as a whole (403) when the caller holds no permission for the action at all, and (422) when the Idempotency-Key was used by someone else or with another request.
 - Permission is checked per row against the row's record and scope; `x-permission` on the endpoint names the screen's permission (e.g. `distribution.update`, `class.record`, `progress.update`, `site_verification.record`, `followup.record`).
 - The same payload shape is accepted inside `/sync/batch` for offline saves.
 

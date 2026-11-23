@@ -1,4 +1,9 @@
-import { type SmsProviderSetting, smsProviderSettingSchema } from '@css/shared/settings';
+import {
+  type OfficeAddressesSetting,
+  officeAddressesSchema,
+  type SmsProviderSetting,
+  smsProviderSettingSchema,
+} from '@css/shared/settings';
 import { Router } from 'express';
 import { principalOf } from '../auth/principal.js';
 import type { Container } from '../container.js';
@@ -18,7 +23,7 @@ const op = {
  */
 export function adminSystemRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'channels' | 'systemHealth'>,
+  c: Pick<Container, 'channels' | 'systemHealth' | 'officeAddressSettings'>,
 ): Router {
   const router = Router();
 
@@ -45,6 +50,33 @@ export function adminSystemRouter(
     body: smsProviderSettingSchema,
     responses: { 200: null, 401: null, 403: null, 422: null },
     handler: async ({ body, req }) => ok(await c.channels.setSms(principalOf(req), body)),
+  });
+
+  defineRoute(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/admin/office-addresses',
+    operationId: 'admin.officeAddresses.get',
+    summary:
+      'The office addresses the per-address rate limits exempt, and the caller’s own address',
+    permission: 'security.office_ips.manage',
+    audit: 'none',
+    responses: { 200: null, 401: null, 403: null },
+    handler: async ({ req }) => ok(await c.officeAddressSettings.view(req.ip)),
+  });
+
+  defineRoute<OfficeAddressesSetting>(router, deps, {
+    ...op,
+    method: 'put',
+    path: '/admin/office-addresses',
+    operationId: 'admin.officeAddresses.set',
+    summary: 'Replace the office addresses; the rate limiter reads them at once',
+    permission: 'security.office_ips.manage',
+    audit: 'settings.change',
+    body: officeAddressesSchema,
+    responses: { 200: null, 401: null, 403: null, 422: null },
+    handler: async ({ body, req }) =>
+      ok(await c.officeAddressSettings.set(principalOf(req), body, req.ip)),
   });
 
   defineRoute(router, deps, {

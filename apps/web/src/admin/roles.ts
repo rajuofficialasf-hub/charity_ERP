@@ -243,6 +243,8 @@ export const canPrintProfile = (me: Pick<Me, 'roles'>) => holds(me, JOURNEY_PDF_
 
 export const canManagePermissions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
 export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_ADMIN_ROLES);
+/** The office addresses the rate limits exempt: the Admin alone (`security.office_ips.manage`). */
+export const canKeepOfficeAddresses = (me: Pick<Me, 'roles'>) => holds(me, ['admin']);
 /**
  * The roles that hold every scope: an Admin, the Department Head and the Monitoring Team. They
  * read everything, and the server holds them to the longer password.

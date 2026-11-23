@@ -13,6 +13,7 @@ import { SettingsPage } from './SettingsPage';
 // The settings page of the global roles: organisation, language, thresholds, lists and the
 // notification channels with the dummy OTP warning. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
+const ADMIN: Me = { ...ME, roles: ['admin'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 
 const SETTINGS = [
@@ -611,5 +612,64 @@ describe('the settings page', () => {
     open();
     expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('সেটিংস');
     expect(settingsRead).toBe(0);
+  });
+
+  it('lets an Admin keep the office addresses, adding the one the page is opened from', async () => {
+    refreshAs(ADMIN);
+    serve();
+    const put: unknown[] = [];
+    let addresses: string[] = ['198.51.100.0/24'];
+    server.use(
+      http.get('*/api/v1/admin/office-addresses', () =>
+        HttpResponse.json({
+          data: { addresses, updatedAt: null, yourAddress: '203.0.113.5' },
+          meta: {},
+        }),
+      ),
+      http.put('*/api/v1/admin/office-addresses', async ({ request }) => {
+        const body = (await request.json()) as { addresses: string[] };
+        put.push(body);
+        addresses = body.addresses;
+        return HttpResponse.json({
+          data: { addresses, updatedAt: '2026-11-23T10:00:00.000Z', yourAddress: '203.0.113.5' },
+          meta: {},
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { container } = open('security');
+    expect(await screen.findByText('এই কম্পিউটারের ঠিকানা: 203.0.113.5')).toBeInTheDocument();
+    const field = screen.getByRole('textbox', { name: /^অফিসের ঠিকানা/ });
+    expect(field).toHaveValue('198.51.100.0/24');
+    // a range wider than a /24 is refused before the server is asked
+    await user.clear(field);
+    await user.type(field, '10.0.0.0/16');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+    expect(
+      await screen.findByText(
+        'একটি IP ঠিকানা লিখুন, বা এমন একটি পরিসর যা IPv4-এ /24 আর IPv6-এ /56-এর চেয়ে বড় নয়।',
+      ),
+    ).toBeInTheDocument();
+    expect(put).toEqual([]);
+    await user.clear(field);
+    await user.type(field, '198.51.100.0/24');
+    await user.click(screen.getByRole('button', { name: 'এই ঠিকানা যোগ করুন' }));
+    expect(field).toHaveValue('198.51.100.0/24\n203.0.113.5');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+    await screen.findByText('সেটিংস সংরক্ষিত হয়েছে।');
+    expect(put).toEqual([{ addresses: ['198.51.100.0/24', '203.0.113.5'] }]);
+    // the address is listed now, so it is not offered again
+    expect(screen.queryByRole('button', { name: 'এই ঠিকানা যোগ করুন' })).toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
+  it('shows the office addresses to the Admin only', async () => {
+    refreshAs(HEAD);
+    serve();
+    open('security');
+    expect(await screen.findByRole('tab', { name: 'প্রতিষ্ঠান' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'নিরাপত্তা' })).toBeNull();
+    // the address names the tab, but the Head lands on the first one
+    expect(screen.queryByRole('textbox', { name: /^অফিসের ঠিকানা/ })).toBeNull();
   });
 });

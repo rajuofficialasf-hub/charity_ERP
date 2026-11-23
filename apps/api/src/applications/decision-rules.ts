@@ -3,6 +3,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { BeneficiaryFamilyService } from '../services/beneficiary-family.js';
 import { openPairInProject } from '../services/beneficiary-merge-candidates.js';
 import { IDENTITY_RULES_SELECT, identityRulesOf } from '../services/project-identity-rules.js';
+import { mergedTwins } from './merged-twins.js';
 
 /**
  * Why a decision asks for a comment: it goes against the score order, the quota area is full, or
@@ -155,7 +156,7 @@ export async function quotaFull(tx: Tx, applicationId: string): Promise<boolean>
  * The repeats of the person in the project that an approval asks a comment for, by the project's
  * own rules (docs/BUSINESS_RULES.md, "Application workflow"): `same_person` when the person's
  * profile has an open probable pair with another live profile that has an application in the
- * project, `family_match`
+ * project, or a profile merged with it holds a sent application in the project, `family_match`
  * when the person has a family match in the project (another applicant with the same mobile, or
  * the same union, village and father's or husband's name) or is probably a member listed in the
  * family of another applicant of the project. Each is asked only where the project holds that
@@ -175,7 +176,8 @@ export async function repeatReasons(tx: Tx, applicationId: string): Promise<Comm
   const reasons: CommentReason[] = [];
   if (
     rules.repeatPerson === 'hold' &&
-    (await openPairInProject(tx, me.projectId, me.beneficiaryId))
+    ((await openPairInProject(tx, me.projectId, me.beneficiaryId)) ||
+      (await mergedTwins(tx, me.projectId, me.beneficiaryId)).length > 0)
   )
     reasons.push('same_person');
   if (rules.repeatFamily === 'hold') {

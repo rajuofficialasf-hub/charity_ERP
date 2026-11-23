@@ -182,6 +182,17 @@ export const applicationView = applicationSummary.extend({
   /** How many such pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int(),
   /**
+   * The same person's other sent applications in this project, on a profile merged with this
+   * one; each named only where the caller reaches it, else all three fields null. The office only.
+   */
+  mergedTwins: z.array(
+    z.object({
+      applicationId: z.uuid().nullable(),
+      appNo: z.string().nullable(),
+      status: z.string().nullable(),
+    }),
+  ),
+  /**
    * How often the person was helped before, by the other applications of the person and of a
    * profile merged into them, as the profile counts it; null before a person is bound.
    */

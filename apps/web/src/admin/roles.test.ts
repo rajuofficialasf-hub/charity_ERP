@@ -25,6 +25,7 @@ import {
   canEndSessions,
   canEndStaffSessions,
   canKeepNisab,
+  canKeepOfficeAddresses,
   canManageOfficials,
   canOversee,
   canSeeStaff,
@@ -91,6 +92,10 @@ describe('admin role lists', () => {
       expect(check(as('monitoring_team'))).toBe(false);
       expect(check(as('program_manager', 'regional_program_manager'))).toBe(false);
     }
+    // the office addresses the rate limits exempt are the Admin's alone, not the Head's
+    expect(canKeepOfficeAddresses(as('admin'))).toBe(true);
+    for (const role of ['department_head', 'monitoring_team', 'program_manager'])
+      expect(canKeepOfficeAddresses(as(role)), role).toBe(false);
     // an RPM ends the sessions of the region's volunteers; the Monitoring Team ends nobody's
     expect(canEndSessions(as('regional_program_manager'))).toBe(true);
     expect(canEndSessions(as('monitoring_team'))).toBe(false);

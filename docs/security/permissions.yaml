@@ -1728,6 +1728,15 @@ permissions:
     sensitive: false
     default: []
     global_roles_excluded: [monitoring_team]   # administration, with the Admin and the Head only (D-188)
+  - name: security.office_ips.manage
+    name_en: Office addresses
+    name_bn: "অফিসের ঠিকানা (IP)"
+    description: Keep the office addresses the per-address rate limits exempt; the per-account and per-draft limits still apply (D-198)
+    module: M21
+    sensitive: false
+    default:
+      - { role: admin, scope: GLOBAL }
+    global_roles_excluded: [monitoring_team, department_head]   # the Admin alone (D-198)
   - name: system.health.view
     name_en: View system health
     name_bn: "সিস্টেমের অবস্থা দেখা"

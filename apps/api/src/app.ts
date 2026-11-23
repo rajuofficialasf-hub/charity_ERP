@@ -99,7 +99,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   const registry = new RouteRegistry();
   const deps: RouteDeps = {
     registry,
-    limiters: createRateLimiters(c.env),
+    limiters: createRateLimiters(c.env, c.officeAddresses),
     logger: c.logger,
     permissions: c.accessRegistry,
     access: requireAccess({

@@ -6,28 +6,32 @@ import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canAdministerSystem } from '../roles';
+import { canAdministerSystem, canKeepOfficeAddresses } from '../roles';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ListsPanel } from './ListsPanel';
+import { OfficeAddressesPanel } from './OfficeAddressesPanel';
 import { LanguageForm, OrganisationForm, ThresholdsForm } from './SettingsForms';
 import { type GeneralSettings, SETTINGS_KEY, settings } from './settings-api';
 import { LoadError } from '../../components/LoadError';
 
-const TABS = ['organisation', 'language', 'thresholds', 'lists', 'channels'] as const;
+const TABS = ['organisation', 'language', 'thresholds', 'lists', 'channels', 'security'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
  * The settings of the system (docs/DECISION_LOG.md, the admin and settings decision of
  * 2026-10-17) for the Department Head and the Monitoring Team: the organisation, the default
- * language, the alert thresholds, the expense category and issue type lists, and the notification
- * channels with the dummy OTP warning. The tab stays in the address. The server checks every write.
+ * language, the alert thresholds, the expense category and issue type lists, the notification
+ * channels with the dummy OTP warning and, for an Admin alone, the office addresses the rate limits
+ * exempt. The tab stays in the address. The server checks every write.
  */
 export function SettingsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.settings');
   const [params, setParams] = useSearchParams();
   const asked = params.get('tab');
-  const tab: Tab = (TABS as readonly string[]).includes(asked ?? '')
+  // the office addresses are the Admin's alone; the Head never sees the tab
+  const tabs = TABS.filter((id) => id !== 'security' || (me && canKeepOfficeAddresses(me)));
+  const tab: Tab = (tabs as readonly string[]).includes(asked ?? '')
     ? (asked as Tab)
     : 'organisation';
   const [notice, setNotice] = useState<string>();
@@ -58,6 +62,7 @@ export function SettingsPage() {
     )),
     lists: <ListsPanel onNotice={setNotice} />,
     channels: <ChannelsPanel onSaved={saved} />,
+    security: <OfficeAddressesPanel onSaved={saved} />,
   };
 
   return (
@@ -81,7 +86,7 @@ export function SettingsPage() {
           setNotice(undefined);
           setParams({ tab: id }, { replace: true });
         }}
-        items={TABS.map((id) => ({
+        items={tabs.map((id) => ({
           value: id,
           label: t(`tab.${id}`),
           // eslint-disable-next-line security/detect-object-injection -- id is a Tab

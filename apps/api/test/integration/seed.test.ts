@@ -172,7 +172,7 @@ describe('base set', () => {
         .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(161);
+    expect(permissions).toHaveLength(162);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -640,7 +640,7 @@ describe('demo set', () => {
       DEMO_DUPLICATE_PAIRS.flatMap((pair) =>
         pair.nids.map((nid) => ({
           nid,
-          status: 'under_review',
+          status: 'rejected',
           code: 'WNT',
           program: 'HUM',
         })),

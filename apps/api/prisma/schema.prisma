@@ -950,12 +950,16 @@ model UserExtraArea {
   createdBy    String?   @map("created_by") @db.Uuid
   updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy    String?   @map("updated_by") @db.Uuid
+  /// The giver's own extra area this one was passed on from; it ends with that source.
+  sourceAreaId String?   @map("source_area_id") @db.Uuid
   user         User      @relation("user_extra_areas_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   location     Location? @relation("user_extra_areas_location_id", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   grantedByRef User      @relation("user_extra_areas_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   endedByRef   User?     @relation("user_extra_areas_ended_by", fields: [endedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef User?     @relation("user_extra_areas_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef User?     @relation("user_extra_areas_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  source       UserExtraArea?  @relation("user_extra_areas_source_area_id", fields: [sourceAreaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  passedOn     UserExtraArea[] @relation("user_extra_areas_source_area_id")
 
   @@unique([userId, locationId], where: raw("ended_at IS NULL AND location_id IS NOT NULL"), map: "user_extra_areas_user_id_location_id_key")
   @@unique([userId], where: raw("ended_at IS NULL AND whole_country"), map: "user_extra_areas_user_id_whole_country_key")
@@ -965,6 +969,7 @@ model UserExtraArea {
   @@index([endedBy], map: "user_extra_areas_ended_by_idx")
   @@index([createdBy], map: "user_extra_areas_created_by_idx")
   @@index([updatedBy], map: "user_extra_areas_updated_by_idx")
+  @@index([sourceAreaId], map: "user_extra_areas_source_area_id_idx")
   @@map("user_extra_areas")
 }
 

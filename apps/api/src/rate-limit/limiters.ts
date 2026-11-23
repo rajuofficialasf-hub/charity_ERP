@@ -1,7 +1,8 @@
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import type { Env } from '../config/env.js';
 import { ApiError } from '../i18n/api-error.js';
+import type { OfficeAddresses } from './office-addresses.js';
 import { RATE_LIMITS, type RateLimitClass, type RateWindow } from './rate-limit.js';
 
 /**
@@ -17,19 +18,30 @@ export interface RateLimiters {
  * tightest window is applied last so its `RateLimit-*` headers win; a 429 carries `Retry-After`
  * and the catalogue code. `RATE_LIMITS_RELAXED` multiplies every limit by 100 for the E2E run.
  * Keys are our own strings (login id, address, session, user, IP), so the library's IP
- * validations are off; the client address itself comes through `trust proxy`.
+ * validations are off; the client address itself comes through `trust proxy`. A request from an
+ * office address skips every window counted by the address; the windows of a login id, a code's
+ * address, a draft, a session or a user count it as anyone's.
  */
-export function createRateLimiters(env: Env): RateLimiters {
+export function createRateLimiters(
+  env: Env,
+  office?: Pick<OfficeAddresses, 'matches'>,
+): RateLimiters {
   const factor = env.RATE_LIMITS_RELAXED ? 100 : 1;
   const sharedLimiters = new Map<string, RequestHandler>();
-  const limiter = (cls: RateLimitClass, route: string, window: RateWindow): RequestHandler =>
-    rateLimit({
+  const skipOf = (window: RateWindow): ((req: Request) => boolean) | undefined => {
+    const own = window.skip;
+    if (!window.byIp || !office) return own;
+    return (req) => office.matches(req.ip) || (own?.(req) ?? false);
+  };
+  const limiter = (cls: RateLimitClass, route: string, window: RateWindow): RequestHandler => {
+    const skip = skipOf(window);
+    return rateLimit({
       windowMs: window.ttlMs,
       limit: window.limit * factor,
       standardHeaders: 'draft-6',
       legacyHeaders: false,
       keyGenerator: (req) => `${cls}:${route}:${window.key(req)}`,
-      ...(window.skip ? { skip: window.skip } : {}),
+      ...(skip ? { skip } : {}),
       validate: {
         keyGeneratorIpFallback: false,
         trustProxy: false,
@@ -41,6 +53,7 @@ export function createRateLimiters(env: Env): RateLimiters {
         next(new ApiError('rate_limit.exceeded', 429, undefined, undefined, seconds));
       },
     });
+  };
   return {
     for(cls, route) {
       if (cls === 'none') return [];

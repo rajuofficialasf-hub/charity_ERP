@@ -73,6 +73,8 @@ import { NotificationService } from './notifications/service.js';
 import { RecipientResolver } from './notifications/recipients.js';
 import { AuditLogService } from './services/audit-log.js';
 import { ChannelsService } from './services/channels.js';
+import { OfficeAddressesService } from './services/office-addresses.js';
+import { OfficeAddresses } from './rate-limit/office-addresses.js';
 import { NisabService } from './services/nisab.js';
 import { ProjectQuotasService } from './services/project-quotas.js';
 import { ScoringService } from './applications/scoring.js';
@@ -233,6 +235,9 @@ export interface Container {
   deliveries: DeliveriesService;
   sessionMonitor: SessionMonitorService;
   channels: ChannelsService;
+  /** The office addresses the rate limiter exempts, held in memory. */
+  officeAddresses: OfficeAddresses;
+  officeAddressSettings: OfficeAddressesService;
   notifications: NotificationService;
   delivery: NotificationDelivery;
   systemHealth: SystemHealthService;
@@ -361,6 +366,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       new WorkflowSideEffects(scoring, clock),
     );
   const settings = o.settings ?? new SettingsService(prisma, audit);
+  const officeAddresses =
+    o.officeAddresses ??
+    new OfficeAddresses(async () => (await settings.get('security.office_ips')).addresses, logger);
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
@@ -589,6 +597,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     deliveries: o.deliveries ?? new DeliveriesService(env, prisma),
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
     channels: o.channels ?? new ChannelsService(env, settings),
+    officeAddresses,
+    officeAddressSettings:
+      o.officeAddressSettings ?? new OfficeAddressesService(settings, officeAddresses),
     notifications,
     delivery:
       o.delivery ??
@@ -754,6 +765,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
 /** Closes what the container opened (Prisma, pg-boss); used by server.ts and the tests. */
 export async function closeContainer(c: Container): Promise<void> {
   try {
+    c.officeAddresses.stop();
     await c.jobs.stop();
     // a browser that will not close never keeps the database connections open
     await c.pdf.close().catch((error: unknown) => c.logger.error({ err: error }, 'pdf browser'));

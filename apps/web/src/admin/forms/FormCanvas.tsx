@@ -401,6 +401,7 @@ export function FormCanvas({
   onAddRow,
   onAddSection,
   onAddIdentity,
+  onAddFamilyMembers,
 }: {
   definition: FormDefinition;
   mode: BuilderMode;
@@ -430,6 +431,11 @@ export function FormCanvas({
    * a beneficiary application form lacks some.
    */
   onAddIdentity?: () => void;
+  /**
+   * The person wants the list of the person's family members that reaches the profile; given only
+   * while a beneficiary application form has none.
+   */
+  onAddFamilyMembers?: () => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -541,11 +547,16 @@ export function FormCanvas({
         ) : null}
         {body}
         {mode === 'full' ? (
-          <div>
+          <Stack direction="row" gap={1} wrap>
             <Button variant="secondary" startIcon="add" onClick={onAddSection}>
               {t('new_section')}
             </Button>
-          </div>
+            {onAddFamilyMembers ? (
+              <Button variant="secondary" startIcon="add" onClick={onAddFamilyMembers}>
+                {t('family.add')}
+              </Button>
+            ) : null}
+          </Stack>
         ) : null}
       </Stack>
     </section>

@@ -297,6 +297,26 @@ describe('the verification of a public entry', () => {
     expect((await read(rpm, id)).body.data.status).toBe('needs_verification');
   });
 
+  it('refuses to link an entry to a profile merged with one that already applied to the project', async () => {
+    const kept = await beneficiary(h.db, world.dhaka);
+    await applicationRow(h.db, {
+      projectId: project,
+      versionId,
+      loc: world.dhaka,
+      status: 'rejected',
+      answers: IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka),
+      over: { beneficiary_id: kept },
+    });
+    const nid = fakeNid();
+    const retired = await beneficiary(h.db, world.dhaka, { nid, merged_into_id: kept });
+    const id = await entry(nid, ['public_entry', 'existing_identity']);
+    const rpm = await as(world.users.rpmDhaka);
+    const linked = await verify(rpm, id, 'verify_link', { linkBeneficiaryId: retired });
+    expect(linked.status, JSON.stringify(linked.body)).toBe(409);
+    expect(linked.body.error.code).toBe('beneficiary.already_applied');
+    expect((await read(rpm, id)).body.data.status).toBe('needs_verification');
+  });
+
   it('lets an entry of a blocked person only be refused', async () => {
     const nid = fakeNid();
     const person = await beneficiary(h.db, world.dhaka, { nid, is_blocked: true });

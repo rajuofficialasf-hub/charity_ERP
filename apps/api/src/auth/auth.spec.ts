@@ -246,19 +246,33 @@ describe('auth rate-limit keys', () => {
 describe('registration rate-limit windows', () => {
   const req = (body: unknown) => ({ body, ip: '10.0.0.1', headers: {} }) as never;
 
-  it('caps starts at 10 per address and day besides the code windows', () => {
-    expect(RATE_LIMITS.registration.map((w) => [w.limit, w.ttlMs])).toEqual([
-      [10, 86_400_000],
-      [5, 3_600_000],
-      [20, 3_600_000],
+  it('caps new drafts at 10 per address and day, and counts a submit by its draft', () => {
+    expect(RATE_LIMITS.registration.map((w) => [w.limit, w.ttlMs, w.byIp ?? false])).toEqual([
+      [10, 86_400_000, true],
+      [5, 3_600_000, false],
+      [10, 86_400_000, false],
+      [100, 86_400_000, true],
+      [20, 3_600_000, true],
     ]);
   });
 
-  it('counts a submit by its draft and leaves a start, which names no draft, to the address windows', () => {
-    const [, byDraft] = RATE_LIMITS.registration;
-    expect(byDraft!.key(req({ registrationId: 'D1' }))).toBe('draft:d1');
-    expect(byDraft!.skip!(req({ registrationId: 'D1' }))).toBe(false);
-    expect(byDraft!.skip!(req({ kind: 'volunteer' }))).toBe(true);
+  it('counts a submit by its draft and a start, which names no draft, by the address', () => {
+    const [byAddressDay, byDraft, byDraftDay] = RATE_LIMITS.registration;
+    const submit = req({ registrationId: 'D1' });
+    const start = req({ kind: 'volunteer' });
+    expect(byDraft!.key(submit)).toBe('draft:d1');
+    expect(byDraftDay!.key(submit)).toBe('draft:d1');
+    for (const window of [byDraft!, byDraftDay!]) {
+      expect(window.skip!(submit)).toBe(false);
+      expect(window.skip!(start)).toBe(true);
+    }
+    // a new draft spends the address's day of starts; a submit spends the address's day of
+    // submits, so made-up draft ids cannot send more than that
+    const submitsByAddress = RATE_LIMITS.registration[3]!;
+    expect(byAddressDay!.skip!(start)).toBe(false);
+    expect(byAddressDay!.skip!(submit)).toBe(true);
+    expect(submitsByAddress.skip!(submit)).toBe(false);
+    expect(submitsByAddress.skip!(start)).toBe(true);
   });
 
   it('keys a contact code by the change request in the path when the body names none', () => {

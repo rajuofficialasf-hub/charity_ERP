@@ -319,6 +319,10 @@ describe('the new application', () => {
     ).toBeInTheDocument();
     expect(acted).toEqual(['submit']);
     expect(patched).toHaveLength(2);
+    // the next application starts at once, empty, on the same address
+    await user.click(screen.getByRole('link', { name: 'আরেকটি আবেদন' }));
+    expect(await screen.findByText('উপকারভোগীর পরিচয়')).toBeInTheDocument();
+    expect(screen.queryByText('আবেদন পাঠানো হয়েছে')).not.toBeInTheDocument();
   }, 60_000);
 
   it('keeps a new person’s first part in memory until the address part, then makes the draft', async () => {

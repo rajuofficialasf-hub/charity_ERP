@@ -406,6 +406,31 @@ describe('a refusal of the server', () => {
   }, 30_000);
 });
 
+describe('the family members list in one press', () => {
+  const ADD_FAMILY = 'পরিবারের সদস্যের প্রশ্নগুলো যোগ করুন';
+
+  it('adds a part with the list of members that reaches the profile’s family, and is offered no more', async () => {
+    const user = userEvent.setup();
+    api(bare());
+    open();
+    await user.click(await screen.findByRole('button', { name: ADD_FAMILY }));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const saved = saves.at(-1)!;
+    expect(saved.at(-1)!.title).toEqual({ bn: 'পরিবারের সদস্য', en: 'Family members' });
+    expect(saved.at(-1)!.fields.map((f) => [f.type, f.standardColumn, f.required])).toEqual([
+      ['repeat_group', 'beneficiary_family_members', false],
+      ['short_text', 'name', false],
+      ['single_select', 'relationship_code', false],
+      ['number', 'age_years', false],
+      ['money', 'monthly_income', false],
+    ]);
+    expect(
+      screen.getByRole('button', { name: 'উপকারভোগীর সঙ্গে সম্পর্ক বদলান' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ADD_FAMILY })).not.toBeInTheDocument();
+  });
+});
+
 describe('the identity questions in one press', () => {
   const ADD = 'পরিচয়ের প্রশ্নগুলো যোগ করুন';
   const NID = 'জাতীয় পরিচয়পত্র বা জন্মনিবন্ধন নম্বর বদলান';

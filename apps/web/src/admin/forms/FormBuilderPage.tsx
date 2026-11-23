@@ -29,11 +29,14 @@ import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {
   addEmptySection,
   addIdentityQuestions,
+  addFamilyMemberQuestions,
   addMobileOwnerQuestions,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
   duplicateField,
+  type FamilyMemberWording,
+  hasFamilyMemberList,
   lacksMobileOwnerQuestion,
   type LibraryFields,
   missingIdentityRoles,
@@ -549,6 +552,21 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     if (!mobileOwnerMissing) return;
     placeAdded(addMobileOwnerQuestions(draft, fields, { wording: startWording }));
   };
+  // a beneficiary application form without the family members list is offered it in one press
+  const familyMembersMissing =
+    mode === 'full' && kind === 'beneficiary_application' && !hasFamilyMemberList(draft);
+  const familyWording = (name: FamilyMemberWording) => ({
+    bn: t(`family.wording.${name}_bn`),
+    en: t(`family.wording.${name}_en`),
+  });
+  /**
+   * Adds a part with the family members list at the end of the form, and leaves the list chosen
+   * and in view. One step to undo.
+   */
+  const addFamilyMembers = () => {
+    if (!familyMembersMissing) return;
+    placeAdded(addFamilyMemberQuestions(draft, { kind, wording: familyWording }));
+  };
   /** Sends a question to the end of another part, where it stays chosen and comes into view. */
   const moveTo = (fieldKey: string, sectionKey: string) => {
     const next = moveFieldTo(draft, fieldKey, sectionKey, Number.MAX_SAFE_INTEGER);
@@ -659,6 +677,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         if (settingsOver) setTyping(chosen);
       }}
       onAddIdentity={identityMissing ? addIdentity : undefined}
+      onAddFamilyMembers={familyMembersMissing ? addFamilyMembers : undefined}
       onAddRow={(groupKey, type) => {
         const section = sectionOf(groupKey);
         if (section) addQuestion(type, { section: section.key, group: groupKey });
