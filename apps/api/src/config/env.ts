@@ -10,13 +10,22 @@ const flag = z
 export const DEV_APP_ORIGIN = 'http://127.0.0.1:3000';
 const appOriginSchema = z.url().default(DEV_APP_ORIGIN);
 
-/** Whether an origin points at this machine only (localhost, 127.0.0.0/8, ::1). */
+/**
+ * Whether an origin points at this machine only (localhost, 127.0.0.0/8, ::1, 0.0.0.0); a value
+ * that is no URL is left to the URL check, which names it.
+ */
 function isLoopbackOrigin(origin: string): boolean {
-  const host = new URL(origin).hostname.toLowerCase();
+  let host: string;
+  try {
+    host = new URL(origin).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return false;
+  }
   return (
     host === 'localhost' ||
     host.endsWith('.localhost') ||
     host === '[::1]' ||
+    host === '0.0.0.0' ||
     /^127(\.\d{1,3}){3}$/.test(host)
   );
 }

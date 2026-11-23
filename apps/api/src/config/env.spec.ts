@@ -201,7 +201,13 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(
       /APP_ORIGIN: set it to the app's own address/,
     );
-    for (const loopback of ['https://localhost', 'https://127.0.0.1:3000', 'https://[::1]'])
+    for (const loopback of [
+      'https://localhost',
+      'https://localhost.',
+      'https://127.0.0.1:3000',
+      'https://[::1]',
+      'https://0.0.0.0',
+    ])
       expect(() => loadEnv({ ...production, APP_ORIGIN: loopback }), loopback).toThrow(
         /APP_ORIGIN: set it to the app's own address/,
       );

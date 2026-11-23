@@ -49,8 +49,8 @@ const cursorValues = (byScore: boolean) =>
     ? z.tuple([z.number().nullable(), z.iso.datetime().nullable(), z.uuid()])
     : z.tuple([z.iso.datetime().nullable(), z.uuid()]);
 
-/** A row's values of the order: a cursor carries them, and a batch of an export reads after them. */
-export type OfficeCursorValues = (number | string | null)[];
+/** A row's values of the order, the id last: a cursor carries them, and an export's batch too. */
+type OfficeCursorValues = readonly (number | string | null)[];
 
 /**
  * The rows after (`next`) or before (`prev`) the row whose order values are `values`, the id last;
@@ -66,9 +66,10 @@ export function officeKeyset(
     throw new ApiError('validation.failed', 422, undefined, [
       { path: 'cursor', code: 'validation.failed' },
     ]);
-  const read = parsed.data as OfficeCursorValues;
+  // both tuples end on the id, which the schema has read as a uuid
+  const read: OfficeCursorValues = parsed.data;
   const columns = columnsOf(byScore);
-  const id = read.at(-1) as string;
+  const id = String(read.at(-1));
   const next = direction === 'next';
   const valueOf = (c: OrderColumn, v: number | string | null) =>
     v === null ? null : c.field === 'submittedAt' ? new Date(v) : v;

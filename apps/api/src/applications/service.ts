@@ -1217,8 +1217,9 @@ export class ApplicationsService {
       'project',
     );
     await this.reachedProject(viewer.principal, projectScope, projectId);
+    // the office reads the list by arrival; anyone else keeps the newest first
     return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query, {
-      office: true,
+      office: this.audienceOf(viewer) === 'official',
     });
   }
 
