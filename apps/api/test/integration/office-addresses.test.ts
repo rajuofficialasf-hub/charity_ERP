@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -25,7 +26,8 @@ const loginFrom = (address: string, loginId: string) =>
     .set('X-Forwarded-For', address)
     .send({
       loginId,
-      password: 'not the password',
+      // a wrong password: these tries only count, none signs in
+      password: randomUUID(),
       device: { name: 'Test device', platform: 'android', appVersion: '1.0.0' },
     });
 

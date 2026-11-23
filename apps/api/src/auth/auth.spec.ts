@@ -251,6 +251,7 @@ describe('registration rate-limit windows', () => {
       [10, 86_400_000, true],
       [5, 3_600_000, false],
       [10, 86_400_000, false],
+      [100, 86_400_000, true],
       [20, 3_600_000, true],
     ]);
   });
@@ -265,9 +266,13 @@ describe('registration rate-limit windows', () => {
       expect(window.skip!(submit)).toBe(false);
       expect(window.skip!(start)).toBe(true);
     }
-    // a new draft spends the address's day; a submit of a draft does not
+    // a new draft spends the address's day of starts; a submit spends the address's day of
+    // submits, so made-up draft ids cannot send more than that
+    const submitsByAddress = RATE_LIMITS.registration[3]!;
     expect(byAddressDay!.skip!(start)).toBe(false);
     expect(byAddressDay!.skip!(submit)).toBe(true);
+    expect(submitsByAddress.skip!(submit)).toBe(false);
+    expect(submitsByAddress.skip!(start)).toBe(true);
   });
 
   it('keys a contact code by the change request in the path when the body names none', () => {

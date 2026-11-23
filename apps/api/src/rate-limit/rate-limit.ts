@@ -135,6 +135,8 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 10, ttlMs: DAY, key: ip, byIp: true, skip: (r) => !isStart(r) },
     { limit: 5, ttlMs: HOUR, key: draftOf, skip: isStart },
     { limit: 10, ttlMs: DAY, key: draftOf, skip: isStart },
+    // made-up draft ids open windows of their own, so the submits of one address keep a day's cap
+    { limit: 100, ttlMs: DAY, key: ip, byIp: true, skip: (r) => isStart(r) },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],

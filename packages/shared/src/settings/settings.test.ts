@@ -181,6 +181,10 @@ describe('the office addresses', () => {
     expect(codes(parse(['0.0.0.0/0']))).toEqual(['validation.office_address']);
     expect(codes(parse(['office wifi']))).toEqual(['validation.office_address']);
     expect(codes(parse(['203.0.113.300']))).toEqual(['validation.office_address']);
+    // an IPv6 entry covers its /56, so one in the zero /56 (loopback, an IPv4 address in its
+    // IPv6 form) would reach every IPv4 client
+    for (const zeroNetwork of ['::1', '::', '::ffff:203.0.113.5', '::ffff:0:0/96', '0:0:0:0::/64'])
+      expect(codes(parse([zeroNetwork])), zeroNetwork).toEqual(['validation.office_address']);
     expect(codes(parse(['203.0.113.5', '203.0.113.5']))).toEqual([
       'validation.office_address_repeated',
     ]);

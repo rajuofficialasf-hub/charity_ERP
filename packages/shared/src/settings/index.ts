@@ -162,12 +162,34 @@ const ipv6 = z.ipv6();
 const cidrv4 = z.cidrv4();
 const cidrv6 = z.cidrv6();
 
+/**
+ * Whether an IPv6 address (or the address of a range) lies in the /56 of zeros, where loopback,
+ * the unspecified address and the IPv4 addresses in their IPv6 form are: an entry there would
+ * cover every IPv4 client, since an IPv6 entry counts as its whole /56.
+ */
+export function inZeroIpv6Network(raw: string): boolean {
+  const address = (raw.split('/')[0] ?? '').toLowerCase();
+  const halves = address.split('::');
+  // a dotted IPv4 tail stands for the last two groups
+  const groupsOf = (part: string) =>
+    part === '' ? [] : part.split(':').flatMap((g) => (g.includes('.') ? ['1', '1'] : [g]));
+  const front = groupsOf(halves[0] ?? '');
+  const back = halves.length > 1 ? groupsOf(halves[1] ?? '') : [];
+  const zeros = Math.max(0, 8 - front.length - back.length);
+  const groups = halves.length > 1 ? [...front, ...Array<string>(zeros).fill('0'), ...back] : front;
+  const value = (i: number) => parseInt(groups.at(i) ?? '0', 16);
+  // the first 56 bits: three whole groups and the high byte of the fourth
+  return value(0) === 0 && value(1) === 0 && value(2) === 0 && value(3) >> 8 === 0;
+}
+
 /** Whether a text is one address, or a range no wider than the office prefixes allow. */
 function isOfficeAddress(raw: string): boolean {
-  if (ipv4.safeParse(raw).success || ipv6.safeParse(raw).success) return true;
+  if (ipv4.safeParse(raw).success) return true;
+  if (ipv6.safeParse(raw).success) return !inZeroIpv6Network(raw);
   const prefix = Number(raw.slice(raw.lastIndexOf('/') + 1));
   if (cidrv4.safeParse(raw).success) return prefix >= OFFICE_PREFIX_MIN.ipv4;
-  if (cidrv6.safeParse(raw).success) return prefix >= OFFICE_PREFIX_MIN.ipv6;
+  if (cidrv6.safeParse(raw).success)
+    return prefix >= OFFICE_PREFIX_MIN.ipv6 && !inZeroIpv6Network(raw);
   return false;
 }
 

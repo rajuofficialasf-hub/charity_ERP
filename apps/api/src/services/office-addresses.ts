@@ -1,7 +1,7 @@
-import type { OfficeAddressesSetting } from '@css/shared/settings';
+import { type OfficeAddressesSetting, officeAddressesSchema } from '@css/shared/settings';
 import type { Principal } from '../auth/principal.js';
 import { type OfficeAddresses, plainAddress } from '../rate-limit/office-addresses.js';
-import type { SettingsService } from './settings.js';
+import type { SettingsService, SettingView } from './settings.js';
 
 /** The office addresses as the Admin's page reads them (contract `OfficeAddresses`). */
 export interface OfficeAddressesView {
@@ -24,12 +24,7 @@ export class OfficeAddressesService {
   ) {}
 
   async view(callerIp: string | undefined): Promise<OfficeAddressesView> {
-    const entry = await this.settings.entry('security.office_ips');
-    return {
-      addresses: (entry.value as OfficeAddressesSetting).addresses,
-      updatedAt: entry.updatedAt,
-      yourAddress: plainAddress(callerIp),
-    };
+    return viewOf(await this.settings.entry('security.office_ips'), callerIp);
   }
 
   async set(
@@ -37,8 +32,16 @@ export class OfficeAddressesService {
     value: OfficeAddressesSetting,
     callerIp: string | undefined,
   ): Promise<OfficeAddressesView> {
-    await this.settings.write(actor, 'security.office_ips', value);
+    const written = await this.settings.write(actor, 'security.office_ips', value);
     await this.office.load();
-    return this.view(callerIp);
+    return viewOf(written, callerIp);
   }
+}
+
+function viewOf(entry: SettingView, callerIp: string | undefined): OfficeAddressesView {
+  return {
+    addresses: officeAddressesSchema.parse(entry.value).addresses,
+    updatedAt: entry.updatedAt,
+    yourAddress: plainAddress(callerIp),
+  };
 }

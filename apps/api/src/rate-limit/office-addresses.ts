@@ -1,4 +1,5 @@
 import { BlockList, isIPv4, isIPv6 } from 'node:net';
+import { inZeroIpv6Network } from '@css/shared/settings';
 import type { Logger } from 'pino';
 
 /** The IPv6 prefix the limiter counts as one client (`ipKeyGenerator` groups by it). */
@@ -18,7 +19,8 @@ export function plainAddress(ip: string | undefined): string | null {
  * The office addresses an Admin lists in the settings (`security.office_ips`), held in memory so
  * the rate limiter asks without a database read: read at start, after every change and once a
  * minute. Until the first read, and with an empty list, nobody is exempt; a read that fails keeps
- * the list read before. An IPv6 entry covers its /56, the client the limiter counts.
+ * the list read before. An IPv6 entry covers its /56, the client the limiter counts; one in the
+ * /56 of zeros (loopback, an IPv4 address in its IPv6 form) is never taken.
  */
 export class OfficeAddresses {
   private list = new BlockList();
@@ -47,7 +49,9 @@ export class OfficeAddresses {
       if (isIPv4(address)) {
         if (prefix === null) list.addAddress(address, 'ipv4');
         else list.addSubnet(address, prefix, 'ipv4');
-      } else if (isIPv6(address)) {
+      } else if (isIPv6(address) && !inZeroIpv6Network(address)) {
+        // an entry in the zero /56 would cover every IPv4 client; the setting refuses one, and a
+        // row stored some other way is passed over here too
         list.addSubnet(address, IPV6_CLIENT_PREFIX, 'ipv6');
       }
     }

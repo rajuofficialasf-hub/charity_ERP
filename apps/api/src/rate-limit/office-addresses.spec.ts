@@ -31,6 +31,13 @@ describe('the office addresses', () => {
     expect(office.matches('2001:db8:0:200::1')).toBe(false);
   });
 
+  it('never lets an entry in the zero IPv6 network reach the IPv4 clients', async () => {
+    const office = await officeOf(['::1', '::ffff:203.0.113.5']);
+    expect(office.matches('8.8.8.8')).toBe(false);
+    expect(office.matches('::ffff:8.8.8.8')).toBe(false);
+    expect(office.matches('203.0.113.5')).toBe(false);
+  });
+
   it('matches nothing before the list is read, and keeps the last list when a read fails', async () => {
     let addresses: string[] | null = ['203.0.113.5'];
     const read = async () => {
