@@ -476,9 +476,9 @@ Owner, in chat on 2026-11-23:
 - Code from abandoned attempts is removed
 
 ## Progress
-- **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
-- **Updated:** 2026-11-24 01:10
-- **Next:** PR 1 (U1–U7) is complete; ask the owner before pushing and opening it into develop, then U8 (PR 2)
+- **Branch:** `fix/uat-findings-2` (PR 2, U8–U14; from develop at 4c031b84, where PR 1 merged as #82)
+- **Updated:** 2026-11-24 09:00
+- **Next:** U8: the verify read serves the matched profile's fields; integration test first in `application-verification.test.ts`
 - **Reviewed through:** C4 at 2bdb9f5f (T2 review of U6–U7; fixes in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it. U7: the office list lives in memory (`OfficeAddresses`), read at start, after each change and once a minute, so the limiter never reads the database; a new permission `security.office_ips.manage` (the Admin alone, a key permission) guards `GET`/`PUT /admin/office-addresses`; an IPv6 entry covers its /56. The demo seed of U2 was reformatted by prettier in the U7 commit (formatting only). C4 review: an IPv6 office entry in the /56 of zeros (`::1`, `::ffff:a.b.c.d`) covered every IPv4 client through Node's BlockList, so the setting refuses it and the matcher passes it over; submits keep a cap of 100 a day per address against made-up draft ids; the service parses the stored list instead of casting it. Dismissed: the secret-scan hit on the test's wrong password (now a random value) and the duplicate-code hit on closing JSX lines.
