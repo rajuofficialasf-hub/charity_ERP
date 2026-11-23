@@ -1239,14 +1239,14 @@ describe('the review page', () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
-    let heldByOther = false;
+    let kept: string | null = null;
     server.use(
       http.get(`*/api/v1/applications/${A1}`, () =>
         envelope(
           record({
             status: 'reviewed',
             availableActions: ['approve', 'reject', 'waitlist'],
-            profileMobileChange: { from: '01711111111', to: '01822222222', heldByOther },
+            profileMobileChange: { from: '01711111111', to: '01822222222', kept },
             decisionHints: { approve: [], waitlist: [], reject: [] },
           }),
         ),
@@ -1265,7 +1265,7 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
     await user.click(within(approve).getByRole('button', { name: 'বাতিল' }));
     // a number another profile has is not written; the approver is told so
-    heldByOther = true;
+    kept = 'other_profile';
     view.unmount();
     openReview();
     await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));

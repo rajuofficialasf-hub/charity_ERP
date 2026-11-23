@@ -241,7 +241,7 @@ export class SubmissionWriter {
     } else if (options.writeContact !== false) {
       // whether the name is the father's or the husband's, given to a profile that has none
       await this.fillGuardianRelation(tx, actor, applicationId, beneficiaryId, standard);
-      if (await this.mayEditContact(tx, actor, beneficiaryId)) {
+      if (await this.contact.mayEdit(tx, actor, beneficiaryId)) {
         const before = await this.contact.locked(tx, beneficiaryId);
         const body: Record<string, unknown> = {};
         for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
@@ -333,22 +333,6 @@ export class SubmissionWriter {
     });
     if (!holder) return null;
     return holder.mergedIntoId ? this.identity.liveOf(tx, holder.id) : holder.id;
-  }
-
-  /**
-   * Whether the submitter may write the profile's contact data: the contact-edit permission with
-   * a scope that reaches the profile, as the contact route requires. A volunteer's answers never
-   * rewrite a profile other projects rely on.
-   */
-  private async mayEditContact(tx: Tx, actor: Principal, beneficiaryId: string): Promise<boolean> {
-    const access = await this.access.load(actor.userId, tx);
-    const scope = await this.access.sensitiveScope(
-      actor,
-      access,
-      'beneficiary.contact.edit',
-      'beneficiary',
-    );
-    return !!scope && (await this.access.reaches(scope, { beneficiaryId }, tx));
   }
 
   /**

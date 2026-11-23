@@ -320,7 +320,11 @@ describe('a new mobile of a known person', () => {
     expect(record.familyDuplicateWarnings).toEqual([
       expect.objectContaining({ matchedOn: ['mobile'] }),
     ]);
-    expect(record.profileMobileChange).toEqual({ from: oldMobile, to: shared, heldByOther: true });
+    expect(record.profileMobileChange).toEqual({
+      from: oldMobile,
+      to: shared,
+      kept: 'other_profile',
+    });
     expect(record.decisionHints.approve).toEqual(['family_match']);
     await moved(rpm, id, 'approve', { comment: 'একই বাড়ির ফোন' });
     // the number stays on the application only
@@ -337,7 +341,7 @@ describe('a new mobile of a known person', () => {
     expect((await read(rpm, id)).body.data.profileMobileChange).toEqual({
       from: oldMobile,
       to: newMobile,
-      heldByOther: false,
+      kept: null,
     });
     await moved(rpm, id, 'approve');
     expect(await mobileOf(person)).toBe(newMobile);
@@ -379,6 +383,65 @@ describe('a new mobile of a known person', () => {
     const outside = await as(world.users.rpmRangpur);
     expect((await act(outside, away.id, 'approve')).status).toBe(404);
     expect(await mobileOf(away.person)).toBe(away.oldMobile);
+  });
+
+  it('keeps the number on the application for an approver who may not edit the contact', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const { person, id, oldMobile } = await knownWithNewMobile();
+    const override = randomUUID();
+    await h.db.query(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+       VALUES ($1, $2, 'beneficiary.contact.edit', 'revoke', 'REGION', $3, 'Test override', $4)`,
+      [override, world.users.rpmDhaka, world.dhaka.division, world.users.admin],
+    );
+    try {
+      const rpm = await as(world.users.rpmDhaka);
+      expect((await read(rpm, id)).body.data.profileMobileChange).toMatchObject({
+        kept: 'not_allowed',
+      });
+      await moved(rpm, id, 'approve');
+      expect(await mobileOf(person)).toBe(oldMobile);
+    } finally {
+      await h.db.query('DELETE FROM user_permissions WHERE id = $1', [override]);
+    }
+  });
+
+  it('keeps the number on the application when the profile’s mobile changed after the send', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const { person, id } = await knownWithNewMobile();
+    // an official corrects the profile's mobile after the application came
+    const corrected = fakeMobile();
+    const rpm = await as(world.users.rpmDhaka);
+    const profile = await at(rpm, 'get', `/beneficiaries/${person}`);
+    const fixed = await at(rpm, 'patch', `/beneficiaries/${person}/contact`)
+      .set('If-Match', profile.headers.etag as string)
+      .send({ mobile: corrected });
+    expect(fixed.status, JSON.stringify(fixed.body)).toBe(200);
+    expect((await read(rpm, id)).body.data.profileMobileChange).toMatchObject({
+      from: corrected,
+      kept: 'profile_changed',
+    });
+    await moved(rpm, id, 'approve');
+    expect(await mobileOf(person)).toBe(corrected);
+  });
+
+  it('writes the new number with a bulk approval too', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const { person, id, newMobile } = await knownWithNewMobile();
+    const rpm = await as(world.users.rpmDhaka);
+    const etag = (await read(rpm, id)).headers.etag as string;
+    const res = await at(rpm, 'post', `/projects/${project}/bulk/review`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        action: 'approve',
+        rows: [{ clientUuid: randomUUID(), applicationId: id, ifMatch: etag }],
+      });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data.results[0]).toMatchObject({ result: 'done' });
+    expect(await mobileOf(person)).toBe(newMobile);
   });
 });
 

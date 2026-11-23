@@ -1,3 +1,4 @@
+import { MOBILE_KEPT } from './approved-mobile.js';
 import { COMMENT_REASONS } from './decision-rules.js';
 import { unlockView } from './unlocks.js';
 import { answerValueSchema } from '@css/shared';
@@ -178,12 +179,19 @@ export const applicationView = applicationSummary.extend({
   /** How many such families there are in all, also beyond the ones listed. */
   familyMemberSignalsTotal: z.number().int(),
   /**
-   * The mobile the approval would write to the known person's profile: the profile's number, the
-   * application's, and whether another profile has that one (then it is never written). Null when
-   * the application gives no other number; for an official who sees the contact only.
+   * The mobile the caller's approval would write to the known person's profile: the profile's
+   * number, the application's, and why it would stay on the application instead (null when it is
+   * written). Null when the application gives no other number; for an official who sees the
+   * contact only.
    */
   profileMobileChange: sensitive(
-    z.object({ from: z.string().nullable(), to: z.string(), heldByOther: z.boolean() }).nullable(),
+    z
+      .object({
+        from: z.string().nullable(),
+        to: z.string(),
+        kept: z.enum(MOBILE_KEPT).nullable(),
+      })
+      .nullable(),
     BENEFICIARY_CONTACT,
   ),
   /** The person's open probable pairs with another profile; the office only. */

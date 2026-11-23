@@ -186,7 +186,12 @@
     "decision": {
       "mobile_change": "The profile's mobile will change: {from} → {to}",
       "mobile_new": "The profile will get the mobile {to}",
-      "mobile_held": "{to} belongs to another profile, so it will not be put on the profile; it stays on the application.",
+      "mobile_kept": {
+        "other_profile": "{to} belongs to another profile, so it will not be put on the profile; it stays on the application.",
+        "volunteer_mobile": "{to} is a volunteer's own number, so it will not be put on the profile; it stays on the application.",
+        "not_allowed": "You may not put {to} on the profile; the number stays on the application.",
+        "profile_changed": "The profile's mobile was changed after this application, so {to} will not be put on the profile; it stays on the application."
+      },
       "reason": "The office's reason",
       "reason_help": "Read by the officials only.",
       "message": "Message for the volunteer",

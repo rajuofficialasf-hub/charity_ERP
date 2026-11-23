@@ -113,8 +113,10 @@ export function DecisionDialog({
       <Form form={form} onSubmit={send} label={title} error={error ?? undefined}>
         {note ? <Text>{note}</Text> : null}
         {mobileChange ? (
-          mobileChange.heldByOther ? (
-            <Alert tone="warning">{t('mobile_held', { to: mobileChange.to })}</Alert>
+          mobileChange.kept ? (
+            <Alert tone="warning">
+              {t(`mobile_kept.${mobileChange.kept}`, { to: mobileChange.to })}
+            </Alert>
           ) : (
             <Alert tone="info">
               {mobileChange.from

@@ -132,7 +132,14 @@ export const officeApplicationSchema = applicationSchema.extend({
   samePersonSignalsTotal: z.number().int().default(0),
   /** The mobile the approval writes to the known person's profile; null when none changes. */
   profileMobileChange: z
-    .object({ from: z.string().nullable(), to: z.string(), heldByOther: z.boolean() })
+    .object({
+      from: z.string().nullable(),
+      to: z.string(),
+      /** Why the number stays on the application; null when the approval writes it. */
+      kept: z
+        .enum(['other_profile', 'volunteer_mobile', 'not_allowed', 'profile_changed'])
+        .nullable(),
+    })
     .nullable()
     .default(null),
   /**

@@ -4191,18 +4191,22 @@ components:
             profileMobileChange:
               x-sensitive-class: beneficiary.contact
               description: >-
-                The mobile the approval writes to the known person's profile (BR-334): the
-                profile's number, the application's, and whether another live profile has that one,
-                in which case it stays on the application and is never written. Null when the
+                The mobile the caller's approval writes to the known person's profile (BR-334): the
+                profile's number, the application's, and `kept`, why it stays on the application
+                instead (another live profile has it, it is a volunteer's own number, the caller may
+                not edit the person's contact data, or the profile's mobile changed after the
+                application was sent); `kept` is null when the approval writes it. Null when the
                 application gives no other number, and for a caller who does not see the contact
               oneOf:
                 - type: object
                   additionalProperties: false
-                  required: [from, to, heldByOther]
+                  required: [from, to, kept]
                   properties:
                     from: { type: [string, 'null'] }
                     to: { type: string }
-                    heldByOther: { type: boolean }
+                    kept:
+                      type: [string, 'null']
+                      enum: [other_profile, volunteer_mobile, not_allowed, profile_changed, null]
                 - type: 'null'
             mergedTwins:
               type: array

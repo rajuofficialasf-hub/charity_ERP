@@ -2100,12 +2100,15 @@ export class ApplicationsService {
     });
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
+    // the application's own mobile, for the family check and the change an approval would make
+    const applicationMobile =
+      audience === 'official' && row.beneficiaryId
+        ? await answeredMobile(this.prisma, applicationId)
+        : null;
     const [read, warnings, signals, availableActions, version, mine] = await Promise.all([
       readAnswers(this.prisma, applicationId, definition),
       audience === 'official' && row.beneficiaryId
-        ? answeredMobile(this.prisma, applicationId).then((mobile) =>
-            this.family.matches(this.prisma, row.projectId, row.beneficiaryId!, mobile),
-          )
+        ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId, applicationMobile)
         : [],
       audience === 'official' && row.beneficiaryId
         ? this.signals.forPerson(this.prisma, viewer.principal, access, row.beneficiaryId)
@@ -2190,7 +2193,12 @@ export class ApplicationsService {
         // the number an approval would write to the profile, for an official who sees the contact
         profileMobileChange:
           audience === 'official' && seesContact && row.beneficiaryId
-            ? await this.approvedMobile.pending(this.prisma, applicationId)
+            ? await this.approvedMobile.pending(
+                this.prisma,
+                viewer.principal,
+                applicationId,
+                applicationMobile,
+              )
             : null,
         ...signals,
         mergedTwins:
