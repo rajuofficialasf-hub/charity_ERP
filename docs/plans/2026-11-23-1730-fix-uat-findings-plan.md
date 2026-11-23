@@ -190,13 +190,13 @@ Owner, in chat on 2026-11-23:
 - **Tests:**
   - unit: differing names show "নাম মেলে না" and need the second press.
   - integration: the verify read returns the matched profile's fields to an official in reach and refuses (403/404) one outside the region (`TS-13`).
-  - e2e: `public-link.spec.ts` — entry "কোনো এক মানুষ" on a known NID; the dialog shows both names and "নাম মেলে না".
+  - e2e: none added; the component test runs the dialog with both names, the warning and the second press. As built, the profile side comes from the audited lookup the dialog already ran (it returns the name, the father's or husband's name, the mobile and the village), so no new read was added and the lookup's own tests cover its scope and audit.
   - existing: covered in part by `apps/web/src/admin/applications/applications.test.tsx` (:1871).
 - **Done when:** ছ-3 shows the comparison.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U9. A new mobile reaches the profile at approval
 - **Goal:** a changed mobile is used for the family match and kept on the profile.
@@ -478,7 +478,7 @@ Owner, in chat on 2026-11-23:
 ## Progress
 - **Branch:** `fix/uat-findings-2` (PR 2, U8–U14; from develop at 4c031b84, where PR 1 merged as #82)
 - **Updated:** 2026-11-24 09:00
-- **Next:** U8: the verify read serves the matched profile's fields; integration test first in `application-verification.test.ts`
+- **Next:** checkpoint C5 over U8 (`--range 977fa5aa..HEAD`), then U9: a new mobile reaches the profile at approval
 - **Reviewed through:** C4 at 2bdb9f5f (T2 review of U6–U7; fixes in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it. U7: the office list lives in memory (`OfficeAddresses`), read at start, after each change and once a minute, so the limiter never reads the database; a new permission `security.office_ips.manage` (the Admin alone, a key permission) guards `GET`/`PUT /admin/office-addresses`; an IPv6 entry covers its /56. The demo seed of U2 was reformatted by prettier in the U7 commit (formatting only). C4 review: an IPv6 office entry in the /56 of zeros (`::1`, `::ffff:a.b.c.d`) covered every IPv4 client through Node's BlockList, so the setting refuses it and the matcher passes it over; submits keep a cap of 100 a day per address against made-up draft ids; the service parses the stored list instead of casting it. Dismissed: the secret-scan hit on the test's wrong password (now a random value) and the duplicate-code hit on closing JSX lines.

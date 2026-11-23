@@ -1572,7 +1572,7 @@ describe('the review page', () => {
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
   });
 
-  it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
+  const linkCase = (profileName: string) => async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
@@ -1596,7 +1596,7 @@ describe('the review page', () => {
             autofill: {
               beneficiaryId: PERSON,
               benNo: 7,
-              name: 'পুরনো উপকারভোগী',
+              name: profileName,
               fatherOrHusbandName: 'পুরনো পিতা',
               motherName: null,
               mobile: '01711111111',
@@ -1649,12 +1649,17 @@ describe('the review page', () => {
     await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
     expect(await within(dialog).findByText('BEN-0000007')).toBeInTheDocument();
-    expect(within(dialog).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
-    await expectNoAxeViolations(view.container);
     await user.click(
       within(dialog).getByRole('combobox', { name: /দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক/ }),
     );
     await user.click(await screen.findByRole('option', { name: 'করিম উদ্দিন' }));
+    return { user, view, dialog, PERSON, VOLUNTEER_ID };
+  };
+
+  it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
+    // the same name with a title before it is the same name
+    const { user, dialog, PERSON, VOLUNTEER_ID } = await linkCase('মোছাঃ নমুনা উপকারভোগী')();
+    expect(within(dialog).queryByText(/নাম মেলে না/)).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({
@@ -1666,6 +1671,30 @@ describe('the review page', () => {
         'এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন প্রক্রিয়াধীন।',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the entry beside the profile, and asks once more when the names differ', async () => {
+    const { user, view, dialog } = await linkCase('পুরনো উপকারভোগী')();
+    // the entry and the profile, side by side
+    const entry = within(dialog).getByRole('group', { name: 'এন্ট্রিতে লেখা' });
+    const profile = within(dialog).getByRole('group', { name: 'প্রোফাইলে আছে' });
+    expect(within(entry).getByText('নমুনা উপকারভোগী')).toBeInTheDocument();
+    expect(within(entry).getByText('নমুনা পিতা')).toBeInTheDocument();
+    expect(within(profile).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
+    expect(within(profile).getByText('পুরনো পিতা')).toBeInTheDocument();
+    expect(within(profile).getByText('01711111111')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'নাম মেলে না। একই মানুষ কিনা নিশ্চিত হয়ে তবেই এই প্রোফাইলের সঙ্গে যুক্ত করুন।',
+      ),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    // the first press asks again; only the second links
+    await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
+    expect(acted).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: 'তবু যুক্ত করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toMatchObject({ action: 'verify_link' });
   });
 
   it('creates a profile for a new number, names a blocked person, and tells of a failed lookup', async () => {
