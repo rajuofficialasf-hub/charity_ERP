@@ -55,11 +55,13 @@ export function ConflictList({
     return { text: clash ? t(clash) : t('other') };
   });
   // a line with an application to open stays one line per application; the others once each
-  const unique = lines.filter(
-    (line, i) =>
-      line.applicationId !== undefined ||
-      lines.findIndex((l) => l.applicationId === undefined && l.text === line.text) === i,
-  );
+  const seen = new Set<string>();
+  const unique = lines.filter((line) => {
+    if (line.applicationId !== undefined) return true;
+    if (seen.has(line.text)) return false;
+    seen.add(line.text);
+    return true;
+  });
   if (!unique.length) return null;
   return (
     <ul>

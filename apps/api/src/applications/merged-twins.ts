@@ -57,6 +57,9 @@ export async function assertNotAppliedOnMergedProfile(
   // the person the submission binds now is written after this check, with the move itself
   const beneficiaryId = boundBeneficiaryId ?? app?.beneficiaryId;
   if (!app || !beneficiaryId) return;
+  // a merge locks both profiles it joins; locking the person here makes a send and a merge of the
+  // same person run one after the other, so the check reads the merge once it has committed
+  await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${beneficiaryId}::uuid FOR UPDATE`;
   if ((await mergedTwins(tx, app.projectId, beneficiaryId)).length > 0)
     throw new ApiError('beneficiary.already_applied', 409);
 }

@@ -1137,16 +1137,26 @@ export class ApplicationsService {
                       action,
                       body,
                     );
-                    return {
-                      ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
-                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, movedAt, {
+                    const bound = await this.submission.bindPerson(
+                      t,
+                      viewer.principal,
+                      app.id,
+                      movedAt,
+                      {
                         writeContact: false,
                         ownerUserId: owner?.userId,
                         linkBeneficiaryId,
                         // the official has seen the match only where the entry shows it
                         compared: (app.flags ?? []).includes(BLOCKED_NAME_MATCH),
-                      })),
-                    };
+                      },
+                    );
+                    // a profile merged with another one that applied counts as the same person
+                    await assertNotAppliedOnMergedProfile(
+                      t,
+                      app.id,
+                      typeof bound.beneficiaryId === 'string' ? bound.beneficiaryId : null,
+                    );
+                    return { ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}), ...bound };
                   },
                 }
               : {},

@@ -481,4 +481,4 @@ Owner, in chat on 2026-11-23:
 - **Next:** C2 (test and review of U2), then U3: the extra-area source link and its migration
 - **Reviewed through:** C1 at b05cdda5 (documents only; code review skipped, `pnpm docs:check` green)
 - **Uncommitted:** none
-- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it").
+- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application.

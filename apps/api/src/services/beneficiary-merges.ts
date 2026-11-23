@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { formatBenNo, type MergeRequest } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service.js';
-import { beneficiaryWhere, projectWhere, type Scope } from '../access/scope.js';
+import { applicationWhere, beneficiaryWhere, projectWhere, type Scope } from '../access/scope.js';
 import type { AuditWriter } from '../audit/audit-writer.js';
 import type { Principal } from '../auth/principal.js';
 import type { Env } from '../config/env.js';
@@ -318,6 +318,22 @@ export class BeneficiaryMergesService {
           })
         ).map((p) => p.id),
       );
+      // ...and the application only where the caller's application scope reaches it, as the
+      // review page names the same person's other application
+      const appScope = await this.access.scopeOfUser(
+        actor.userId,
+        'application.view',
+        'application',
+        tx,
+      );
+      const reached = new Set(
+        (
+          await tx.application.findMany({
+            where: { AND: [{ id: { in: pending.map((a) => a.id) } }, applicationWhere(appScope)] },
+            select: { id: true },
+          })
+        ).map((a) => a.id),
+      );
       throw new ApiError(
         'beneficiary.merge_conflict',
         409,
@@ -326,7 +342,12 @@ export class BeneficiaryMergesService {
           path: `applications.${i}`,
           code: 'beneficiary.merge_conflict',
           ...(visible.has(a.project_id)
-            ? { params: { projectId: a.project_id, applicationId: a.id } }
+            ? {
+                params: {
+                  projectId: a.project_id,
+                  ...(reached.has(a.id) ? { applicationId: a.id } : {}),
+                },
+              }
             : {}),
         })),
       );
