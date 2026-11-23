@@ -429,6 +429,22 @@ describe('registration list', () => {
     expect(asked.find((q) => q.includes('cursor=c2'))).not.toContain('include=total');
   });
 
+  it('shows a capped count as the server gives it, never the rows loaded', async () => {
+    server.use(
+      http.get('*/api/v1/edit-requests', () =>
+        HttpResponse.json({ data: edits, meta: { ...meta, nextCursor: 'c2', total: '10000+' } }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage(HEAD);
+    const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
+    await waitFor(() =>
+      expect(counts.getByText('পরিবর্তনের অনুরোধ').parentElement!).toHaveTextContent('10000+'),
+    );
+    await user.click(screen.getByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
+    expect(await screen.findByText('10000+টির মধ্যে 1টি দেখানো হচ্ছে')).toBeInTheDocument();
+  });
+
   it('leaves out the count of a list that could not be read, never showing zero', async () => {
     server.use(
       http.get('*/api/v1/edit-requests', () =>

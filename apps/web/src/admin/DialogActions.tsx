@@ -27,12 +27,7 @@ export function DialogActions({
       <Button variant="secondary" onClick={onCancel} disabled={pending}>
         {cancelLabel}
       </Button>
-      <Button
-        {...(submitVariant ? { variant: submitVariant } : {})}
-        onClick={onSubmit}
-        disabled={disabled}
-        loading={pending}
-      >
+      <Button variant={submitVariant} onClick={onSubmit} disabled={disabled} loading={pending}>
         {submitLabel}
       </Button>
     </>

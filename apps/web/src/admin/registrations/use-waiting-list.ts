@@ -25,8 +25,8 @@ export function useWaitingList<T>(
     enabled,
   });
   const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
-  const counted = list.data?.pages[0]?.meta.total;
-  const total = typeof counted === 'number' ? counted : rows.length;
+  // the server's count, also its capped "10000+"; the loaded rows while it has none
+  const total: number | '10000+' = list.data?.pages[0]?.meta.total ?? rows.length;
   const more = () => {
     if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
   };
@@ -38,7 +38,7 @@ export function useWaitingList<T>(
         onLoadMore: more,
         summary: t('shown', {
           shown: formatCount(rows.length, locale),
-          total: formatCount(total, locale),
+          total: typeof total === 'number' ? formatCount(total, locale) : total,
         }),
       }
     : undefined;

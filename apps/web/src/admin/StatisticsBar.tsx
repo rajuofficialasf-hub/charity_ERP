@@ -4,7 +4,8 @@ import { type ColorTone, type ExtendedIconName, Skeleton, StatCard } from '@/ui'
 export interface Statistic {
   key: string;
   label: string;
-  value: number;
+  /** A count, or a capped count such as "10000+" as the server gives it. */
+  value: number | string;
   icon?: ExtendedIconName;
   tone?: ColorTone;
 }
