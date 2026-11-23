@@ -104,6 +104,23 @@ describe('the sizes of older photos', () => {
     expect(await sizeOf(big)).toEqual({ width: null, height: null });
   });
 
+  it('never overwrites a size written while the photo was being read', async () => {
+    const photo = await stored(await picture({ width: 500 }));
+    // the processing writes its own size between the job's read of the row and its write
+    const racing: StorageDriver = {
+      ...h.container.storage,
+      name: h.container.storage.name,
+      get: async (bucket, key) => {
+        if (key === `older/${photo}`)
+          await h.db.query('UPDATE files SET width = 11, height = 22 WHERE id = $1', [photo]);
+        return h.container.storage.get(bucket, key);
+      },
+    };
+    const job = new FileDimensionsJob(h.container.prisma, () => racing, quiet);
+    await job.run();
+    expect(await sizeOf(photo)).toEqual({ width: 11, height: 22 });
+  });
+
   it('leaves out what is no photo, and a photo the processing has not finished', async () => {
     const pdf = await stored(Buffer.from('%PDF-1.4'), { kind: 'voucher', mime: 'application/pdf' });
     const waiting = await stored(await picture({ width: 300 }), { scan: 'pending' });

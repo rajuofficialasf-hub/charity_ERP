@@ -2,6 +2,7 @@ import { buffer } from 'node:stream/consumers';
 import { KIND_TYPES, type FileKind, type FileType } from '@css/shared/files';
 import type { Logger } from 'pino';
 import type { PrismaService } from '../core/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { checkImage } from '../files/images-process.js';
 import { knownBucket, type StorageDriver } from '../storage/index.js';
 
@@ -15,6 +16,13 @@ const BATCH = 50;
 const IMAGES = ['image/jpeg', 'image/png', 'image/webp'];
 /** A photo the processing finished with; one still waiting or refused is left to it. */
 const DONE = ['clean', 'skipped'];
+/** The photos without a size the job measures: processed, not deleted, of a decoded type. */
+const WAITING: Prisma.FileWhereInput = {
+  width: null,
+  deletedAt: null,
+  mime: { in: IMAGES },
+  virusScan: { in: DONE },
+};
 /** Below the smallest uuid, where the walk by id starts. */
 const FIRST_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -56,7 +64,7 @@ export class FileDimensionsJob {
   /** Whether any processed photo has no size yet: the worker queues a run at its start then. */
   async hasWaiting(): Promise<boolean> {
     const waiting = await this.prisma.file.findFirst({
-      where: { width: null, deletedAt: null, mime: { in: IMAGES }, virusScan: { in: DONE } },
+      where: WAITING,
       select: { id: true },
     });
     return waiting !== null;
@@ -67,11 +75,8 @@ export class FileDimensionsJob {
     for (let after = FIRST_ID; ;) {
       const rows = await this.prisma.file.findMany({
         where: {
+          ...WAITING,
           id: { gt: after },
-          width: null,
-          deletedAt: null,
-          mime: { in: IMAGES },
-          virusScan: { in: DONE },
         },
         orderBy: { id: 'asc' },
         take: this.batchSize,
