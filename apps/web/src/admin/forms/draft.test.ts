@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { definition, field, keysOf, option, section, T } from '../../../test/forms';
 import {
   addEmptySection,
+  addFamilyMemberQuestions,
   addIdentityQuestions,
   addLibraryField,
   addMobileOwnerQuestions,
@@ -1829,6 +1830,15 @@ describe('the rest of the definition', () => {
       'to the end of another part',
       (d) => moveFieldTo(d, 'q_note', 'more', Number.MAX_SAFE_INTEGER),
     ],
+    [
+      'addFamilyMemberQuestions',
+      'the family members list',
+      (d) =>
+        addFamilyMemberQuestions(d, {
+          kind: 'beneficiary_application',
+          wording: (name) => T(`${name} (বাংলা)`, `${name} (English)`),
+        }).definition,
+    ],
     ['updateField', 'a setting', (d) => updateField(d, 'q_note', { required: true })],
     [
       'setOptions',
@@ -1916,6 +1926,7 @@ describe('the rest of the definition', () => {
     'emptyOption',
     'hasIdentity',
     'insertOptionAfter',
+    'hasFamilyMemberList',
     'lacksMobileOwnerQuestion',
     'missingIdentityRoles',
     'missingIn',
@@ -1987,5 +1998,64 @@ describe('the draft after its own save', () => {
   it('answers the draft itself when the save changed nothing', () => {
     const held = definition(section('first', [field('name', 'short_text')]));
     expect(withSaved(held, JSON.parse(JSON.stringify(held)) as FormDefinition)).toBe(held);
+  });
+});
+
+describe('the family members list in one press', () => {
+  const wording = (name: string) => T(`${name} (বাংলা)`, `${name} (English)`);
+  const add = (
+    def: FormDefinition,
+    kind: 'beneficiary_application' | 'other' = 'beneficiary_application',
+  ) =>
+    addFamilyMemberQuestions(def, {
+      kind,
+      wording,
+      makeKey: keysFrom('q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee'),
+    });
+  const start = (): FormDefinition => ({
+    sections: [section('section_1', [field('q_person', 'short_text')])],
+  });
+
+  it('adds a part with an optional list of each member’s name, relationship, age and monthly income that reaches the profile’s family', () => {
+    const added = add(start());
+    expect(added.section).toBe('section_2');
+    const part = added.definition.sections.find((s) => s.key === added.section)!;
+    expect(part.title).toEqual(wording('section'));
+    expect(
+      part.fields.map((f) => [
+        f.fieldKey,
+        f.type,
+        f.standardColumn ?? null,
+        f.settings?.repeat?.group ?? null,
+        f.required,
+      ]),
+    ).toEqual([
+      ['q_aaaaaa', 'repeat_group', 'beneficiary_family_members', null, false],
+      ['q_bbbbbb', 'short_text', 'name', 'q_aaaaaa', false],
+      ['q_cccccc', 'single_select', 'relationship_code', 'q_aaaaaa', false],
+      ['q_dddddd', 'number', 'age_years', 'q_aaaaaa', false],
+      ['q_eeeeee', 'money', 'monthly_income', 'q_aaaaaa', false],
+    ]);
+    expect(part.fields.map((f) => f.label)).toEqual(
+      ['members', 'member_name', 'member_relationship', 'member_age', 'member_income'].map(wording),
+    );
+    // the relationship takes the reference list's options, as every coded member column does
+    expect(listOfField(part.fields[2]!)).toBe('relationship');
+    expect(added.fieldKeys).toEqual(['q_aaaaaa', 'q_bbbbbb', 'q_cccccc', 'q_dddddd', 'q_eeeeee']);
+    expect(
+      checkDefinition(added.definition, { kind: 'beneficiary_application' }).filter(
+        (i) => i.code === 'form.standard_column_unknown',
+      ),
+    ).toEqual([]);
+  });
+
+  it('adds nothing to a form that has the list already, nor to a form of another kind', () => {
+    const once = add(start());
+    expect(add(once.definition)).toEqual({
+      definition: once.definition,
+      section: null,
+      fieldKeys: [],
+    });
+    expect(add(start(), 'other')).toEqual({ definition: start(), section: null, fieldKeys: [] });
   });
 });

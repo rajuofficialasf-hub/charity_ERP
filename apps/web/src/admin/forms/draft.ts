@@ -22,6 +22,7 @@ import {
   type FormTextKind,
   type NumberTable,
   emptySection,
+  FAMILY_MEMBERS_TABLE,
   identityRoleOf,
   isChoiceType,
   listOfField,
@@ -1146,6 +1147,75 @@ export function addMobileOwnerQuestions(
     anchor = key;
   }
   return { definition: next, section: fieldKeys.length ? first : null, fieldKeys };
+}
+
+/** The names of the starting wordings of the family members part, its list and the list's questions. */
+export type FamilyMemberWording =
+  'section' | 'members' | 'member_name' | 'member_relationship' | 'member_age' | 'member_income';
+
+/** The questions of each row of the family members list: the column each fills and its type. */
+const FAMILY_MEMBER_QUESTIONS = [
+  { column: 'name', type: 'short_text', wording: 'member_name' },
+  { column: 'relationship_code', type: 'single_select', wording: 'member_relationship' },
+  { column: 'age_years', type: 'number', wording: 'member_age' },
+  { column: 'monthly_income', type: 'money', wording: 'member_income' },
+] as const satisfies readonly { column: string; type: FieldType; wording: FamilyMemberWording }[];
+
+/** Whether the form holds the list of the person's family members that reaches the profile. */
+export const hasFamilyMemberList = (def: FormDefinition) =>
+  def.sections.some((s) =>
+    s.fields.some((f) => f.type === 'repeat_group' && f.standardColumn === FAMILY_MEMBERS_TABLE),
+  );
+
+/**
+ * Adds, at the end of a beneficiary application form, a part with the list of the person's family
+ * members whose rows reach the profile's family: a row each, with the member's name, relationship
+ * (its options come from the relationship list), age and monthly income, each worded by `wording`.
+ * Nothing in it is required, so a form may be sent with no member listed. A form that holds such a
+ * list already, or a form of another kind, gets nothing. The keys of the added questions come back,
+ * the list first, with the new part.
+ */
+export function addFamilyMemberQuestions(
+  def: FormDefinition,
+  options: {
+    kind: FormKind | undefined;
+    wording: (name: FamilyMemberWording) => { bn: string; en: string };
+    makeKey?: MakeKey;
+  },
+): { definition: FormDefinition; section: string | null; fieldKeys: string[] } {
+  if (options.kind !== 'beneficiary_application' || hasFamilyMemberList(def))
+    return { definition: def, section: null, fieldKeys: [] };
+  const part = addEmptySection(def, () => options.wording('section'));
+  const list = addOwnQuestion(
+    part.definition,
+    part.key,
+    { type: 'repeat_group' },
+    undefined,
+    options.makeKey,
+  );
+  if (!list.fieldKey) return { definition: def, section: null, fieldKeys: [] };
+  const group = list.fieldKey;
+  let next = updateField(list.definition, group, {
+    standardColumn: FAMILY_MEMBERS_TABLE,
+    label: options.wording('members'),
+  });
+  const fieldKeys = [group];
+  for (const question of FAMILY_MEMBER_QUESTIONS) {
+    const added = addOwnQuestion(
+      next,
+      part.key,
+      { type: question.type, group },
+      undefined,
+      options.makeKey,
+    );
+    if (!added.fieldKey) continue;
+    next = updateField(added.definition, added.fieldKey, {
+      standardColumn: question.column,
+      label: options.wording(question.wording),
+    });
+    fieldKeys.push(added.fieldKey);
+  }
+  return { definition: next, section: part.key, fieldKeys };
 }
 
 /**

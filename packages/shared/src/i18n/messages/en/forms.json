@@ -459,6 +459,23 @@
     "add_row_question": "Add a question to the rows",
     "calc_missing": "Set the calculation",
     "first_section": "Section 1",
+    "family": {
+      "add": "Add the family members questions",
+      "wording": {
+        "section_bn": "পরিবারের সদস্য",
+        "section_en": "Family members",
+        "members_bn": "পরিবারের সদস্যরা",
+        "members_en": "Family members",
+        "member_name_bn": "সদস্যের নাম",
+        "member_name_en": "Member's name",
+        "member_relationship_bn": "উপকারভোগীর সঙ্গে সম্পর্ক",
+        "member_relationship_en": "Relationship to the beneficiary",
+        "member_age_bn": "বয়স (বছর)",
+        "member_age_en": "Age (years)",
+        "member_income_bn": "মাসিক আয় (টাকা)",
+        "member_income_en": "Monthly income (taka)"
+      }
+    },
     "identity": {
       "label": "Which identity question this is",
       "none": "Not an identity question",
