@@ -1,6 +1,7 @@
 import type {
   EditableList,
   GeneralSettingKey,
+  OfficeAddressesSetting,
   ReferenceItemCreate,
   ReferenceItemUpdate,
   SmsProviderSetting,
@@ -11,16 +12,25 @@ import type {
   Channels,
   GeneralSettings,
   NameVariantGroupView,
+  OfficeAddressesView,
   ReferenceItem,
   SettingEntry,
 } from '../../api/schemas';
 
-export type { Channels, GeneralSettings, NameVariantGroupView, ReferenceItem, SettingEntry };
+export type {
+  Channels,
+  GeneralSettings,
+  NameVariantGroupView,
+  OfficeAddressesView,
+  ReferenceItem,
+  SettingEntry,
+};
 
 export const SETTINGS_KEY = ['admin', 'settings'] as const;
 export const listKey = (list: EditableList) => ['admin', 'reference-list', list] as const;
 export const CHANNELS_KEY = ['admin', 'channels'] as const;
 export const NAME_VARIANTS_KEY = ['admin', 'name-variants'] as const;
+export const OFFICE_ADDRESSES_KEY = ['admin', 'office-addresses'] as const;
 
 /** GET /settings, by key. */
 export async function settings(): Promise<GeneralSettings> {
@@ -66,3 +76,8 @@ export const channels = () => api<Channels>('/admin/channels');
 
 export const setSms = (body: SmsProviderSetting) =>
   api<Channels>('/admin/channels/sms', { method: 'PUT', body });
+
+export const officeAddresses = () => api<OfficeAddressesView>('/admin/office-addresses');
+
+export const setOfficeAddresses = (body: OfficeAddressesSetting) =>
+  api<OfficeAddressesView>('/admin/office-addresses', { method: 'PUT', body });

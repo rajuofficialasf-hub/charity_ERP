@@ -36,6 +36,9 @@ void startInlineConsumers(env, container.jobs, logger, {
   exportSweep: container.exportSweep,
 });
 
+// the office addresses the rate limits exempt, read now and once a minute
+container.officeAddresses.start();
+
 const server = createServer(app);
 server.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'api listening');

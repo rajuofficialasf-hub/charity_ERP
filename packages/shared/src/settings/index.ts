@@ -153,12 +153,53 @@ export type SmsProviderSetting = z.infer<typeof smsProviderSettingSchema>;
  */
 export const matchDailyLimitSchema = intInRange(1, 10_000);
 
+/** The most office addresses kept; each is one network the office reaches the server from. */
+export const OFFICE_ADDRESSES_MAX = 20;
+/** The widest ranges an entry may name: a /24 of IPv4, a /56 of IPv6 (the client the limiter counts). */
+const OFFICE_PREFIX_MIN = { ipv4: 24, ipv6: 56 } as const;
+const ipv4 = z.ipv4();
+const ipv6 = z.ipv6();
+const cidrv4 = z.cidrv4();
+const cidrv6 = z.cidrv6();
+
+/** Whether a text is one address, or a range no wider than the office prefixes allow. */
+function isOfficeAddress(raw: string): boolean {
+  if (ipv4.safeParse(raw).success || ipv6.safeParse(raw).success) return true;
+  const prefix = Number(raw.slice(raw.lastIndexOf('/') + 1));
+  if (cidrv4.safeParse(raw).success) return prefix >= OFFICE_PREFIX_MIN.ipv4;
+  if (cidrv6.safeParse(raw).success) return prefix >= OFFICE_PREFIX_MIN.ipv6;
+  return false;
+}
+
+/**
+ * The office addresses an Admin lists: requests from them skip the per-address rate limits, while
+ * the per-account and per-draft limits apply to everyone. Single addresses or ranges no wider than
+ * a /24 (IPv4) or a /56 (IPv6), at most twenty, each once.
+ */
+export const officeAddressesSchema = z.strictObject({
+  addresses: z
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .max(64, { message: 'validation.office_address' })
+        .refine(isOfficeAddress, { message: 'validation.office_address' }),
+    )
+    .max(OFFICE_ADDRESSES_MAX, { message: 'validation.office_addresses_too_many' })
+    .refine((list) => new Set(list).size === list.length, {
+      message: 'validation.office_address_repeated',
+    }),
+});
+export type OfficeAddressesSetting = z.infer<typeof officeAddressesSchema>;
+
 export const SETTING_SCHEMAS = {
   organisation: organisationSettingSchema,
   localization: localizationSettingSchema,
   'monitoring.thresholds': monitoringThresholdsSchema,
   'sms.provider': smsProviderSettingSchema,
   'lookup.match_daily_limit': matchDailyLimitSchema,
+  'security.office_ips': officeAddressesSchema,
 } as const;
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
 export const SETTING_KEYS = Object.keys(SETTING_SCHEMAS) as SettingKey[];
@@ -202,6 +243,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
   },
   'sms.provider': { provider: null, senderId: null, enabled: false, endpoint: null },
   'lookup.match_daily_limit': 60,
+  'security.office_ips': { addresses: [] },
 };
 
 /** A setting change: the whole value of the key, validated by the key's schema. */

@@ -6,6 +6,7 @@ import {
   monitoringThresholdsSchema,
   nisabAddSchema,
   nisabWithdrawSchema,
+  officeAddressesSchema,
   organisationSettingSchema,
   referenceItemUpdateSchema,
   SETTING_DEFAULTS,
@@ -154,5 +155,40 @@ describe('settings', () => {
       true,
     );
     expect(nisabWithdrawSchema.safeParse({ reason: '  ' }).success).toBe(false);
+  });
+});
+
+describe('the office addresses', () => {
+  const parse = (addresses: string[]) => officeAddressesSchema.safeParse({ addresses });
+
+  it('takes single addresses and ranges no wider than a /24 or a /56', () => {
+    const ok = parse([
+      ' 203.0.113.5 ',
+      '198.51.100.0/24',
+      '198.51.100.128/25',
+      '2001:db8::1',
+      '2001:db8:0:100::/56',
+      '2001:db8:0:200::/64',
+    ]);
+    expect(ok.success).toBe(true);
+    expect(ok.data?.addresses[0]).toBe('203.0.113.5');
+    expect(SETTING_DEFAULTS['security.office_ips']).toEqual({ addresses: [] });
+  });
+
+  it('refuses a wider range, a text that is no address, and a repeat', () => {
+    expect(codes(parse(['10.0.0.0/23']))).toEqual(['validation.office_address']);
+    expect(codes(parse(['2001:db8::/48']))).toEqual(['validation.office_address']);
+    expect(codes(parse(['0.0.0.0/0']))).toEqual(['validation.office_address']);
+    expect(codes(parse(['office wifi']))).toEqual(['validation.office_address']);
+    expect(codes(parse(['203.0.113.300']))).toEqual(['validation.office_address']);
+    expect(codes(parse(['203.0.113.5', '203.0.113.5']))).toEqual([
+      'validation.office_address_repeated',
+    ]);
+  });
+
+  it('keeps at most twenty', () => {
+    const many = Array.from({ length: 21 }, (_, i) => `203.0.113.${i + 1}`);
+    expect(parse(many.slice(0, 20)).success).toBe(true);
+    expect(codes(parse(many))).toEqual(['validation.office_addresses_too_many']);
   });
 });

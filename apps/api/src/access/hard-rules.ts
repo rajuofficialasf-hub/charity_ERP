@@ -42,6 +42,7 @@ export const KEY_PERMISSIONS: ReadonlySet<string> = new Set([
   'settings.manage',
   'holiday.manage',
   'provider.settings.manage',
+  'security.office_ips.manage',
   'system.health.view',
   'notification.template.manage',
   'location.manage',

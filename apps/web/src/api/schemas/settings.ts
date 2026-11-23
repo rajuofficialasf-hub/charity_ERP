@@ -66,3 +66,11 @@ export const channelsSchema = z.object({
   otpDummy: z.boolean(),
 });
 export type Channels = z.infer<typeof channelsSchema>;
+
+/** The office addresses the per-address rate limits exempt, and the caller's own address. */
+export const officeAddressesViewSchema = z.object({
+  addresses: z.array(z.string()),
+  updatedAt: dateTime.nullable(),
+  yourAddress: z.string().nullable(),
+});
+export type OfficeAddressesView = z.infer<typeof officeAddressesViewSchema>;

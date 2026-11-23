@@ -29,7 +29,7 @@ export interface RateWindow {
   ttlMs: number;
   /** The key this window counts by. */
   key: (req: Request) => string;
-  /** Counts by the client address (runs before the per-id windows). */
+  /** Counts by the client address (runs before the per-id windows); an office address skips it. */
   byIp?: boolean;
   /** One budget for every route of the class, not one per route. */
   shared?: boolean;
@@ -82,6 +82,9 @@ const refreshSession = (req: Request) => {
   return match?.[1] ? `sid:${match[1]}` : `ip:${ip(req)}`;
 };
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
+/** The registration draft a request names; a start names none. */
+const draftOf = (req: Request) => `draft:${field(req, 'registrationId')}`;
+const isStart = (req: Request) => field(req, 'registrationId') === 'none';
 
 /** Limits and keys per class (default and sync are proposals tuned before the field pilot). */
 export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
@@ -125,16 +128,13 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   // Registration drafts and the team member's reference lookup. The
   // 5 lookups per draft and per NID and day are counted by the service after the draft token is
   // checked, so nobody without a draft can use up a volunteer's NID.
-  // A start names nothing but its kind: it counts by the client address only; a submit
-  // also counts by its draft.
+  // A start names nothing but its kind: a new draft spends the address's day. A submit names its
+  // draft and counts by it, an hour and a day, so a new draft never resets the count of another.
+  // An office address skips the address windows (`OfficeAddresses`).
   registration: [
-    { limit: 10, ttlMs: DAY, key: ip, byIp: true },
-    {
-      limit: 5,
-      ttlMs: HOUR,
-      key: (r) => `draft:${field(r, 'registrationId')}`,
-      skip: (r) => field(r, 'registrationId') === 'none',
-    },
+    { limit: 10, ttlMs: DAY, key: ip, byIp: true, skip: (r) => !isStart(r) },
+    { limit: 5, ttlMs: HOUR, key: draftOf, skip: isStart },
+    { limit: 10, ttlMs: DAY, key: draftOf, skip: isStart },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],

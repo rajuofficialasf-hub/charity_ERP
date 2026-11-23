@@ -374,7 +374,7 @@ Constraints: UNIQUE (list_key, code).
 ### settings
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
-| key | text | no | — | PK: `organisation`, `localization`, `monitoring.thresholds`, `sms.provider` (D-098; seed markers `seed.marker.*`), `lookup.match_daily_limit` (the name lookups a user may make in a day, default 60, D-172; no screen edits it yet); later keys such as photo defaults are added with their modules |
+| key | text | no | — | PK: `organisation`, `localization`, `monitoring.thresholds`, `sms.provider` (D-098; seed markers `seed.marker.*`), `lookup.match_daily_limit` (the name lookups a user may make in a day, default 60, D-172; no screen edits it yet), `security.office_ips` (`{ addresses }`, the office addresses the per-address rate limits exempt, default empty, the Admin's alone, D-198); later keys such as photo defaults are added with their modules |
 | value | jsonb | no | — | validated per key by the zod schemas of `@css/shared/settings`, which also hold the defaults |
 | updated_by | uuid | yes | — | FK users |
 | updated_at | timestamptz | no | now() | every change audited |

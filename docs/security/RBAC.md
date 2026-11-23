@@ -28,8 +28,8 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 
 | Role key | Kind | global_scope | Notes |
 |---|---|---|---|
-| admin | official | yes | Maintains the system; the Main Admin is an Admin; only holder of `system.owner.transfer`; appoints the Department Head (D-188) |
-| department_head | official | yes | Head of the department; every permission except `system.owner.transfer`; one at a time, appointed by an Admin (D-188) |
+| admin | official | yes | Maintains the system; the Main Admin is an Admin; only holder of `system.owner.transfer` and `security.office_ips.manage`; appoints the Department Head (D-188, D-198) |
+| department_head | official | yes | Head of the department; every permission except `system.owner.transfer` and `security.office_ips.manage`; one at a time, appointed by an Admin (D-188) |
 | monitoring_team | official | yes | Reads everything and keeps the oversight work; excluded from the administration permissions of D-188 (BR-184) |
 | program_manager | official | no | PROGRAM scope; approver on house construction (BD-24); `nisab.set` at GLOBAL (Q-29: PM or above) |
 | regional_program_manager | official | no | REGION scope; grants "if RPM grants" extras; revokes volunteers' sessions in own region (O-25) |
@@ -428,6 +428,7 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `nisab.set` | M21 | no | Add a nisab version | program_manager@GLOBAL |
 | `holiday.manage` | M21 | no | Maintain the holiday calendar | — |
 | `provider.settings.manage` | M21 | no | See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment) | — |
+| `security.office_ips.manage` | M21 | no | Keep the office addresses the per-address rate limits exempt; the per-account and per-draft limits still apply (D-198) | admin@GLOBAL |
 | `system.health.view` | M21 | no | See the system health page (database, storage, queue, dummy OTP, audit partitions, storage growth) | — |
 | `template.checklist.manage` | M21 | no | Edit document checklist templates | program_manager@PROGRAM |
 | `i18n.manage` | M20 | no | Edit translations of bilingual data (no runtime message overrides, O-43) | — |

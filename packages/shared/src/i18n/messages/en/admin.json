@@ -1691,7 +1691,8 @@
       "language": "Language",
       "thresholds": "Thresholds",
       "lists": "Lists",
-      "channels": "Notification channels"
+      "channels": "Notification channels",
+      "security": "Security"
     },
     "saved": "The settings are saved.",
     "save": "Save",
@@ -1796,6 +1797,15 @@
         "active": "On",
         "word_error": "{word}: {message}"
       }
+    },
+    "office": {
+      "title": "Office addresses (IP)",
+      "hint": "Requests from these addresses skip the limits counted by IP address, so on a training day many people can register and sign in from one Wi-Fi. The limits of one account or one draft still apply to everyone.",
+      "field": "Office addresses",
+      "field_hint": "One address per line, or a range up to /24 (/56 for IPv6). At most 20.",
+      "yours": "This computer's address: {address}",
+      "yours_unknown": "This computer's address is not known.",
+      "add_yours": "Add this address"
     },
     "channels": {
       "dummy_title": "The dummy OTP is on",
