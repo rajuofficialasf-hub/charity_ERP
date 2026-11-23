@@ -287,6 +287,101 @@ describe('a family match', () => {
   });
 });
 
+describe('a new mobile of a known person', () => {
+  /** A profile with its own mobile, and a reviewed application of it that gives another one. */
+  async function knownWithNewMobile(newMobile = fakeMobile()) {
+    const oldMobile = fakeMobile();
+    const nid = fakeNid();
+    const person = await fixtureBeneficiary(h.db, world.dhaka, { nid, mobile: oldMobile });
+    const id = await reviewed('widow', world.dhaka.union, newMobile, {
+      q_id: { t: 'short_text', v: nid },
+    });
+    return { person, id, oldMobile, newMobile };
+  }
+  const mobileOf = async (person: string) =>
+    (
+      await h.db.query<{ mobile: string | null }>(
+        'SELECT mobile FROM beneficiaries WHERE id = $1',
+        [person],
+      )
+    ).rows[0]!.mobile;
+
+  it('meets the family of the new number at once, and keeps a number another profile holds off the profile', async () => {
+    await clearQueue();
+    await setIdentityRules(h.db, project, { repeatFamily: 'hold' });
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const shared = fakeMobile();
+    // another applicant of the project, whose profile has the number already
+    await reviewed('widow', world.dhaka.union, shared);
+    const { person, id, oldMobile } = await knownWithNewMobile(shared);
+    const rpm = await as(world.users.rpmDhaka);
+    const record = (await read(rpm, id)).body.data;
+    expect(record.beneficiaryId).toBe(person);
+    expect(record.familyDuplicateWarnings).toEqual([
+      expect.objectContaining({ matchedOn: ['mobile'] }),
+    ]);
+    expect(record.profileMobileChange).toEqual({ from: oldMobile, to: shared, heldByOther: true });
+    expect(record.decisionHints.approve).toEqual(['family_match']);
+    await moved(rpm, id, 'approve', { comment: 'একই বাড়ির ফোন' });
+    // the number stays on the application only
+    expect(await mobileOf(person)).toBe(oldMobile);
+  });
+
+  it('writes the new number to the profile with its change log when the application is approved', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const { person, id, oldMobile, newMobile } = await knownWithNewMobile();
+    // the volunteer's send leaves the profile as it was
+    expect(await mobileOf(person)).toBe(oldMobile);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await read(rpm, id)).body.data.profileMobileChange).toEqual({
+      from: oldMobile,
+      to: newMobile,
+      heldByOther: false,
+    });
+    await moved(rpm, id, 'approve');
+    expect(await mobileOf(person)).toBe(newMobile);
+    const log = await h.db.query<{
+      old_value: string;
+      new_value: string;
+      kind: string;
+      created_by: string;
+      reason: string | null;
+    }>(
+      `SELECT old_value, new_value, kind, created_by, reason FROM field_changes
+        WHERE entity_type = 'beneficiary' AND entity_id = $1 AND field = 'mobile'`,
+      [person],
+    );
+    expect(log.rows).toEqual([
+      {
+        old_value: oldMobile,
+        new_value: newMobile,
+        kind: 'contact_update',
+        created_by: world.users.rpmDhaka,
+        reason: 'আবেদনের অনুমোদনে বদল',
+      },
+    ]);
+    // once the profile has it there is nothing left to change
+    expect((await read(rpm, id)).body.data.profileMobileChange).toBeNull();
+  });
+
+  it('leaves the profile as it was when the application is rejected or the approver is out of reach', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const rejected = await knownWithNewMobile();
+    const rpm = await as(world.users.rpmDhaka);
+    await moved(rpm, rejected.id, 'reject', {
+      reason: 'কাগজ অসম্পূর্ণ',
+      message: 'এবার সম্ভব হলো না',
+    });
+    expect(await mobileOf(rejected.person)).toBe(rejected.oldMobile);
+    const away = await knownWithNewMobile();
+    const outside = await as(world.users.rpmRangpur);
+    expect((await act(outside, away.id, 'approve')).status).toBe(404);
+    expect(await mobileOf(away.person)).toBe(away.oldMobile);
+  });
+});
+
 /** The person of an application, as the office reads it. */
 const personOf = async (id: string) =>
   (await read(await as(world.users.rpmDhaka), id)).body.data.beneficiaryId as string;

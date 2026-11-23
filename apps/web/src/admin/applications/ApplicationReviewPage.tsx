@@ -441,6 +441,7 @@ function Review() {
           withMessage={asking.action === 'reject'}
           note={CONFIRMED.includes(asking.action) ? t('dialog.approve_note') : undefined}
           comments={asking.reasons}
+          mobileChange={CONFIRMED.includes(asking.action) ? a.profileMobileChange : null}
           danger={DANGER.includes(asking.action)}
           pending={act.isPending}
           error={act.error ? failureText(act.error) : null}

@@ -130,6 +130,11 @@ export const officeApplicationSchema = applicationSchema.extend({
     .default([]),
   /** How many open probable pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int().default(0),
+  /** The mobile the approval writes to the known person's profile; null when none changes. */
+  profileMobileChange: z
+    .object({ from: z.string().nullable(), to: z.string(), heldByOther: z.boolean() })
+    .nullable()
+    .default(null),
   /**
    * The same person's other sent applications in this project on a profile merged with this one;
    * all three fields null where the caller does not reach that application.

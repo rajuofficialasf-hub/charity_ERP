@@ -60,14 +60,20 @@ export class BeneficiaryFamilyService {
    * or husband's name. Union and village alone would flag whole villages, so they count only
    * together with the father's or husband's name; a wife and a child of one man are one family,
    * so whether that name is a father's or a husband's does not matter here. A person without a
-   * mobile shares it with nobody.
+   * mobile shares it with nobody. A known person's application that gives another mobile is
+   * weighed by that number too (`applicationMobile`), before the approval writes it to the profile.
    */
-  async matches(tx: Tx, projectId: string, beneficiaryId: string): Promise<FamilyMatch[]> {
+  async matches(
+    tx: Tx,
+    projectId: string,
+    beneficiaryId: string,
+    applicationMobile: string | null = null,
+  ): Promise<FamilyMatch[]> {
     const rows = await tx.$queryRaw<
       { id: string; ben_no: number; name: string; same_mobile: boolean; same_family: boolean }[]
     >`
-      SELECT b.id, b.ben_no, b.name,
-        COALESCE(b.mobile = me.mobile, false) AS same_mobile,
+      SELECT DISTINCT b.id, b.ben_no, b.name,
+        COALESCE(b.mobile = me.mobile OR b.mobile = ${applicationMobile}, false) AS same_mobile,
         COALESCE(b.union_id = me.union_id AND b.village_key = me.village_key
           AND b.guardian_key = me.guardian_key, false) AS same_family
       FROM beneficiaries me
@@ -76,7 +82,7 @@ export class BeneficiaryFamilyService {
       WHERE me.id = ${beneficiaryId}::uuid
         AND b.id <> me.id
         AND b.merged_into_id IS NULL
-        AND (b.mobile = me.mobile
+        AND (b.mobile = me.mobile OR b.mobile = ${applicationMobile}
           OR (b.union_id = me.union_id AND b.village_key = me.village_key
             AND b.guardian_key = me.guardian_key))
       ORDER BY b.ben_no`;

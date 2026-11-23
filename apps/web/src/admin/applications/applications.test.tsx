@@ -1235,6 +1235,49 @@ describe('the review page', () => {
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'আলাদা পরিবার' } });
   });
 
+  it('tells the approver the profile’s mobile will change, or that another profile has the number', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let heldByOther = false;
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            availableActions: ['approve', 'reject', 'waitlist'],
+            profileMobileChange: { from: '01711111111', to: '01822222222', heldByOther },
+            decisionHints: { approve: [], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText('প্রোফাইলের মোবাইল বদলাবে: 01711111111 → 01822222222'),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(within(approve).getByRole('button', { name: 'বাতিল' }));
+    // a number another profile has is not written; the approver is told so
+    heldByOther = true;
+    view.unmount();
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));
+    const again = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(again).getByText(
+        '01822222222 নম্বরটি আরেকটি প্রোফাইলের, তাই প্রোফাইলে বসবে না; আবেদনেই থাকবে।',
+      ),
+    ).toBeInTheDocument();
+    expect(within(again).queryByText(/প্রোফাইলের মোবাইল বদলাবে/)).toBeNull();
+  });
+
   it('says the project holds the same person, and asks why before an approval', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

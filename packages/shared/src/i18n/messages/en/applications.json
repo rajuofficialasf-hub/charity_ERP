@@ -184,6 +184,9 @@
     "answers": "Answers",
     "timeline": "Steps of the application",
     "decision": {
+      "mobile_change": "The profile's mobile will change: {from} → {to}",
+      "mobile_new": "The profile will get the mobile {to}",
+      "mobile_held": "{to} belongs to another profile, so it will not be put on the profile; it stays on the application.",
       "reason": "The office's reason",
       "reason_help": "Read by the officials only.",
       "message": "Message for the volunteer",

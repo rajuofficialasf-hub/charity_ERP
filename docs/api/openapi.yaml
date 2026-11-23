@@ -4188,6 +4188,22 @@ components:
                     properties:
                       level: { type: string, enum: [probable] }
             samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
+            profileMobileChange:
+              x-sensitive-class: beneficiary.contact
+              description: >-
+                The mobile the approval writes to the known person's profile (BR-334): the
+                profile's number, the application's, and whether another live profile has that one,
+                in which case it stays on the application and is never written. Null when the
+                application gives no other number, and for a caller who does not see the contact
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [from, to, heldByOther]
+                  properties:
+                    from: { type: [string, 'null'] }
+                    to: { type: string }
+                    heldByOther: { type: boolean }
+                - type: 'null'
             mergedTwins:
               type: array
               description: >-

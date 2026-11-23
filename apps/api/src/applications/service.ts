@@ -1,3 +1,4 @@
+import { answeredMobile, type ApprovedMobile } from './approved-mobile.js';
 import {
   APPLICATION_ACTIONS,
   APPLICATION_STATES,
@@ -392,6 +393,7 @@ export class ApplicationsService {
     private readonly media: MediaReferralsService,
     private readonly signals: PersonSignals,
     private readonly match: BeneficiaryMatchService,
+    private readonly approvedMobile: ApprovedMobile,
   ) {}
 
   async create(
@@ -2101,7 +2103,9 @@ export class ApplicationsService {
     const [read, warnings, signals, availableActions, version, mine] = await Promise.all([
       readAnswers(this.prisma, applicationId, definition),
       audience === 'official' && row.beneficiaryId
-        ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId)
+        ? answeredMobile(this.prisma, applicationId).then((mobile) =>
+            this.family.matches(this.prisma, row.projectId, row.beneficiaryId!, mobile),
+          )
         : [],
       audience === 'official' && row.beneficiaryId
         ? this.signals.forPerson(this.prisma, viewer.principal, access, row.beneficiaryId)
@@ -2183,6 +2187,11 @@ export class ApplicationsService {
             }
           : null,
         familyDuplicateWarnings: warnings,
+        // the number an approval would write to the profile, for an official who sees the contact
+        profileMobileChange:
+          audience === 'official' && seesContact && row.beneficiaryId
+            ? await this.approvedMobile.pending(this.prisma, applicationId)
+            : null,
         ...signals,
         mergedTwins:
           audience === 'official' && row.beneficiaryId

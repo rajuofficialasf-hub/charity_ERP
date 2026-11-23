@@ -108,9 +108,16 @@ export class BeneficiaryContactService {
   /**
    * Writes the fields of `body` that differ from the profile, each with its change-log row, the
    * own-mobile rule and the shared-mobile warning, then the audit entry; the submission of an
-   * application writes a known person's new mobile or address the same way.
+   * application writes a known person's new mobile or address the same way, and its approval the
+   * new mobile, with why the change came (`reason`) on each log row and in the audit entry.
    */
-  async apply(tx: Tx, actor: Principal, before: ContactRow, change: ContactChange) {
+  async apply(
+    tx: Tx,
+    actor: Principal,
+    before: ContactRow,
+    change: ContactChange,
+    options: { reason?: string } = {},
+  ) {
     const body = withOwner(before, change);
     const changed = CONTACT_FIELDS.filter(
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
@@ -163,6 +170,7 @@ export class BeneficiaryContactService {
           // eslint-disable-next-line security/detect-object-injection -- a fixed list of column names
           newValue: (after[field] ?? Prisma.JsonNull) as Prisma.InputJsonValue,
           kind: 'contact_update',
+          reason: options.reason ?? null,
           createdBy: actor.userId,
         })),
       });
@@ -177,6 +185,7 @@ export class BeneficiaryContactService {
       entityId: before.id,
       old: pick(before) as Prisma.InputJsonValue,
       new: pick(after) as Prisma.InputJsonValue,
+      ...(options.reason ? { reason: options.reason } : {}),
     });
     return { after, warnings, changed };
   }

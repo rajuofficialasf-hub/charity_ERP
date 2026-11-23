@@ -73,6 +73,15 @@ export interface TransitionHooks {
   ) => Promise<Prisma.ApplicationUncheckedUpdateInput>;
 }
 
+/**
+ * What an approval writes beyond the application: a known person's new mobile reaches the profile
+ * with the move that records the approval, whichever path made it (one decision, the bulk review,
+ * a pull from the waitlist).
+ */
+export interface ApprovalWrites {
+  approved(tx: Tx, principal: Principal, applicationId: string): Promise<void>;
+}
+
 export interface TransitionResult {
   id: string;
   from: string;
@@ -115,6 +124,7 @@ export class WorkflowEngine {
     private readonly clock: Clock,
     private readonly events: ApplicationEvents,
     private readonly sideEffects: SideEffectRunner,
+    private readonly approvals?: ApprovalWrites,
   ) {}
 
   async transition(
@@ -297,6 +307,8 @@ export class WorkflowEngine {
       },
     });
     await this.runSideEffects(tx, outcome.run, application.id, actor);
+    if (transition.actor_recorded_as === 'approved_by')
+      await this.approvals?.approved(tx, principal, application.id);
     const auditId = await this.audit.record(tx, {
       action: outcome.auditAction ?? `application.${action}`,
       entityType: 'application',

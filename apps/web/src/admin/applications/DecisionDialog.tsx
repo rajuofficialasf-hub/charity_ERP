@@ -4,7 +4,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { useSchemaResolver } from '../../lib/form-schema';
-import type { CommentReason } from './applications-api';
+import type { CommentReason, OfficeApplication } from './applications-api';
 import { DialogActions } from '../DialogActions';
 
 /** The texts a decision sends; each one only when the decision asks for it. */
@@ -33,7 +33,9 @@ type DecisionFields = z.infer<ReturnType<typeof decisionSchema>>;
  * Asks for a decision's texts before it is sent: the office's reason, kept in the record for the
  * officials; for a rejection the message written for the volunteer, which is all they read; and
  * the comment a decision against the score order, into a full quota or for a person who appears
- * again in a project that holds the repeat asks for, which says why.
+ * again in a project that holds the repeat asks for, which says why. An approval that writes a
+ * known person's new mobile to the profile says so first, or that the number stays on the
+ * application because another profile has it.
  */
 export function DecisionDialog({
   title,
@@ -42,6 +44,7 @@ export function DecisionDialog({
   withMessage = false,
   note,
   comments = [],
+  mobileChange = null,
   danger = false,
   pending,
   error,
@@ -58,6 +61,8 @@ export function DecisionDialog({
   note?: string;
   /** Why the decision asks for a comment; none asks no comment. */
   comments?: readonly CommentReason[];
+  /** The mobile an approval writes to the known person's profile, told before it is sent. */
+  mobileChange?: OfficeApplication['profileMobileChange'];
   danger?: boolean;
   pending: boolean;
   /** Why the last try failed, in the reader's words. */
@@ -107,6 +112,17 @@ export function DecisionDialog({
     >
       <Form form={form} onSubmit={send} label={title} error={error ?? undefined}>
         {note ? <Text>{note}</Text> : null}
+        {mobileChange ? (
+          mobileChange.heldByOther ? (
+            <Alert tone="warning">{t('mobile_held', { to: mobileChange.to })}</Alert>
+          ) : (
+            <Alert tone="info">
+              {mobileChange.from
+                ? t('mobile_change', { from: mobileChange.from, to: mobileChange.to })
+                : t('mobile_new', { to: mobileChange.to })}
+            </Alert>
+          )
+        ) : null}
         {withReason ? (
           <FormTextField
             name="reason"

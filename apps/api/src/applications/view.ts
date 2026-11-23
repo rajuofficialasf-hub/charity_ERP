@@ -177,6 +177,15 @@ export const applicationView = applicationSummary.extend({
   familyMemberSignals: z.array(familyMemberSignal),
   /** How many such families there are in all, also beyond the ones listed. */
   familyMemberSignalsTotal: z.number().int(),
+  /**
+   * The mobile the approval would write to the known person's profile: the profile's number, the
+   * application's, and whether another profile has that one (then it is never written). Null when
+   * the application gives no other number; for an official who sees the contact only.
+   */
+  profileMobileChange: sensitive(
+    z.object({ from: z.string().nullable(), to: z.string(), heldByOther: z.boolean() }).nullable(),
+    BENEFICIARY_CONTACT,
+  ),
   /** The person's open probable pairs with another profile; the office only. */
   samePersonSignals: z.array(samePersonSignal),
   /** How many such pairs there are in all, also beyond the ones listed. */
