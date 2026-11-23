@@ -1,6 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import type { ExtraAreaRequest, ExtraAreaRow } from '@css/shared/access';
 import type { ReasonRequest } from '@css/shared/auth';
+import { translate } from '@css/shared/i18n';
 import {
   extraAreaRefusal,
   type HardRule,
@@ -23,8 +24,11 @@ import type { AccountEvents } from '../notifications/account-events.js';
 const AREA_LEVELS: readonly string[] = ['division', 'district'];
 /** The permission whose reach says where the giver sees volunteers. */
 const VOLUNTEER_TAB = 'volunteer.view_all';
-/** The reason an area passed on from another one ends with when that source ends. */
-const SOURCE_ENDED = 'উৎস শেষ';
+/**
+ * The reason an area passed on from another one ends with when that source ends, stored in the
+ * department's working language as the reasons officials write are.
+ */
+const SOURCE_ENDED = translate('bn', 'common.extra_area.source_ended');
 
 const invalid = (path: string) =>
   new ApiError('validation.failed', 422, undefined, [{ path, code: 'validation.option_unknown' }]);

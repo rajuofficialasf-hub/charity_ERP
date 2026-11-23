@@ -47,6 +47,9 @@
   "unit": {
     "million": "million"
   },
+  "extra_area": {
+    "source_ended": "Its source ended"
+  },
   "notification": {
     "permission_granted": "Permission given: {permission}",
     "permission_denied": "Permission taken away: {permission}",
