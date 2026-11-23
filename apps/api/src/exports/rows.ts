@@ -1,3 +1,4 @@
+import { formatBenNo } from '@css/shared/beneficiaries';
 import { officeKeyset, officeOrderBy } from '../applications/list-order.js';
 import { beneficiaryFilterSchema } from '@css/shared/beneficiaries';
 import { columnsOf, type ExportList } from '@css/shared/exports';
@@ -454,7 +455,8 @@ export class ExportRows {
       id: b.id,
       cells: {
         name: b.name,
-        ben_no: b.benNo,
+        // as the screens show it: BEN- and seven digits
+        ben_no: formatBenNo(b.benNo),
         father: b.fatherOrHusbandName,
         area: area(names, b.upazilaId, b.districtId),
         status: coded(b.status, 'beneficiary.status'),

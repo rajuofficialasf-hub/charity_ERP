@@ -41,7 +41,6 @@ const KINDS: Readonly<Record<ExportList, Readonly<Record<string, ColumnKind>>>> 
     date_of_birth: 'date',
   },
   beneficiaries: {
-    ben_no: 'number',
     status: 'coded',
     class: 'coded',
     gender: 'coded',
