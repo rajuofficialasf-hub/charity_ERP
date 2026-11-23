@@ -478,7 +478,7 @@ Owner, in chat on 2026-11-23:
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
 - **Updated:** 2026-11-23 23:10
-- **Next:** C3 (test and review of U3, a migration), then U4: the one-press family members list
-- **Reviewed through:** C2 at 57b5ba0c (T2 review: logic, security, standards; findings fixed, one P3 left in Notes)
+- **Next:** U4: the one-press family members list in `apps/web/src/admin/forms/draft.ts` (test first in `draft.test.ts`)
+- **Reviewed through:** C3 at 1526c068 (T2 review; the source race fixed, the rest in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it.
