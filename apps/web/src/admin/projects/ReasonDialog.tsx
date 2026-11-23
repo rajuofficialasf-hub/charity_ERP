@@ -1,11 +1,12 @@
 import { formatDate } from '@css/shared/format';
-import { Button, Dialog, Form, FormDateField, FormTextField } from '@/ui';
+import { Dialog, Form, FormDateField, FormTextField } from '@/ui';
 import { type ReactNode, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { ApiFailure } from '../../api/client';
 import { useSchemaResolver } from '../../lib/form-schema';
+import { DialogActions } from '../DialogActions';
 
 /**
  * A reason of three letters at least, as the server requires, and, when the move asks for a new
@@ -82,19 +83,15 @@ export function ReasonDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            variant={danger ? 'danger' : 'primary'}
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {confirm}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={confirm}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+          submitVariant={danger ? 'danger' : 'primary'}
+        />
       }
     >
       <Form form={form} onSubmit={send} label={title} error={failure?.message}>

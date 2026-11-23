@@ -3,13 +3,14 @@ import {
   type CorrectionField,
   registrationCorrectionCreateSchema,
 } from '@css/shared/registration';
-import { Alert, Button, CheckboxGroup, Dialog, Form, FormTextField } from '@/ui';
+import { Alert, CheckboxGroup, Dialog, Form, FormTextField } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import type { z } from 'zod';
 import { FIELD_LABEL } from '../../features/account/profile-api';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { requestCorrections } from './registrations-api';
+import { DialogActions } from '../DialogActions';
 
 type CorrectionFields = z.input<typeof registrationCorrectionCreateSchema>;
 const EMPTY: CorrectionFields = { fields: [], note: '' };
@@ -66,18 +67,14 @@ export function CorrectionDialog({
       onClose={close}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={close} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('correct_send')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={close}
+          submitLabel={t('correct_send')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={send} label={t('correct')}>

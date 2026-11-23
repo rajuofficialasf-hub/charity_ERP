@@ -19,6 +19,7 @@ import { ApiFailure } from '../../../api/client';
 import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { assign, type Assignment, type Candidate, candidates } from './project-volunteers-api';
 import { LoadError } from '../../../components/LoadError';
+import { DialogActions } from '../../DialogActions';
 
 const BY_TYPE = 'by_type';
 const NO_AREA: Address = { divisionId: null, districtId: null, upazilaId: null, unionId: null };
@@ -135,18 +136,14 @@ export function AssignDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('action.cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={volunteerIds.length === 0}
-            loading={pending}
-          >
-            {td('submit')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('action.cancel')}
+          onCancel={onClose}
+          submitLabel={td('submit')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={volunteerIds.length === 0}
+        />
       }
     >
       <Controller

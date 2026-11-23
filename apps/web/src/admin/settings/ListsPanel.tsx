@@ -30,6 +30,7 @@ import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { addItem, listKey, type ReferenceItem, referenceItems, updateItem } from './settings-api';
 import { LoadError } from '../../components/LoadError';
 import { NameVariantsCard } from './NameVariantsCard';
+import { DialogActions } from '../DialogActions';
 
 type ItemFields = {
   code: string;
@@ -136,18 +137,14 @@ function ItemDialog({
       onClose={onClose}
       dismissible={!save.isPending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(send)()}
-            disabled={!ready}
-            loading={save.isPending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(send)()}
+          pending={save.isPending}
+          disabled={!ready}
+        />
       }
     >
       <Form

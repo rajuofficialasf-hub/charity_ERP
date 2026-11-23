@@ -1,11 +1,12 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Button, Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
+import { Dialog, Form, FormSelectField, FormTextField, RadioGroup } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useLocale, useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import { saveAsTemplate, type Template, templates, TEMPLATES_KEY } from './templates-api';
+import { DialogActions } from '../DialogActions';
 
 /** A new template names itself in both languages; a replaced one is chosen from the library. */
 const SAVE_SCHEMA = z
@@ -86,18 +87,14 @@ export function SaveTemplateDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('submit')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={t('submit')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form

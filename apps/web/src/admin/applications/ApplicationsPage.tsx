@@ -22,11 +22,11 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { NoDocumentChip, ThroughVolunteerChip } from '../../components/PersonMarks';
 import { stateLabel as labelOf, stateTone } from '../../features/applications/status';
-import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { EmptyValue } from '../EmptyValue';
+import { AreaFilter } from '../AreaFilter';
 import { numberedPaging } from '../list-paging';
 import { project as loadProject, PROJECTS_KEY } from '../projects/projects-api';
 import { canSeeApplications } from '../roles';
@@ -419,27 +419,12 @@ function ApplicationTab({ projectId }: { projectId: string }) {
             onClearFilters={() => setFilters({})}
           >
             <>
-              <fieldset className="admin-filter-group">
-                <legend>{t('filter.group_area')}</legend>
-                <AddressFields
-                  optional
-                  levels={4}
-                  value={{
-                    divisionId: filters.divisionId ?? null,
-                    districtId: filters.districtId ?? null,
-                    upazilaId: filters.upazilaId ?? null,
-                    unionId: filters.unionId ?? null,
-                  }}
-                  onChange={(a) =>
-                    change({
-                      divisionId: a.divisionId ?? undefined,
-                      districtId: a.districtId ?? undefined,
-                      upazilaId: a.upazilaId ?? undefined,
-                      unionId: a.unionId ?? undefined,
-                    })
-                  }
-                />
-              </fieldset>
+              <AreaFilter
+                legend={t('filter.group_area')}
+                filters={filters}
+                change={change}
+                levels={4}
+              />
               <fieldset className="admin-filter-group">
                 <legend>{t('filter.group_other')}</legend>
                 {scored ? (

@@ -2,7 +2,6 @@ import { PERMISSIONS_PER_REQUEST, SCOPE_TYPES, type ScopeTypeName } from '@css/s
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
-  Button,
   Combobox,
   Dialog,
   Form,
@@ -23,6 +22,7 @@ import { showFailure, useSchemaResolver } from '../../lib/form-schema';
 import type { PanelUser } from '../UserSearch';
 import { PERMISSIONS_KEY, permissionCatalogue } from './catalogue';
 import { ScopePicker } from './ScopePicker';
+import { DialogActions } from '../DialogActions';
 
 type Effect = 'grant' | 'revoke';
 /**
@@ -149,18 +149,16 @@ export function GrantDialog({
       onClose={close}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={close} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {values.effect === 'revoke' ? t('dialog.submit_revoke') : t('dialog.submit_grant')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={close}
+          submitLabel={
+            values.effect === 'revoke' ? t('dialog.submit_revoke') : t('dialog.submit_grant')
+          }
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form form={form} onSubmit={save} label={t('grant')}>

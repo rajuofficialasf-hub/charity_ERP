@@ -1,6 +1,6 @@
 import { type Locale, localized } from '@css/shared/i18n';
 import { projectCode, SHORT_DESCRIPTION_MAX } from '@css/shared/projects';
-import { Button, DescriptionList, Dialog, Form, FormTextField, Text } from '@/ui';
+import { DescriptionList, Dialog, Form, FormTextField, Text } from '@/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -16,6 +16,7 @@ import {
 } from './cards-api';
 import { CoverField, coverProblemReason, saveCover } from './CoverField';
 import { PROJECTS_KEY } from './projects-api';
+import { DialogActions } from '../DialogActions';
 
 type SeriesFields = {
   code: string;
@@ -176,18 +177,14 @@ export function SeriesDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!ready}
-            loading={pending}
-          >
-            {t('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={t('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!ready}
+        />
       }
     >
       <Form

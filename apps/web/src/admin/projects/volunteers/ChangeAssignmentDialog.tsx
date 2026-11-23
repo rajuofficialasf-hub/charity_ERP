@@ -1,10 +1,11 @@
 import { PERMISSION_SETS, permissionSetAllowed } from '@css/shared/projects';
-import { Button, Dialog, Form, FormSelectField, Switch } from '@/ui';
+import { Dialog, Form, FormSelectField, Switch } from '@/ui';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 import { showFailure, useSchemaResolver } from '../../../lib/form-schema';
 import { type Assignment, changeAssignment } from './project-volunteers-api';
+import { DialogActions } from '../../DialogActions';
 
 /** One of the sets and the paid flag; the server checks the set against the volunteer's type. */
 const CHANGE_SCHEMA = z.object({ permissionSet: z.enum(PERMISSION_SETS), isPaid: z.boolean() });
@@ -61,18 +62,14 @@ export function ChangeAssignmentDialog({
       onClose={onClose}
       dismissible={!pending}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>
-            {tc('cancel')}
-          </Button>
-          <Button
-            onClick={() => void form.handleSubmit(save)()}
-            disabled={!changed}
-            loading={pending}
-          >
-            {tc('save')}
-          </Button>
-        </>
+        <DialogActions
+          cancelLabel={tc('cancel')}
+          onCancel={onClose}
+          submitLabel={tc('save')}
+          onSubmit={() => void form.handleSubmit(save)()}
+          pending={pending}
+          disabled={!changed}
+        />
       }
     >
       <Form
