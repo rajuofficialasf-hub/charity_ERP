@@ -640,7 +640,7 @@ describe('demo set', () => {
       DEMO_DUPLICATE_PAIRS.flatMap((pair) =>
         pair.nids.map((nid) => ({
           nid,
-          status: 'under_review',
+          status: 'rejected',
           code: 'WNT',
           program: 'HUM',
         })),

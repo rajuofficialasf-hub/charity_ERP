@@ -233,6 +233,11 @@
         "compare": "Compare",
         "more": "{n} more"
       },
+      "merged_twin": {
+        "named": "The same person has another application in this project: {appNo}",
+        "unnamed": "The same person has another application in this project, outside your area.",
+        "open": "Open the application"
+      },
       "held": {
         "same_person": "This project asks a reason before approving the same person again.",
         "family_match": "This project asks a reason before approving the same family again."

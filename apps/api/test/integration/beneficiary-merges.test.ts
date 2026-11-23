@@ -433,6 +433,46 @@ describe('what stops a merge', () => {
     expect((await pointer(retired)).merged_into_id).toBeNull();
   });
 
+  it('waits for a sent application still undecided on either side in a project both applied to, naming it', async () => {
+    for (const [keptStatus, retiredStatus, waiting] of [
+      ['reviewed', 'approved', 'kept'],
+      ['approved', 'under_review', 'retired'],
+      ['rejected', 'waitlisted', 'retired'],
+      ['needs_verification', 'rejected', 'kept'],
+    ] as const) {
+      const kept = await person();
+      const retired = await person();
+      const keptApp = await applyTo(world.a1, kept, keptStatus);
+      const retiredApp = await applyTo(world.a1, retired, retiredStatus);
+      const res = await direct(await as(world.users.head), {
+        keptId: kept,
+        mergedId: retired,
+        reason: REASON,
+      });
+      expect(res.status, `${keptStatus} and ${retiredStatus}`).toBe(409);
+      expect(res.body.error.code).toBe('beneficiary.merge_conflict');
+      expect(res.body.error.details.map((d: { params: unknown }) => d.params)).toEqual([
+        { projectId: world.a1.id, applicationId: waiting === 'kept' ? keptApp : retiredApp },
+      ]);
+      expect((await pointer(retired)).merged_into_id).toBeNull();
+    }
+  });
+
+  it('lets a draft of the retired profile through and leaves it there, as no official can decide a draft', async () => {
+    const kept = await person();
+    const retired = await person();
+    await applyTo(world.a1, kept, 'approved');
+    const draft = await applyTo(world.a1, retired, 'draft');
+    const res = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.data.leftBehind).toBe(1);
+    expect(await ownerOf('applications', draft)).toBe(retired);
+  });
+
   it('leaves an application past pending on the retired profile, and the revert keeps it there', async () => {
     const { kept, retired } = await duplicate();
     const rejected = await applyTo(world.a1, retired, 'rejected');
@@ -640,6 +680,70 @@ describe('what stops a merge', () => {
       asked.body.data.id,
     ]);
     expect(row.rows[0].status).toBe('rejected');
+  });
+});
+
+describe('the same person twice in a project after a merge', () => {
+  const read = async (userId: string, applicationId: string) =>
+    api()
+      .get(`/api/v1/applications/${applicationId}`)
+      .set(bearer(await as(userId)));
+  /** One person on two profiles, each with a decided application in A1, merged by the Head. */
+  async function mergedPair() {
+    const kept = await person();
+    const retired = await person(world.rangpur);
+    const keptApp = await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: kept, status: 'approved', app_no: `MRG-${randomUUID().slice(0, 8)}` },
+    );
+    const retiredApp = await f.application(
+      h.db,
+      { project: world.a1, loc: world.rangpur },
+      { beneficiary_id: retired, status: 'rejected', app_no: `MRG-${randomUUID().slice(0, 8)}` },
+    );
+    const merged = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(merged.status, JSON.stringify(merged.body)).toBe(201);
+    const appNo = async (id: string) =>
+      (await h.db.query('SELECT app_no FROM applications WHERE id = $1', [id])).rows[0]
+        .app_no as string;
+    return {
+      keptApp,
+      retiredApp,
+      keptNo: await appNo(keptApp),
+      retiredNo: await appNo(retiredApp),
+    };
+  }
+
+  it('names the other application on both records for an official who reaches both', async () => {
+    const { keptApp, retiredApp, keptNo, retiredNo } = await mergedPair();
+    const onKept = await read(world.users.head, keptApp);
+    expect(onKept.status).toBe(200);
+    expect(onKept.body.data.mergedTwins).toEqual([
+      { applicationId: retiredApp, appNo: retiredNo, status: 'rejected' },
+    ]);
+    const onRetired = await read(world.users.head, retiredApp);
+    expect(onRetired.body.data.mergedTwins).toEqual([
+      { applicationId: keptApp, appNo: keptNo, status: 'approved' },
+    ]);
+  });
+
+  it('tells an official the other application exists without naming one placed outside their area', async () => {
+    const { keptApp } = await mergedPair();
+    const res = await read(world.users.rpmDhaka, keptApp);
+    expect(res.status).toBe(200);
+    expect(res.body.data.mergedTwins).toEqual([{ applicationId: null, appNo: null, status: null }]);
+  });
+
+  it('asks a reason to approve one of the two once it is back under review', async () => {
+    const { retiredApp } = await mergedPair();
+    await h.db.query(`UPDATE applications SET status = 'reviewed' WHERE id = $1`, [retiredApp]);
+    const res = await read(world.users.head, retiredApp);
+    expect(res.body.data.decisionHints.approve).toContain('same_person');
   });
 });
 

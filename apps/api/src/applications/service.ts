@@ -82,6 +82,7 @@ import { isAddressChain } from '../services/locations.js';
 import type { NisabService } from '../services/nisab.js';
 import { assertReachesApplication, isBlockedVolunteer, reachesProject } from './callers.js';
 import { liveApplicationCounts } from './limit.js';
+import { assertNotAppliedOnMergedProfile, mergedTwins } from './merged-twins.js';
 import type { MediaReferralsService } from '../services/media-referrals.js';
 import type { UnlocksService } from './unlocks.js';
 import type { ScoringService } from './scoring.js';
@@ -1111,8 +1112,20 @@ export class ApplicationsService {
           ifMatch ?? '',
           submit
             ? {
-                beforeApply: (t, app, movedAt) =>
-                  this.submission.bindPerson(t, viewer.principal, app.id, movedAt),
+                beforeApply: async (t, app, movedAt) => {
+                  const bound = await this.submission.bindPerson(
+                    t,
+                    viewer.principal,
+                    app.id,
+                    movedAt,
+                  );
+                  await assertNotAppliedOnMergedProfile(
+                    t,
+                    app.id,
+                    typeof bound.beneficiaryId === 'string' ? bound.beneficiaryId : null,
+                  );
+                  return bound;
+                },
               }
             : verifying
               ? {
@@ -2161,6 +2174,10 @@ export class ApplicationsService {
           : null,
         familyDuplicateWarnings: warnings,
         ...signals,
+        mergedTwins:
+          audience === 'official' && row.beneficiaryId
+            ? await this.mergedTwinsView(viewer, row.projectId, row.beneficiaryId)
+            : [],
         availableActions,
         decisionHints:
           audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},
@@ -2181,6 +2198,33 @@ export class ApplicationsService {
       },
       updatedAt: row.updatedAt,
     };
+  }
+
+  /**
+   * The same person's other applications in the project on a profile linked by a merge, named
+   * only where the caller's application scope reaches them; one the caller does not reach is told
+   * as existing and nothing more.
+   */
+  private async mergedTwinsView(
+    viewer: ApplicationViewer,
+    projectId: string,
+    beneficiaryId: string,
+  ): Promise<{ applicationId: string | null; appNo: string | null; status: string | null }[]> {
+    const twins = await mergedTwins(this.prisma, projectId, beneficiaryId);
+    if (twins.length === 0) return [];
+    const reached = new Set(
+      (
+        await this.prisma.application.findMany({
+          where: { AND: [{ id: { in: twins.map((t) => t.id) } }, applicationWhere(viewer.scope)] },
+          select: { id: true },
+        })
+      ).map((a) => a.id),
+    );
+    return twins.map((t) =>
+      reached.has(t.id)
+        ? { applicationId: t.id, appNo: t.appNo, status: t.status }
+        : { applicationId: null, appNo: null, status: null },
+    );
   }
 
   /**

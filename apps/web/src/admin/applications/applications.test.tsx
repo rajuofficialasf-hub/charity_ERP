@@ -102,6 +102,7 @@ const record = (over: Record<string, unknown> = {}) => ({
   familyMemberSignalsTotal: 0,
   samePersonSignals: [],
   samePersonSignalsTotal: 0,
+  mergedTwins: [],
   availableActions: ['review', 'delete'],
   decisionHints: {},
   totalScore: null,
@@ -1189,6 +1190,35 @@ describe('the review page', () => {
     await user.click(confirm);
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'approve', body: { comment: 'যাচাই করেছি' } });
+  });
+
+  it("names the same person's other application in the project after a merge, or only tells of one outside the area", async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            mergedTwins: [
+              { applicationId: A2, appNo: 'EMD-2026-00023', status: 'rejected' },
+              { applicationId: null, appNo: null, status: null },
+            ],
+          }),
+        ),
+      ),
+    );
+    openReview();
+    expect(
+      await screen.findByText('একই ব্যক্তির আরেকটি আবেদন এই প্রকল্পে আছে: EMD-2026-00023'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'আবেদনটি খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/applications/${A2}`,
+    );
+    expect(
+      screen.getByText('একই ব্যক্তির আরেকটি আবেদন এই প্রকল্পে আছে, যা আপনার এলাকার বাইরে।'),
+    ).toBeInTheDocument();
   });
 
   it('approves after its one question where the project only tells of the same person', async () => {

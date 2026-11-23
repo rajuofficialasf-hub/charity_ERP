@@ -51,10 +51,19 @@ const MOVES = [
 type MoveKey = (typeof MOVES)[number]['key'];
 
 /**
- * The application states before review; such an application can still be deleted, so a duplicate
- * one stops a merge until an official deletes it. Any later state stays on the retired profile.
+ * The states of a sent application nobody has decided yet. Where both profiles have an application
+ * in one project and either of them is in such a state, the merge waits until an official decides
+ * it, so one person never ends up with two live applications in a project. A draft does not wait:
+ * no official can decide it, and sending it later is refused as a repeat of the person. A decided
+ * application stays on the retired profile, marked as the same person's.
  */
-const PENDING_STATES = ['draft', 'submitted', 'needs_verification'];
+const UNDECIDED_STATES = [
+  'submitted',
+  'needs_verification',
+  'under_review',
+  'reviewed',
+  'waitlisted',
+];
 
 /** What a merge moved, by kind; the revert moves exactly these ids back. */
 const snapshotSchema = z.object({
@@ -272,12 +281,32 @@ export class BeneficiaryMergesService {
     this.assertKeepsDocument(pair, keptId, retiredId);
     await this.assertWithinReach(tx, actor, retiredId);
     await this.assertNoClash(tx, keptId, retiredId);
-    const shared = await tx.$queryRaw<{ id: string; project_id: string; status: string }[]>`
-      SELECT r.id, r.project_id, r.status FROM applications r
+    // the applications of both profiles in each project both applied to (one live application per
+    // profile and project, so one pair per project)
+    const pairs = await tx.$queryRaw<
+      {
+        project_id: string;
+        retired: string;
+        retired_status: string;
+        kept: string;
+        kept_status: string;
+      }[]
+    >`
+      SELECT r.project_id, r.id AS retired, r.status AS retired_status,
+             k.id AS kept, k.status AS kept_status
+      FROM applications r
+      JOIN applications k ON k.project_id = r.project_id AND k.beneficiary_id = ${keptId}::uuid
+        AND k.status <> 'deleted'
       WHERE r.beneficiary_id = ${retiredId}::uuid AND r.status <> 'deleted'
-        AND EXISTS (SELECT 1 FROM applications k WHERE k.beneficiary_id = ${keptId}::uuid
-                    AND k.project_id = r.project_id AND k.status <> 'deleted')`;
-    const pending = shared.filter((a) => PENDING_STATES.includes(a.status));
+      ORDER BY r.project_id`;
+    const pending = pairs.flatMap((p) => [
+      ...(UNDECIDED_STATES.includes(p.kept_status)
+        ? [{ id: p.kept, project_id: p.project_id }]
+        : []),
+      ...(UNDECIDED_STATES.includes(p.retired_status)
+        ? [{ id: p.retired, project_id: p.project_id }]
+        : []),
+    ]);
     if (pending.length) {
       // the project and application are named only where the caller reaches the project
       const scope = await this.access.scopeOfUser(actor.userId, 'project.view', 'project', tx);
@@ -302,7 +331,7 @@ export class BeneficiaryMergesService {
         })),
       );
     }
-    const leftBehind = shared.map((a) => a.id);
+    const leftBehind = pairs.map((p) => p.retired);
     const snapshot: Snapshot = {
       moved: {},
       leftBehind,

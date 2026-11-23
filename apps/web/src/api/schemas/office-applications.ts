@@ -131,6 +131,19 @@ export const officeApplicationSchema = applicationSchema.extend({
   /** How many open probable pairs there are in all, also beyond the ones listed. */
   samePersonSignalsTotal: z.number().int().default(0),
   /**
+   * The same person's other sent applications in this project on a profile merged with this one;
+   * all three fields null where the caller does not reach that application.
+   */
+  mergedTwins: z
+    .array(
+      z.object({
+        applicationId: z.uuid().nullable(),
+        appNo: z.string().nullable(),
+        status: z.string().nullable(),
+      }),
+    )
+    .default([]),
+  /**
    * How often the person was helped by their other applications; absent without the application
    * history class, null before a person is bound.
    */

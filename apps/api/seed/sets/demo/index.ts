@@ -815,7 +815,9 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
           daily_income: '300',
           ...ctx.audit(),
         });
-        // a merge or its revert moves rows; a later seed run leaves them where they are
+        // a merge or its revert moves rows; a later seed run leaves them where they are. The
+        // office has decided both applications of a pair, since a merge waits while either of two
+        // applications of one person in a project is still undecided
         await ctx.upsert(
           'applications',
           {
@@ -823,7 +825,7 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
             project_id: projectId,
             form_version_id: formVersionId,
             beneficiary_id: beneficiaryId,
-            status: 'under_review',
+            status: 'rejected',
             region_location_id: place.division,
             district_id: place.district,
             union_id: place.union,

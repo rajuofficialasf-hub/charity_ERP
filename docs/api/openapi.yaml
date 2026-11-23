@@ -4188,6 +4188,20 @@ components:
                     properties:
                       level: { type: string, enum: [probable] }
             samePersonSignalsTotal: { type: integer, minimum: 0, description: 'How many open probable pairs there are in all, also beyond the ones listed; 0 for a volunteer' }
+            mergedTwins:
+              type: array
+              description: >-
+                The same person's other sent applications in this project, on a profile merged with
+                this one (BR-329); each named only where the caller's application scope reaches it,
+                else all three fields are null. Empty for a volunteer.
+              items:
+                type: object
+                additionalProperties: false
+                required: [applicationId, appNo, status]
+                properties:
+                  applicationId: { type: [string, 'null'], format: uuid }
+                  appNo: { type: [string, 'null'] }
+                  status: { type: [string, 'null'] }
             helpedBefore:
               x-sensitive-class: beneficiary.application_history
               description: >-

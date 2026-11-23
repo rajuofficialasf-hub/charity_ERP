@@ -738,6 +738,7 @@
       "proposal_missing": "This merge proposal is no longer waiting.",
       "conflict": {
         "application": "{project}: an application still waiting for a decision",
+        "open_application": "Open the application",
         "project_unknown": "A project",
         "hidden": "An application in a project outside your reach",
         "class_attendance": "Both profiles have attendance in the same class",

@@ -69,6 +69,9 @@ const refused = async (s: Session, id: string, action: string, body?: Record<str
   const res = await act(s, id, action, body);
   return { status: res.status, code: res.body.error?.code as string | undefined };
 };
+const personOf = async (applicationId: string) =>
+  (await h.db.query('SELECT beneficiary_id FROM applications WHERE id = $1', [applicationId]))
+    .rows[0].beneficiary_id as string;
 const auditActions = async (id: string) =>
   (
     await h.db.query<{ action: string }>(
@@ -238,6 +241,27 @@ describe('the submission', () => {
     });
     // a submitted one is deleted by its volunteer
     expect((await moved(s, id, 'delete')).body.data.status).toBe('deleted');
+  });
+
+  it('refuses to send a draft of a profile merged into one that already applied to the project', async () => {
+    const s = await as(world.users.general);
+    const first = await create(s, identity());
+    await moved(s, first, 'submit');
+    const kept = await personOf(first);
+    // the office decided the first one, so the merge does not wait for it
+    await h.db.query(`UPDATE applications SET status = 'rejected' WHERE id = $1`, [first]);
+    const nid = fakeNid();
+    const retired = await beneficiary(h.db, world.dhaka, { nid });
+    const draft = await create(s, identity(nid));
+    const merge = await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(await as(world.users.head)))
+      .send({ keptId: kept, mergedId: retired, reason: 'একই মানুষ, দুইবার নিবন্ধন হয়েছিল' });
+    expect(merge.status, JSON.stringify(merge.body)).toBe(201);
+    expect(await refused(s, draft, 'submit')).toEqual({
+      status: 409,
+      code: 'beneficiary.already_applied',
+    });
   });
 });
 

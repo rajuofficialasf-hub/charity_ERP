@@ -101,13 +101,13 @@ Owner, in chat on 2026-11-23:
 - **Approach:** the conflict list (existing `beneficiary.merge_conflict` with params) covers the sent, undecided states (submitted, needs_verification, under_review, reviewed, waitlisted) and no longer `draft`; a draft left on the retired profile is refused at submission as a repeat in the project. The same-person signal is derived at read time from the merge row and the project (both the kept and the retired side), and names the other application's number only when the viewer reaches it.
 - **Tests:**
   - integration: merge refused 409 with two reviewed applications in one project and both named; allowed after one is rejected; allowed with a draft on the retired side, and sending that draft later is refused; both left-behind and kept applications show the same-person signal; a reviewer outside the region gets the conflict and the signal without application numbers (`apps/api/test/integration/beneficiary-merges.test.ts`).
-  - e2e: `beneficiary-merge.spec.ts` — "মার্জ করুন" on a pair with two open applications shows "এই প্রকল্পে দুজনেরই আবেদন চলছে; আগে একটির সিদ্ধান্ত দিন" and the application numbers.
+  - component (in place of e2e, since the E2E data holds no pair with open applications): the merge dialog's refusal lists "{project}: সিদ্ধান্তের অপেক্ষায় থাকা আবেদন" with "আবেদনটি খুলুন" linking each application the caller reaches (`duplicates.test.tsx`); the review page shows "একই ব্যক্তির আরেকটি আবেদন এই প্রকল্পে আছে: {appNo}" (`applications.test.tsx`). The demo pairs of the merge E2E now hold decided (rejected) applications, so that journey still merges.
   - existing: covered by `apps/api/test/integration/beneficiary-merges.test.ts`, `apps/web/e2e/beneficiary-merge.spec.ts`.
 - **Done when:** the ঝ-2 situation is refused with the two numbers, and a decided leftover is marked.
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U3. Re-delegated extra areas end with their source
 - **Goal:** an extra area given from another extra area ends when that source ends.
@@ -477,8 +477,8 @@ Owner, in chat on 2026-11-23:
 
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
-- **Updated:** 2026-11-23 18:00
-- **Next:** C1 (review of U1), then U2: widen the merge conflict states in `services/beneficiary-merges.ts` and its integration test first
-- **Reviewed through:** none
+- **Updated:** 2026-11-23 21:40
+- **Next:** C2 (test and review of U2), then U3: the extra-area source link and its migration
+- **Reviewed through:** C1 at b05cdda5 (documents only; code review skipped, `pnpm docs:check` green)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it").

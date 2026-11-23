@@ -27,7 +27,8 @@ const HELD_REASONS = ['same_person', 'family_match'] as const;
  * What the official should know before deciding: the flags of a public entry, the family
  * matches of the project (another applicant with the same mobile, or the same union, village and
  * father's or husband's name), the earlier family that probably holds the applicant as a member,
- * and an open probable pair of the person with another profile, each with its level. Each is a
+ * an open probable pair of the person with another profile, each with its level, and the same
+ * person's other application in the project on a merged profile. Each is a
  * warning, never a refusal; another profile is named and linked only where the server named it for
  * this viewer, and the entries beyond those listed are counted. Where the project holds a repeat
  * the approval meets, a line says that the approval asks a reason.
@@ -47,11 +48,13 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
   const held = HELD_REASONS.filter((r) =>
     Object.values(a.decisionHints).some((reasons) => reasons?.includes(r)),
   );
+  const twins = a.mergedTwins;
   if (
     !flags.length &&
     !a.familyDuplicateWarnings.length &&
     !members.length &&
     !pairs.length &&
+    !twins.length &&
     !held.length
   )
     return null;
@@ -119,6 +122,18 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
         </Alert>
       ))}
       {morePairs > 0 && <Text size="small">{t('same_person.more', { n: morePairs })}</Text>}
+      {twins.map((twin, i) => (
+        <Alert key={twin.applicationId ?? `twin-${i}`} tone="warning">
+          {twin.applicationId && twin.appNo ? (
+            <span>
+              {t('merged_twin.named', { appNo: twin.appNo })}{' '}
+              <Link to={`/admin/applications/${twin.applicationId}`}>{t('merged_twin.open')}</Link>
+            </span>
+          ) : (
+            <span>{t('merged_twin.unnamed')}</span>
+          )}
+        </Alert>
+      ))}
       {held.map((reason) => (
         <Text key={reason} size="small" tone="muted">
           {t(`held.${reason}`)}

@@ -376,6 +376,11 @@ describe('the comparison', () => {
     expect(
       await within(dialog).findByText('শীতবস্ত্র: সিদ্ধান্তের অপেক্ষায় থাকা আবেদন'),
     ).toBeVisible();
+    // the official opens the waiting application to decide it before merging
+    expect(within(dialog).getByRole('link', { name: 'আবেদনটি খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/applications/${MERGE_ID}`,
+    );
     expect(within(dialog).getByText('আপনার এখতিয়ারের বাইরের একটি প্রকল্পের আবেদন')).toBeVisible();
     // the dialog stays open with the reason typed; the page does not lead anywhere
     expect(screen.getByRole('dialog')).toBeVisible();
