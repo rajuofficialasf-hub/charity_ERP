@@ -10,6 +10,7 @@ import {
   nameVariantGroupSchema,
   nisabVersionViewSchema,
   notificationTemplateSchema,
+  officeAddressesViewSchema,
   panelUserSchema,
   publicSettingsSchema,
   referenceItemSchema,
@@ -21,7 +22,17 @@ import {
 import { expectContract, expectEnvelope, expectStatus } from './support/expect';
 import { approvedVolunteer, newOfficial, register } from './support/people';
 import { at, call, contractBase, signIn } from './support/session';
-import { day, draftProject, HEAD, must, PM_HUM, RPM_DHAKA, savar, unread } from './support/world';
+import {
+  ADMIN,
+  day,
+  draftProject,
+  HEAD,
+  must,
+  PM_HUM,
+  RPM_DHAKA,
+  savar,
+  unread,
+} from './support/world';
 
 // The system administration of the admin area, as the Department Head runs it: the settings and
 // the public settings, an editable reference list, the spelling variants of names, the nisab
@@ -216,6 +227,22 @@ describe.skipIf(!contractBase())('the system administration', () => {
       channelsSchema,
     );
     expect(saved.sms.config).toEqual(channels.sms.config);
+  });
+
+  it('reads the office addresses as the Admin and saves them as they are', async () => {
+    const caller = await signIn(ADMIN);
+    const office = expectContract(
+      await call(caller, 'GET', '/admin/office-addresses'),
+      200,
+      officeAddressesViewSchema,
+    );
+    const saved = expectContract(
+      await call(caller, 'PUT', '/admin/office-addresses', { addresses: office.addresses }),
+      200,
+      officeAddressesViewSchema,
+    );
+    expect(saved.addresses).toEqual(office.addresses);
+    expect(saved.yourAddress).toBe(office.yourAddress);
   });
 
   it('previews a notification text and saves it as it is, and reads the deliveries', async () => {
