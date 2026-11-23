@@ -4793,6 +4793,13 @@ components:
               clientUuid: { $ref: '#/components/schemas/Uuid' }
               applicationId: { $ref: '#/components/schemas/Uuid' }
               ifMatch: { type: string, maxLength: 64 }
+        comment:
+          type: string
+          maxLength: 2000
+          description: >-
+            One comment for every row's decision, as a single decision takes it: a row whose
+            decision asks for a comment (against the score order, a full quota, a repeat) fails
+            with workflow.comment_required without it
     BulkRequest:
       type: object
       required: [rows]

@@ -439,6 +439,89 @@ describe('the list', () => {
     expect(bulkBodies[0]).toMatchObject({ action: 'approve' });
   });
 
+  it('keeps the refused rows ticked with their reason, and sends them again with one comment', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    const A3 = '01900000-0000-7000-8000-0000000000e3';
+    serve([
+      row(A1, { status: 'reviewed' }),
+      row(A2, { appNo: 'WC-2026-00013', beneficiaryName: 'দ্বিতীয় জন', status: 'reviewed' }),
+      row(A3, { appNo: 'WC-2026-00014', beneficiaryName: 'তৃতীয় জন', status: 'reviewed' }),
+    ]);
+    const sent: {
+      action: string;
+      comment?: string;
+      rows: { clientUuid: string; applicationId: string }[];
+    }[] = [];
+    server.use(
+      http.post(`*/api/v1/projects/${PROJECT}/bulk/review`, async ({ request }) => {
+        const body = (await request.json()) as (typeof sent)[number];
+        sent.push(body);
+        // the first row is approved; a full quota asks the other two for a comment
+        return HttpResponse.json({
+          data: {
+            results: body.rows.map((r) => {
+              const asked = !body.comment && r.applicationId !== A1;
+              return {
+                clientUuid: r.clientUuid,
+                result: asked ? 'failed' : 'done',
+                code: asked ? 'workflow.comment_required' : null,
+                serverId: r.applicationId,
+                status: asked ? null : 'implementation',
+                stage: null,
+              };
+            }),
+          },
+          meta: { requestId: 'r' },
+        });
+      }),
+    );
+    const view = openList();
+    const grid = await screen.findByRole('table');
+    for (const name of [/নমুনা উপকারভোগী/, /দ্বিতীয় জন/, /তৃতীয় জন/])
+      await user.click(await within(grid).findByRole('checkbox', { name }));
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন করুন' }));
+    const ask = await screen.findByRole('alertdialog');
+    await user.click(within(ask).getByRole('button', { name: 'অনুমোদন করুন' }));
+    expect(await screen.findByText('1টি হয়েছে, 2টি হয়নি')).toBeInTheDocument();
+    // the reason is told once for the batch and on each refused row, which stays ticked
+    expect(
+      screen.getByText('2টি: মন্তব্য লাগবে (এলাকার কোটা পূর্ণ, স্কোরের ক্রমের বাইরে বা একই মানুষ)'),
+    ).toBeInTheDocument();
+    // the list reads its rows again after the batch
+    await waitFor(() =>
+      expect(within(screen.getByRole('table')).getAllByText('মন্তব্য লাগবে')).toHaveLength(2),
+    );
+    const after = screen.getByRole('table');
+    expect(screen.getByText('2টি বেছে নেওয়া হয়েছে')).toBeInTheDocument();
+    expect(within(after).getByRole('checkbox', { name: /দ্বিতীয় জন/ })).toBeChecked();
+    expect(within(after).getByRole('checkbox', { name: /নমুনা উপকারভোগী/ })).not.toBeChecked();
+    // the retry needs the comment first
+    const retry = screen.getByRole('button', { name: 'মন্তব্য দিয়ে আবার চেষ্টা' });
+    expect(retry).toBeDisabled();
+    await user.type(
+      screen.getByRole('textbox', { name: 'সবগুলোর জন্য একটি মন্তব্য' }),
+      'এলাকার চাহিদা বেশি',
+    );
+    await user.click(retry);
+    expect(await screen.findByText('2টি হয়েছে, 0টি হয়নি')).toBeInTheDocument();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({
+      action: 'approve',
+      comment: 'এলাকার চাহিদা বেশি',
+      rows: [
+        { applicationId: A2, ifMatch: '"v1"' },
+        { applicationId: A3, ifMatch: '"v1"' },
+      ],
+    });
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('table')).queryByText('মন্তব্য লাগবে'),
+      ).not.toBeInTheDocument(),
+    );
+    await expectNoAxeViolations(view.container);
+  });
+
   it('orders by score on request, shows the score and the quotas, and pulls the next of an area in one request', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

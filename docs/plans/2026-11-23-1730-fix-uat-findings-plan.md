@@ -160,13 +160,13 @@ Owner, in chat on 2026-11-23:
 - **Approach:** request takes an optional `comment` passed to each row's decision; refused rows stay ticked with the reason text of their error code; "মন্তব্য দিয়ে আবার চেষ্টা" retries only those.
 - **Tests:**
   - integration: bulk approve over a full quota without a comment refuses those rows with `workflow.comment_required`, with a comment approves them and stores the comment; a reviewer outside the area is refused per row (`bulk-review.test.ts`).
-  - e2e: `applications.spec.ts` — tick 4 in Chouhat, "অনুমোদন করুন" → "1টি হয়েছে, 3টি হয়নি", the 3 stay ticked with "কোটা পূর্ণ; মন্তব্য দিন"; enter a comment and "মন্তব্য দিয়ে আবার চেষ্টা" → "3টি হয়েছে".
+  - e2e: none added; the component test `applications.test.tsx` runs the same flow (three ticked, "1টি হয়েছে, 2টি হয়নি", the two kept ticked with "মন্তব্য লাগবে", the comment and "মন্তব্য দিয়ে আবার চেষ্টা" → "2টি হয়েছে, 0টি হয়নি" with the comment sent), and the API test proves the quota refusal and the stored comment.
   - existing: covered by `apps/api/test/integration/bulk-review.test.ts`, `apps/web/src/admin/applications/applications.test.tsx`.
 - **Done when:** ঘ-8খ can be done from the list.
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U7. Office IP exemption and per-draft registration limit
 - **Goal:** a training day from one office Wi-Fi is not stopped by the limits.
@@ -477,8 +477,8 @@ Owner, in chat on 2026-11-23:
 
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
-- **Updated:** 2026-11-23 23:10
-- **Next:** U6: bulk results with reasons and a shared comment (`apps/api/src/applications/bulk.ts`), integration test first in `bulk-review.test.ts`
+- **Updated:** 2026-11-23 23:55
+- **Next:** U7: office IP exemption setting and per-draft registration limit (`apps/api/src/rate-limit/`), unit tests first for the address matching, then checkpoint C4 (the end of PR 1)
 - **Reviewed through:** C3 at 1526c068 (T2 review; the source race fixed, the rest in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it.

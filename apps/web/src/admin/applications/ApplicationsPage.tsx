@@ -11,7 +11,9 @@ import {
   RadioGroup,
   SelectField,
   Skeleton,
+  Stack,
   Text,
+  TextField,
   type ActiveFilter,
   type DataTableExtendedColumn,
 } from '@/ui';
@@ -66,13 +68,27 @@ const BULK_FROM: Record<'send_for_approval' | 'approve', readonly string[]> = {
   send_for_approval: ['submitted', 'under_review'],
   approve: ['reviewed'],
 };
+type BulkAction = 'send_for_approval' | 'approve';
 /** What a bulk action did: the rows moved, refused and left out, and the failure that stopped it. */
 interface BulkOutcome {
+  action: BulkAction;
   done: number;
   failed: number;
   skipped: number;
   stopped: unknown;
+  /** The rows the server refused, each with the version it was sent with and why. */
+  refused: { row: ApplicationSummary; reason: RefusalReason }[];
 }
+/** The reasons a refused row is told by; a code the screen does not know is "other". */
+type RefusalReason = 'comment_required' | 'stale_version' | 'not_found' | 'state' | 'other';
+const REASON_OF = new Map<string, RefusalReason>([
+  ['workflow.comment_required', 'comment_required'],
+  ['conflict.stale_version', 'stale_version'],
+  ['permission.not_found', 'not_found'],
+  ['workflow.transition_not_allowed', 'state'],
+]);
+const reasonOf = (code: string | null): RefusalReason =>
+  (code ? REASON_OF.get(code) : undefined) ?? 'other';
 /** The rows one bulk request takes (the API's limit). */
 const BULK_BATCH = 50;
 /** The orders the list offers: as the applications came (the server's default), or the score. */
@@ -127,6 +143,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   // the whole list is chosen, beyond the rows the page shows; another view chooses again
   const [allChosen, setAllChosen] = useState(false);
   const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
+  // the one comment the rows refused for want of a comment are sent again with
+  const [comment, setComment] = useState('');
   if (tickedView !== view) {
     setTickedView(view);
     setSelected(new Set());
@@ -135,27 +153,38 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   // the approval of the ticked rows is asked once more before it is sent
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const bulk = useMutation({
-    mutationFn: async (action: 'send_for_approval' | 'approve') => {
-      const targets = allChosen
-        ? await allApplicationRows(projectId, filters, q)
-        : rows.filter((r) => selected.has(r.id));
+    mutationFn: async ({
+      action,
+      retry,
+    }: {
+      action: BulkAction;
+      /** The refused rows that asked for a comment, sent again with the one comment. */
+      retry?: ApplicationSummary[];
+    }): Promise<BulkOutcome> => {
+      const targets = retry
+        ? retry
+        : allChosen
+          ? await allApplicationRows(projectId, filters, q)
+          : rows.filter((r) => selected.has(r.id));
       // a row the action cannot move is left out and counted on its own, never as a failure
       const sendable = targets.filter((r) => BULK_FROM[action].includes(r.status));
       const results: BulkRowResult[] = [];
+      const sentRows = new Map<string, ApplicationSummary>();
       let stopped: unknown = null;
       // the API takes fifty rows a request, each batch under its own key; a batch that fails
       // stops the rest, and what the batches before it did is still told
       for (let i = 0; i < sendable.length && !stopped; i += BULK_BATCH) {
         setProgress({ sent: i, total: sendable.length });
-        const batch = sendable.slice(i, i + BULK_BATCH);
+        const batch = sendable.slice(i, i + BULK_BATCH).map((r) => {
+          const clientUuid = uuidv7();
+          sentRows.set(clientUuid, r);
+          return { clientUuid, applicationId: r.id, ifMatch: r.etag };
+        });
         try {
           const out = await bulkReview(projectId, uuidv7(), {
             action,
-            rows: batch.map((r) => ({
-              clientUuid: uuidv7(),
-              applicationId: r.id,
-              ifMatch: r.etag,
-            })),
+            rows: batch,
+            ...(retry ? { comment: comment.trim() } : {}),
           });
           results.push(...out.results);
         } catch (error) {
@@ -163,22 +192,39 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         }
       }
       const done = results.filter((r) => r.result === 'done').length;
+      // a refused row was rolled back, so the version it was sent with still holds for a retry
+      const refused = results.flatMap((r) => {
+        const row = sentRows.get(r.clientUuid);
+        return r.result === 'done' || !row ? [] : [{ row, reason: reasonOf(r.code) }];
+      });
       return {
+        action,
         done,
         failed: sendable.length - done,
         skipped: targets.length - sendable.length,
         stopped,
+        refused,
       };
     },
     onSettled: async () => {
       setConfirmingBulk(false);
       setProgress(null);
-      setSelected(new Set());
       setAllChosen(false);
       await queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
     },
-    onSuccess: (out) => setOutcome(out),
+    // the refused rows stay ticked, each with its reason, for the next try
+    onSuccess: (out) => {
+      setOutcome(out);
+      setSelected(new Set(out.refused.map((r) => r.row.id)));
+      if (!out.refused.some((r) => r.reason === 'comment_required')) setComment('');
+    },
+    onError: () => setSelected(new Set()),
   });
+  const refusedOf = new Map(outcome?.refused.map((r) => [r.row.id, r.reason]) ?? []);
+  const askedComment = outcome?.refused.filter((r) => r.reason === 'comment_required') ?? [];
+  const reasonCounts = [...new Set(outcome?.refused.map((r) => r.reason) ?? [])].map(
+    (reason) => [reason, outcome!.refused.filter((r) => r.reason === reason).length] as const,
+  );
   const stateLabel = (status: string) => labelOf(ts, status);
   const person = (r: ApplicationSummary) => (
     <span className="admin-person-text">
@@ -196,6 +242,9 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       ) : null}
       {r.hasDocument === false ? <NoDocumentChip /> : null}
       {r.hasMobile === false ? <ThroughVolunteerChip /> : null}
+      {refusedOf.has(r.id) ? (
+        <Chip tone="warning">{t(`bulk.reason_short.${refusedOf.get(r.id)!}`)}</Chip>
+      ) : null}
     </span>
   );
   const waiting = (r: ApplicationSummary) =>
@@ -302,17 +351,51 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   return (
     <>
       {outcome ? (
-        <Alert tone={outcome.stopped ? 'warning' : 'info'} onDismiss={() => setOutcome(null)}>
-          {t('bulk.outcome', {
-            done: formatCount(outcome.done, locale),
-            failed: formatCount(outcome.failed, locale),
-          })}
-          {outcome.skipped
-            ? ` ${t('bulk.skipped', { count: formatCount(outcome.skipped, locale) })}`
-            : null}
-          {outcome.stopped
-            ? ` ${outcome.stopped instanceof ApiFailure ? outcome.stopped.message : tc('state.error.text')}`
-            : null}
+        <Alert
+          tone={outcome.stopped || outcome.refused.length ? 'warning' : 'info'}
+          onDismiss={() => setOutcome(null)}
+        >
+          <Stack gap={1}>
+            <span>
+              {t('bulk.outcome', {
+                done: formatCount(outcome.done, locale),
+                failed: formatCount(outcome.failed, locale),
+              })}
+              {outcome.skipped
+                ? ` ${t('bulk.skipped', { count: formatCount(outcome.skipped, locale) })}`
+                : null}
+              {outcome.stopped
+                ? ` ${outcome.stopped instanceof ApiFailure ? outcome.stopped.message : tc('state.error.text')}`
+                : null}
+            </span>
+            {reasonCounts.map(([reason, count]) => (
+              <Text key={reason} size="small">
+                {t('bulk.reason_line', {
+                  count: formatCount(count, locale),
+                  reason: t(`bulk.reason.${reason}`),
+                })}
+              </Text>
+            ))}
+            {askedComment.length ? (
+              <Stack direction="row" gap={1} align="end" wrap>
+                <TextField label={t('bulk.comment_label')} value={comment} onChange={setComment} />
+                <Button
+                  variant="secondary"
+                  size="small"
+                  disabled={!comment.trim()}
+                  loading={bulk.isPending}
+                  onClick={() =>
+                    bulk.mutate({
+                      action: outcome.action,
+                      retry: askedComment.map((r) => r.row),
+                    })
+                  }
+                >
+                  {t('bulk.retry')}
+                </Button>
+              </Stack>
+            ) : null}
+          </Stack>
         </Alert>
       ) : null}
       {bulk.error ? (
@@ -388,7 +471,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
               size="small"
               disabled={!(allChosen || canSendAll)}
               loading={bulk.isPending}
-              onClick={() => bulk.mutate('send_for_approval')}
+              onClick={() => bulk.mutate({ action: 'send_for_approval' })}
             >
               {t('action.send_for_approval')}
             </Button>
@@ -490,7 +573,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         consequences={[t('dialog.approve_note')]}
         confirmLabel={t('action.approve')}
         pending={bulk.isPending}
-        onConfirm={() => bulk.mutate('approve')}
+        onConfirm={() => bulk.mutate({ action: 'approve' })}
         onCancel={() => setConfirmingBulk(false)}
       />
     </>

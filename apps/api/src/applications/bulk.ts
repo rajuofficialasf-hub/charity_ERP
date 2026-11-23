@@ -31,6 +31,8 @@ export const bulkReviewSchema = z.strictObject({
       (rows) => new Set(rows.map((r) => r.clientUuid)).size === rows.length,
       'each row needs its own clientUuid',
     ),
+  /** One comment for every row's decision, as a single decision takes it. */
+  comment: z.string().max(2000).optional(),
 });
 export type BulkReview = z.infer<typeof bulkReviewSchema>;
 
@@ -111,7 +113,7 @@ export class BulkReviewService {
         );
         const results: RowResult[] = [];
         for (const row of body.rows)
-          results.push(await this.row(tx, principal, projectId, body.action, row));
+          results.push(await this.row(tx, principal, projectId, body, row));
         await this.audit.record(tx, {
           action: 'application.bulk_review',
           entityType: 'project',
@@ -134,7 +136,7 @@ export class BulkReviewService {
     tx: Tx,
     principal: Principal,
     projectId: string,
-    action: BulkReview['action'],
+    body: BulkReview,
     row: BulkReview['rows'][number],
   ): Promise<RowResult> {
     // the rows run one after another, so one name serves: Postgres releases or rolls back the
@@ -145,7 +147,14 @@ export class BulkReviewService {
         where: { id: row.applicationId, projectId },
       });
       if (inProject === 0) throw new ApiError('permission.not_found', 404);
-      await this.workflow.transition(tx, principal, row.applicationId, action, {}, row.ifMatch);
+      await this.workflow.transition(
+        tx,
+        principal,
+        row.applicationId,
+        body.action,
+        { comment: body.comment },
+        row.ifMatch,
+      );
       const after = await tx.application.findUniqueOrThrow({
         where: { id: row.applicationId },
         select: { status: true, stage: true },
@@ -179,11 +188,18 @@ export class BulkReviewService {
   }
 }
 
-/** What a key stands for: the project, the action and the rows as sent, so a repeat must match exactly. */
+/**
+ * What a key stands for: the project, the action, the shared comment and the rows as sent, so a
+ * repeat must match exactly.
+ */
 function requestHashOf(projectId: string, body: BulkReview): string {
   const rows = [...body.rows]
     .map((r) => `${r.clientUuid}|${r.applicationId}|${r.ifMatch}`)
     .sort()
     .join('\n');
-  return createHash('sha256').update(`${projectId}\n${body.action}\n${rows}`).digest('hex');
+  // a request without a comment keeps the form of the keys stored before the comment existed
+  const comment = body.comment === undefined ? '' : `comment ${JSON.stringify(body.comment)}\n`;
+  return createHash('sha256')
+    .update(`${projectId}\n${body.action}\n${comment}${rows}`)
+    .digest('hex');
 }

@@ -259,7 +259,24 @@
       "clear": "Clear the choice",
       "progress": "Sent {sent} of {total}…",
       "cap": "At most {max} applications can be chosen at once.",
-      "skipped": "{count} applications were not in a state for this action and were left out."
+      "skipped": "{count} applications were not in a state for this action and were left out.",
+      "reason_line": "{count}: {reason}",
+      "reason": {
+        "comment_required": "a comment is needed (the area's quota is full, against the score order, or the same person)",
+        "stale_version": "someone changed it meanwhile; look at the list again",
+        "not_found": "outside your area, or the application is gone",
+        "state": "this cannot be done in its state",
+        "other": "not done for another reason; open the application"
+      },
+      "reason_short": {
+        "comment_required": "Comment needed",
+        "stale_version": "Changed",
+        "not_found": "Not found",
+        "state": "Wrong state",
+        "other": "Not done"
+      },
+      "comment_label": "One comment for all of them",
+      "retry": "Try again with the comment"
     },
     "sort": {
       "label": "Order",
