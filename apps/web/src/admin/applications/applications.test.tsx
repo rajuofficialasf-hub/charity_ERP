@@ -1572,7 +1572,7 @@ describe('the review page', () => {
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
   });
 
-  const linkCase = (profileName: string) => async () => {
+  async function openLinkCase(profileName: string) {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
@@ -1654,11 +1654,11 @@ describe('the review page', () => {
     );
     await user.click(await screen.findByRole('option', { name: 'করিম উদ্দিন' }));
     return { user, view, dialog, PERSON, VOLUNTEER_ID };
-  };
+  }
 
   it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
     // the same name with a title before it is the same name
-    const { user, dialog, PERSON, VOLUNTEER_ID } = await linkCase('মোছাঃ নমুনা উপকারভোগী')();
+    const { user, dialog, PERSON, VOLUNTEER_ID } = await openLinkCase('মোছাঃ নমুনা উপকারভোগী');
     expect(within(dialog).queryByText(/নাম মেলে না/)).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
@@ -1674,7 +1674,7 @@ describe('the review page', () => {
   });
 
   it('shows the entry beside the profile, and asks once more when the names differ', async () => {
-    const { user, view, dialog } = await linkCase('পুরনো উপকারভোগী')();
+    const { user, view, dialog, PERSON, VOLUNTEER_ID } = await openLinkCase('পুরনো উপকারভোগী');
     // the entry and the profile, side by side
     const entry = within(dialog).getByRole('group', { name: 'এন্ট্রিতে লেখা' });
     const profile = within(dialog).getByRole('group', { name: 'প্রোফাইলে আছে' });
@@ -1694,7 +1694,10 @@ describe('the review page', () => {
     expect(acted).toHaveLength(0);
     await user.click(within(dialog).getByRole('button', { name: 'তবু যুক্ত করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
-    expect(acted[0]).toMatchObject({ action: 'verify_link' });
+    expect(acted[0]).toEqual({
+      action: 'verify_link',
+      body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
+    });
   });
 
   it('creates a profile for a new number, names a blocked person, and tells of a failed lookup', async () => {
