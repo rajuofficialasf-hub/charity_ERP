@@ -1271,6 +1271,94 @@ describe('migrations', () => {
     });
   });
 
+  it('the extra-area source migration links an area passed on to its source, ends one whose source ended with an audit, and down drops the link', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261123180000_user_extra_area_source');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('xsrc');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql' = 'migration.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const loc = await locationTree(client);
+      const other = await locationTree(client);
+      const [head, rpm, executive, executive2] = [
+        await user(client),
+        await user(client),
+        await user(client),
+        await user(client),
+      ];
+      const area = async (
+        userId: string,
+        locationId: string,
+        grantedBy: string,
+        grantedAt: string,
+        ended: { at: string; by: string } | null = null,
+      ) => {
+        const id = randomUUID();
+        await client.query(
+          `INSERT INTO user_extra_areas (id, user_id, location_id, reason, granted_by, granted_at, ended_at, ended_by)
+           VALUES ($1, $2, $3, 'দায়িত্ব', $4, $5, $6, $7)`,
+          [id, userId, locationId, grantedBy, grantedAt, ended?.at ?? null, ended?.by ?? null],
+        );
+        return id;
+      };
+      // a live source and the area passed on from it
+      const source = await area(rpm, loc.division, head, '2026-11-01T00:00:00Z');
+      const passedOn = await area(executive, loc.district, rpm, '2026-11-02T00:00:00Z');
+      // a source ended after it was passed on: the area given from it ends now
+      const endedSource = await area(rpm, other.district, head, '2026-11-01T00:00:00Z', {
+        at: '2026-11-05T00:00:00Z',
+        by: head,
+      });
+      const orphan = await area(executive2, other.district, rpm, '2026-11-03T00:00:00Z');
+      // given by someone holding no extra area there: no source
+      const own = await area(executive2, loc.district, head, '2026-11-02T00:00:00Z');
+      const versionOf = async (id: string) =>
+        (await client.query('SELECT permission_version FROM users WHERE id = $1', [id])).rows[0]
+          .permission_version as number;
+      const before = await versionOf(executive2);
+
+      await apply(dirs[at]!);
+      const state = async (id: string) =>
+        (
+          await client.query(
+            'SELECT source_area_id, ended_at IS NOT NULL AS ended, ended_by, end_reason FROM user_extra_areas WHERE id = $1',
+            [id],
+          )
+        ).rows[0];
+      expect(await state(passedOn)).toMatchObject({ source_area_id: source, ended: false });
+      expect(await state(orphan)).toMatchObject({
+        source_area_id: endedSource,
+        ended: true,
+        ended_by: head,
+        end_reason: 'উৎস শেষ',
+      });
+      expect(await state(own)).toMatchObject({ source_area_id: null, ended: false });
+      expect(await versionOf(executive2)).toBe(before + 1);
+      const audited = await client.query(
+        `SELECT old, reason FROM audit_log WHERE action = 'user.extra_area_ended' AND entity_id = $1`,
+        [executive2],
+      );
+      expect(audited.rows).toEqual([
+        {
+          old: { id: orphan, locationId: other.district, wholeCountry: false },
+          reason: 'উৎস শেষ',
+        },
+      ]);
+
+      await apply(dirs[at]!, 'down.sql');
+      const columns = await client.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'user_extra_areas' AND column_name = 'source_area_id'`,
+      );
+      expect(columns.rows).toEqual([]);
+    } finally {
+      await client.end();
+    }
+  });
+
   it('schema.prisma and the migrations do not drift apart', async () => {
     const shadow = await freshDatabase('shadow');
     const apiDir = join(import.meta.dirname, '../..');

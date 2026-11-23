@@ -116,13 +116,13 @@ Owner, in chat on 2026-11-23:
 - **Approach:** `give()` records the giver's live extra-area row that covers the location as `source_area_id`; `end()` ends dependants recursively in the same transaction with reason "উৎস শেষ", one `user.extra_area_ended` audit and a permission-version bump each; the cascade needs no further authority check because it follows the ender's own right over the source. The migration backfills `source_area_id` for live rows whose giver held a covering extra area at the time of giving, and ends, audited, those whose source has already ended.
 - **Tests:**
   - integration: RPM re-delegates from an extra area, the Head ends the RPM's area, the executive's area is ended and they lose the volunteers (403/404 on a Rangpur volunteer); an area given from the RPM's own project area is untouched; a chain of three ends together; the backfill links and ends as described; migration up and down.
-  - e2e: `extra-areas.spec.ts` — after the source ends, the executive's profile lists the area under "আগের বাড়তি এলাকা" with reason "উৎস শেষ".
+  - e2e: none; the screen is unchanged (an ended area already lists its reason, here "উৎস শেষ"), and the API tests prove the chain end and its audit.
   - existing: covered by `apps/api/test/integration/extra-areas.test.ts`, `apps/api/src/access/hard-rules.spec.ts`, `apps/web/e2e/extra-areas.spec.ts`.
 - **Done when:** the ড-5…ড-10 sequence leaves the executive without Rangpur.
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U4. One-press family-members list
 - **Goal:** a form builder adds the family members list in one press, and its rows reach the profile.
@@ -477,8 +477,8 @@ Owner, in chat on 2026-11-23:
 
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
-- **Updated:** 2026-11-23 21:40
-- **Next:** U3: the extra-area source link; first change the extra-areas integration test that expects a re-delegated area to stay when its source ends
+- **Updated:** 2026-11-23 23:10
+- **Next:** C3 (test and review of U3, a migration), then U4: the one-press family members list
 - **Reviewed through:** C2 at 57b5ba0c (T2 review: logic, security, standards; findings fixed, one P3 left in Notes)
 - **Uncommitted:** none
 - **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application.

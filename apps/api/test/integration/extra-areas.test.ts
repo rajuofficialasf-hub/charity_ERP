@@ -204,7 +204,7 @@ describe('an extra area given by the Department Head', () => {
 });
 
 describe('an extra area given on', () => {
-  it('lets an RPM give an own Executive the district the Head gave the RPM, and it stays when the RPM loses it', async () => {
+  it("lets an RPM give an own Executive the district the Head gave the RPM, and ends it with the RPM's", async () => {
     const barishal = await f.locationTree(h.db);
     const person = await volunteerIn(barishal);
     const head = await as(world.users.head);
@@ -218,14 +218,24 @@ describe('an extra area given on', () => {
     expect(toRpm.status).toBe(201);
     const toExecutive = await give(await as(rpm), executive, { locationId: barishal.district });
     expect(toExecutive.status).toBe(201);
-    expect(liveOf(toExecutive, barishal.district).grantedBy.id).toBe(rpm);
+    const given = liveOf(toExecutive, barishal.district);
+    expect(given.grantedBy.id).toBe(rpm);
     expect(await listed(executive, barishal)).toEqual([person.volunteerId]);
 
     expect((await end(head, rpm, liveOf(toRpm, barishal.district).id)).status).toBe(200);
     expect(await listed(rpm, barishal)).toEqual([]);
-    expect(await listed(executive, barishal)).toEqual([person.volunteerId]);
-    // the RPM no longer reaches the district: another RPM's area there is not theirs to end, and
-    // what they gave themselves still is
+    // the Executive's area came from the RPM's, so it ends with it, by the same hand and audited
+    expect(await listed(executive, barishal)).toEqual([]);
+    const after = rows(await at(head, 'get', `/users/${executive}/extra-areas`)).find(
+      (r) => r.id === given.id,
+    )!;
+    expect(after).toMatchObject({ endReason: 'উৎস শেষ', endedBy: { id: world.users.head } });
+    expect((await audit(executive, 'user.extra_area_ended')).at(-1)).toMatchObject({
+      old: { id: given.id, locationId: barishal.district, wholeCountry: false },
+      reason: 'উৎস শেষ',
+      actor_user_id: world.users.head,
+    });
+    // the RPM no longer reaches the district: another person's area there is not theirs to end
     const other = await official('project_executive');
     await h.db.query(
       `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, granted_by)
@@ -237,9 +247,41 @@ describe('an extra area given on', () => {
     expect(refusal(await end(await as(rpm), other, liveOf(toOther, barishal.district).id))).toEqual(
       [403, 'outside_own_reach'],
     );
-    const row = liveOf(await at(head, 'get', `/users/${executive}/extra-areas`), barishal.district);
-    expect((await end(await as(rpm), executive, row.id)).status).toBe(200);
-    expect(await listed(executive, barishal)).toEqual([]);
+  });
+
+  it('ends a whole chain of areas passed on when its first one ends', async () => {
+    const khulna = await f.locationTree(h.db);
+    const person = await volunteerIn(khulna);
+    const head = await as(world.users.head);
+    const pm = world.users.pm;
+    const rpm = world.users.rpmDhaka;
+    const executive = world.users.executive;
+    const toPm = await give(head, pm, { locationId: khulna.division });
+    expect(toPm.status, JSON.stringify(toPm.body)).toBe(201);
+    expect((await give(await as(pm), rpm, { locationId: khulna.district })).status).toBe(201);
+    expect((await give(await as(rpm), executive, { locationId: khulna.district })).status).toBe(
+      201,
+    );
+    expect(await listed(executive, khulna)).toEqual([person.volunteerId]);
+    expect((await end(head, pm, liveOf(toPm, khulna.division).id)).status).toBe(200);
+    for (const userId of [pm, rpm, executive]) expect(await listed(userId, khulna)).toEqual([]);
+  });
+
+  it("keeps an area given from the giver's own project area when an unrelated extra area of the giver ends", async () => {
+    const sylhet = await f.locationTree(h.db);
+    const head = await as(world.users.head);
+    const rpm = world.users.rpmDhaka;
+    const executive = world.users.executive;
+    const ownArea = await give(await as(rpm), executive, { locationId: world.dhaka.district });
+    expect(ownArea.status, JSON.stringify(ownArea.body)).toBe(201);
+    const toRpm = await give(head, rpm, { locationId: sylhet.district });
+    expect(toRpm.status).toBe(201);
+    expect((await end(head, rpm, liveOf(toRpm, sylhet.district).id)).status).toBe(200);
+    const still = rows(await at(head, 'get', `/users/${executive}/extra-areas`)).find(
+      (r) => r.location?.id === world.dhaka.district && r.endedAt === null,
+    );
+    expect(still).toBeDefined();
+    expect((await end(await as(rpm), executive, still!.id)).status).toBe(200);
   });
 
   it('keeps an RPM and a PM inside what they reach and whom they reach', async () => {

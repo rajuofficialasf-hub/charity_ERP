@@ -537,10 +537,11 @@ The extra areas of an official (D-193, BR-325): a division, a district or the wh
 | granted_at | timestamptz | no | now() | |
 | ended_at | timestamptz | yes | — | set when the area is taken away |
 | ended_by | uuid | yes | — | FK users |
-| end_reason | text | yes | — | why it was taken away |
+| end_reason | text | yes | — | why it was taken away; "উৎস শেষ" when it ended with its source |
+| source_area_id | uuid | yes | — | FK user_extra_areas; the giver's own extra area this one was passed on from; it ends with that source along the whole chain (D-195, BR-330); null when the giver reached the place otherwise |
 | [A] | | | | |
 
-Constraints: CHECK ((location_id IS NULL) = whole_country); CHECK ((ended_at IS NULL) = (ended_by IS NULL)); partial UNIQUE (user_id, location_id) WHERE ended_at IS NULL AND location_id IS NOT NULL; partial UNIQUE (user_id) WHERE ended_at IS NULL AND whole_country. Indexes: (user_id), (location_id), (granted_by), (ended_by).
+Constraints: CHECK ((location_id IS NULL) = whole_country); CHECK ((ended_at IS NULL) = (ended_by IS NULL)); partial UNIQUE (user_id, location_id) WHERE ended_at IS NULL AND location_id IS NOT NULL; partial UNIQUE (user_id) WHERE ended_at IS NULL AND whole_country. Indexes: (user_id), (location_id), (granted_by), (ended_by), (source_area_id). Migration `20261123180000_user_extra_area_source` linked the rows given before it and ended, audited, those whose source had already ended.
 
 ### project_templates
 | Column | Type | Null | Default | Comment |
