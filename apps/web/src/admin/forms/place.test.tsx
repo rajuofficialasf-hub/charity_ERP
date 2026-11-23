@@ -17,6 +17,9 @@ const DRAFT_ONLY = '01900000-0000-7000-8000-0000000000b3';
 const PLACED = '01900000-0000-7000-8000-0000000000b4';
 const PLACED_V1 = '01900000-0000-7000-8000-0000000000b5';
 const PLACED_V2 = '01900000-0000-7000-8000-0000000000b6';
+/** A form of the project's own, still a draft, which a PM opens but does not build. */
+const OWN = '01900000-0000-7000-8000-0000000000b9';
+const OWN_V1 = '01900000-0000-7000-8000-0000000000ba';
 const meta = { requestId: 'r' };
 
 const ready = [
@@ -75,7 +78,7 @@ function api(rows: unknown[]) {
           id: params.id,
           formId: PLACED,
           versionNo: params.id === PLACED_V2 ? 2 : 1,
-          status: 'published',
+          status: params.id === OWN_V1 ? 'draft' : 'published',
           publishedAt: '2026-10-24T08:00:00.000Z',
           sections,
         },
@@ -133,6 +136,37 @@ describe("a PM's project forms", () => {
     );
     // the first form of a project is its default application form
     expect(placed).toEqual([{ readyFormId: READY, key: 'default' }]);
+  });
+});
+
+describe('a form of the project’s own, as a PM opens it', () => {
+  it('says the Monitoring Team builds forms and their scoring, and offers to place a ready form', async () => {
+    const user = userEvent.setup();
+    api([
+      placedRow({
+        id: OWN,
+        sourceFormId: null,
+        sourceVersionNo: null,
+        publishedVersionId: null,
+        draftVersionId: OWN_V1,
+      }),
+    ]);
+    const { router } = renderApp(<FormBuilderPage />, 'bn', {
+      path: '/admin/projects/:projectId/forms/:formId',
+      initialPath: `/admin/projects/${PROJECT}/forms/${OWN}`,
+    });
+    expect(
+      await screen.findByText(
+        'এই প্রকল্পের ফর্ম ও তার স্কোরিং বানায় মনিটরিং টিম। আপনি একটি তৈরি ফর্ম বসাতে পারেন।',
+      ),
+    ).toBeInTheDocument();
+    // nothing suggests the PM can make a version of their own
+    expect(screen.queryByText(/বদল নতুন সংস্করণে হবে/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'তৈরি ফর্ম বসান' }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/admin/projects/${PROJECT}/forms`),
+    );
+    expect(router.state.location.search).toBe('?new=1');
   });
 });
 

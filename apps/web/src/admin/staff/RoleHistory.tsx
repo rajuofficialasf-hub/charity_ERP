@@ -37,7 +37,12 @@ export function RoleHistory({ userId }: { userId: string }) {
                 <strong>{localized(r.name, locale)}</strong>
                 {r.revokedAt === null && <Chip tone="success">{t('now')}</Chip>}
                 <span className="admin-muted">
-                  {t('given_by', { name: r.grantedBy.displayName, date: formatDate(r.grantedAt) })}
+                  {r.grantedBy
+                    ? t('given_by', {
+                        name: r.grantedBy.displayName,
+                        date: formatDate(r.grantedAt),
+                      })
+                    : t('given_by_system', { date: formatDate(r.grantedAt) })}
                 </span>
                 {r.revokedAt && r.revokedBy && (
                   <span className="admin-muted">

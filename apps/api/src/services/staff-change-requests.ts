@@ -370,7 +370,10 @@ export class StaffChangeRequestsService {
       if (approve && (isContact(field) || MOVES_SCOPE.has(field)))
         await this.versions.bump(tx, owner, entry);
       else await this.audit.record(tx, { ...entry, entityType: 'user', entityId: owner });
-      await this.events.editRequestDecided(tx, found.id, owner, field, approve, actor.userId);
+      // a new designation is in place already: the person is told what it is now
+      if (approve && field === 'designation' && typeof found.newValue === 'string')
+        await this.events.designationChanged(tx, found.id, owner, found.newValue, actor.userId);
+      else await this.events.editRequestDecided(tx, found.id, owner, field, approve, actor.userId);
       return saved;
     });
     return view(row);

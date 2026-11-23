@@ -145,6 +145,21 @@ describe('a role change', () => {
       revokedBy: { id: world.users.admin },
     });
     expect(res.body.data[1].revokedAt).toEqual(expect.any(String));
+    // a role the seed gave has no person as its giver: the system's name never reaches the screen
+    const system = randomUUID();
+    await h.db.query(
+      `INSERT INTO users (id, kind, display_name, state) VALUES ($1, 'system', 'System', 'active')`,
+      [system],
+    );
+    await h.db.query(
+      `UPDATE user_roles SET granted_by = $1 WHERE user_id = $2 AND role_key = 'project_executive'`,
+      [system, target.id],
+    );
+    const seeded = await api()
+      .get(`/api/v1/users/${target.id}/roles`)
+      .set(bearer(admin))
+      .expect(200);
+    expect(seeded.body.data[1]).toMatchObject({ roleKey: 'project_executive', grantedBy: null });
     // outside the reader's scope the person is not found
     await api()
       .get(`/api/v1/users/${target.id}/roles`)

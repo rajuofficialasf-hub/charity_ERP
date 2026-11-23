@@ -29,6 +29,7 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   edit_request_submitted: entry('work'),
   edit_request_approved: entry('info'),
   edit_request_closed: entry('info'),
+  designation_changed: entry('info'),
   permission_changed: entry('security'),
   system_owner_transferred: entry('security', { email: true }),
   account_blocked: entry('security'),

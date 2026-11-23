@@ -1229,7 +1229,11 @@ components:
         roleKey: { type: string }
         name: { $ref: '#/components/schemas/Bilingual' }
         grantedAt: { type: string, format: date-time }
-        grantedBy: { $ref: '#/components/schemas/NamedUser' }
+        grantedBy:
+          description: Who gave the role; null when the system gave it (the seed or a job), not a person
+          oneOf:
+            - { $ref: '#/components/schemas/NamedUser' }
+            - { type: 'null' }
         revokedAt: { type: [string, 'null'], format: date-time }
         revokedBy:
           oneOf:

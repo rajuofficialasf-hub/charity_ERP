@@ -1679,6 +1679,7 @@
       "title": "Role history",
       "now": "Now",
       "given_by": "Given by {name}, {date}",
+      "given_by_system": "Given by the system, {date}",
       "ended_by": "Ended by {name}, {date}",
       "none": "No role has been given."
     }

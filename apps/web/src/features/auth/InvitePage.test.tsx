@@ -156,7 +156,10 @@ describe('the set-password page', () => {
     expect(
       await screen.findByText('লিঙ্কটির মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে।'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/নতুন লিঙ্কের জন্য/)).toBeInTheDocument();
+    // the accounts of officials are an Admin's and the Department Head's, not the Monitoring Team's
+    expect(
+      screen.getByText('নতুন লিঙ্কের জন্য অ্যাডমিন বা ডিপার্টমেন্ট হেডকে বলুন।'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'পাসওয়ার্ড সংরক্ষণ করুন' })).toBeNull();
   });
 
