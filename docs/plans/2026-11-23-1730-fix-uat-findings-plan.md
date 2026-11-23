@@ -92,7 +92,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Merge waits for open applications; same-person mark
 - **Goal:** one person cannot hold two live applications in one project after a merge.
@@ -478,7 +478,7 @@ Owner, in chat on 2026-11-23:
 ## Progress
 - **Branch:** `fix/uat-bugs-urgent` (PR 1, U1–U7; started from `docs/uat-phase-1-2`, which carries the UAT results)
 - **Updated:** 2026-11-23 18:00
-- **Next:** U1, write D-194 onwards in docs/DECISION_LOG.md
+- **Next:** C1 (review of U1), then U2: widen the merge conflict states in `services/beneficiary-merges.ts` and its integration test first
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** none yet
+- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it").
