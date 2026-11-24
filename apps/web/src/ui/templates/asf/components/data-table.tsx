@@ -342,7 +342,8 @@ export function DataTable<Row>({
           <Box
             component="span"
             role="status"
-            sx={{ typography: 'subtitle2', fontVariantNumeric: 'tabular-nums', ...(selectedCount > 0 ? {} : { color: 'text.secondary' }) }}
+            // the hint keeps the bar's own text colour: the tinted bar leaves a muted grey too faint
+            sx={{ typography: selectedCount > 0 ? 'subtitle2' : 'body2', fontVariantNumeric: 'tabular-nums' }}
           >
             {selectedCount > 0 ? fill(labels.selectedCount, { count: selectedCount }) : labels.selectHint}
           </Box>
