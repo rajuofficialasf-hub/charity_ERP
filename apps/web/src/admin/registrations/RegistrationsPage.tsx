@@ -212,7 +212,9 @@ function PendingList() {
       {me && canApproveRegistrations(me) ? (
         <Text tone="muted">
           {t('volunteers_elsewhere')}{' '}
-          <Link to="/admin/volunteers?state=pending">{t('volunteers_link')}</Link>
+          <Link className="admin-inline-link" to="/admin/volunteers?state=pending">
+            {t('volunteers_link')}
+          </Link>
         </Text>
       ) : null}
       <DataTable

@@ -1,6 +1,10 @@
 import { USER_STATES } from '@css/shared/auth';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
-import { VOLUNTEER_STATES, type VolunteerRow, type VolunteerStatistics } from '@css/shared/volunteers';
+import {
+  VOLUNTEER_STATES,
+  type VolunteerRow,
+  type VolunteerStatistics,
+} from '@css/shared/volunteers';
 import { z } from 'zod';
 import { dateTime, tabPageOf } from './common';
 

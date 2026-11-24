@@ -94,8 +94,7 @@ export class VolunteerListService {
     }
     if (filter.type) and.push({ type: filter.type });
     // a closed account never approved is a rejected registration; one approved, a closed account
-    if (filter.state === 'rejected')
-      and.push({ user: { state: 'deactivated' }, approvedAt: null });
+    if (filter.state === 'rejected') and.push({ user: { state: 'deactivated' }, approvedAt: null });
     else if (filter.state === 'deactivated')
       and.push({ user: { state: 'deactivated' }, approvedAt: { not: null } });
     else if (filter.state) and.push({ user: { state: filter.state } });

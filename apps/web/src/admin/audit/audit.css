@@ -4,6 +4,12 @@
 }
 
 /* The old and new values of an audit entry side by side, one under the other on phones. */
+/* what changed, above the two snapshots; a long value wraps instead of widening the drawer */
+.admin-audit-changes {
+  margin-top: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
 .admin-audit-compare {
   display: grid;
   gap: var(--space-3);
