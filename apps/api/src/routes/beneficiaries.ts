@@ -34,6 +34,7 @@ import { etagOf } from '../core/etag.js';
 import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import { DUPLICATE_RULES, PAIR_LEVELS } from '../services/beneficiary-merge-candidates.js';
+import { TRAIL_ACTIONS } from '../services/beneficiaries.js';
 import { helpSummarySchema } from '../services/help-history.js';
 import { blocklistEntry } from './volunteers.js';
 
@@ -110,6 +111,8 @@ export const beneficiaryProfile = z.object({
         oldValue: z.string().nullable(),
         newValue: z.string().nullable(),
         by: z.uuid().nullable(),
+        // who made the change, by name; none for the system
+        byName: z.string().nullable(),
         at: at(),
       }),
     ),
@@ -124,8 +127,10 @@ export const beneficiaryProfile = z.object({
       reason: z.string(),
       status: z.enum(['submitted', 'approved', 'rejected']),
       requestedBy: z.uuid(),
+      requestedByName: z.string().nullable(),
       requestedAt: at(),
       decidedBy: z.uuid().nullable(),
+      decidedByName: z.string().nullable(),
       decidedAt: at().nullable(),
     }),
   ),
@@ -135,7 +140,9 @@ export const beneficiaryProfile = z.object({
         id: z.uuid(),
         reason: z.string(),
         active: z.boolean(),
+        blockedByName: z.string().nullable(),
         blockedAt: at(),
+        releasedByName: z.string().nullable(),
         releasedAt: at().nullable(),
         releaseReason: z.string().nullable(),
       }),
@@ -313,6 +320,22 @@ export const beneficiaryProfile = z.object({
   ),
   /** The published and done media works about the person. */
   media: z.array(publishedWorkView),
+  /**
+   * The audited steps of the person and of the applications the caller sees, newest first: what,
+   * by whom and when, never the values or the reason; with the care class, as the activities.
+   */
+  trail: care(
+    z.array(
+      z.object({
+        id: z.uuid(),
+        action: z.enum(TRAIL_ACTIONS),
+        at: at(),
+        byName: z.string().nullable(),
+        applicationId: z.uuid().nullable(),
+        appNo: z.string().nullable(),
+      }),
+    ),
+  ).optional(),
 });
 
 /**

@@ -320,7 +320,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U2
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U18. Entry without a document
 - **Goal:** the name search's answers carry into the form.
@@ -478,7 +478,7 @@ Owner, in chat on 2026-11-23:
 ## Progress
 - **Branch:** `feat/uat-improve-applications` (PR 3, U15–U19; from develop at 76e73b33, where PR 2 merged as #83)
 - **Updated:** 2026-11-24 07:30
-- **Next:** U17 (profile history names people)
+- **Next:** U18 (entry without a document)
 - **Reviewed through:** C7 at 31d96fb6 (T2 review of U10–U14, the end of PR 2)
 - **Uncommitted:** none
-- **Notes:** PR 1 and PR 2 notes are in the plan as merged with #83. U15: the list's page number lives in the address through `useTabView` (each page a history step; a cursor page past the counted range stays in memory), a `?q=` link starts the search and leaves the address (the term is never written there); the asf DataTable keeps its bulk bar in place when the page gives bulk actions (`selectHint` label); "পরেরজনকে আনুন" reads `GET /projects/{projectId}/waitlist/next` (permission and scope as the pull, nothing held) and asks the comment at once for a full quota row; the lookup searches on Enter and names a woman "মহিলা". The applications E2E step for `?q=` is written but runs at C8 with the rest of PR 3's specs. U16: a volunteer's notices of one application carry `app_no` (an in-app parameter now) and link to `/my-applications/<id>`; a sent-back value tells the person who entered it (`field_refused`, the optional `message` of the decision, never the reason); `notifications:sync` now also gives a shipped text that changed a new version while the active row is one the system wrote (created by nobody or a system user), so existing installs get the new texts on `pnpm db:migrate` and old entries keep rendering from their version; the new answer of an unlock starts empty; a verified public entry reads as one.
+- **Notes:** PR 1 and PR 2 notes are in the plan as merged with #83. U15: the list's page number lives in the address through `useTabView` (each page a history step; a cursor page past the counted range stays in memory), a `?q=` link starts the search and leaves the address (the term is never written there); the asf DataTable keeps its bulk bar in place when the page gives bulk actions (`selectHint` label); "পরেরজনকে আনুন" reads `GET /projects/{projectId}/waitlist/next` (permission and scope as the pull, nothing held) and asks the comment at once for a full quota row; the lookup searches on Enter and names a woman "মহিলা". The applications E2E step for `?q=` is written but runs at C8 with the rest of PR 3's specs. U16: a volunteer's notices of one application carry `app_no` (an in-app parameter now) and link to `/my-applications/<id>`; a sent-back value tells the person who entered it (`field_refused`, the optional `message` of the decision, never the reason); `notifications:sync` now also gives a shipped text that changed a new version while the active row is one the system wrote (created by nobody or a system user), so existing installs get the new texts on `pnpm db:migrate` and old entries keep rendering from their version; the new answer of an unlock starts empty; a verified public entry reads as one. U17: the 360° profile carries `trail` (care class: the audited steps of the person and of the applications the caller sees, a fixed list of actions, what, who by name, when, never the entry's values or reason) and names on the contact log, the corrections and the blocks (a system user has no name); the Media and Procurement Teams get no trail; a reverted merge says when, and a blocked person shows no "সক্রিয়".

@@ -44,7 +44,7 @@ import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
 import { IdentityDialog } from './IdentityDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
-import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
+import { ContactLog, Corrections, Trail, useFileKind } from './ProfileHistory';
 import { MediaWorksSection } from '../../features/media/MediaWorksSection';
 import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
 import { PageCrumbs } from '../../components/shell/breadcrumb';
@@ -285,9 +285,12 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         fileId={p.photoFileId}
         status={
           <>
-            <Chip tone={p.status === 'active' ? 'success' : 'warning'}>
-              {t(`status.${p.status as 'active'}`)}
-            </Chip>
+            {/* a blocked person is told as blocked, not as active too */}
+            {p.isBlocked && p.status === 'active' ? null : (
+              <Chip tone={p.status === 'active' ? 'success' : 'warning'}>
+                {t(`status.${p.status as 'active'}`)}
+              </Chip>
+            )}
             {p.isBlocked && <Chip tone="error">{t('blocked')}</Chip>}
             {p.hasDocument === false && <NoDocumentChip />}
           </>
@@ -553,16 +556,29 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                   {p.blocks.map((b) => (
                     <li className="admin-plain-item" key={b.id}>
                       <Stack direction="row" wrap gap={2}>
-                        <strong>{tp('blocked_on', { date: formatDate(b.blockedAt) })}</strong>
+                        <strong>
+                          {b.blockedByName
+                            ? tp('blocked_by_on', {
+                                name: b.blockedByName,
+                                date: formatDate(b.blockedAt),
+                              })
+                            : tp('blocked_on', { date: formatDate(b.blockedAt) })}
+                        </strong>
                         {b.active && <Chip tone="error">{t('blocked')}</Chip>}
                       </Stack>
                       <Text tone="muted">{tp('reason', { reason: b.reason })}</Text>
                       {b.releasedAt && (
                         <Text tone="muted">
-                          {tp('released_on', {
-                            date: formatDate(b.releasedAt),
-                            reason: b.releaseReason ?? empty,
-                          })}
+                          {b.releasedByName
+                            ? tp('released_by_on', {
+                                name: b.releasedByName,
+                                date: formatDate(b.releasedAt),
+                                reason: b.releaseReason ?? empty,
+                              })
+                            : tp('released_on', {
+                                date: formatDate(b.releasedAt),
+                                reason: b.releaseReason ?? empty,
+                              })}
                         </Text>
                       )}
                     </li>
@@ -603,7 +619,13 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                       <Text tone="muted">
                         {[
                           m.mergedAt && formatDate(m.mergedAt),
-                          m.leftBehind > 0 && tp('left_behind', { count: m.leftBehind }),
+                          // what a merge left behind is gone once it is reverted
+                          m.status === 'merged' &&
+                            m.leftBehind > 0 &&
+                            tp('left_behind', { count: m.leftBehind }),
+                          m.status === 'reverted' &&
+                            m.revertedAt &&
+                            tp('reverted_on', { date: formatDate(m.revertedAt) }),
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -615,22 +637,26 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             </ProfileSection>
           )}
 
-          {p.activities && (
-            <ProfileSection title={tp('sections.activities')} icon="history">
-              {p.activities.length === 0 ? (
-                none
-              ) : (
-                <Timeline
-                  label={tp('sections.activities')}
-                  steps={p.activities.map((act) => ({
-                    id: act.id,
-                    title: projectName.get(act.projectId) ?? '',
-                    time: formatDate(act.doneAt),
-                    status: 'done' as const,
-                  }))}
-                />
-              )}
-            </ProfileSection>
+          {p.trail ? (
+            <Trail steps={p.trail} />
+          ) : (
+            p.activities && (
+              <ProfileSection title={tp('sections.activities')} icon="history">
+                {p.activities.length === 0 ? (
+                  none
+                ) : (
+                  <Timeline
+                    label={tp('sections.activities')}
+                    steps={p.activities.map((act) => ({
+                      id: act.id,
+                      title: projectName.get(act.projectId) ?? '',
+                      time: formatDate(act.doneAt),
+                      status: 'done' as const,
+                    }))}
+                  />
+                )}
+              </ProfileSection>
+            )
           )}
         </aside>
       </div>

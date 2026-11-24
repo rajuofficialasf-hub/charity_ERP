@@ -111,7 +111,22 @@ export function Corrections({
               </Stack>
               <span>{tp('change', { old: r.oldValue ?? empty, new: r.newValue ?? empty })}</span>
               <Text tone="muted">{tp('reason', { reason: r.reason })}</Text>
-              <Text tone="muted">{tp('requested_on', { date: formatDate(r.requestedAt) })}</Text>
+              <Text tone="muted">
+                {r.requestedByName
+                  ? tp('requested_by_on', {
+                      name: r.requestedByName,
+                      date: formatDate(r.requestedAt),
+                    })
+                  : tp('requested_on', { date: formatDate(r.requestedAt) })}
+              </Text>
+              {r.decidedAt && r.status !== 'submitted' ? (
+                <Text tone="muted">
+                  {tp(r.status === 'approved' ? 'approved_by_on' : 'rejected_by_on', {
+                    name: r.decidedByName ?? tp('by_system'),
+                    date: formatDate(r.decidedAt),
+                  })}
+                </Text>
+              ) : null}
               {canDecide && r.status === 'submitted' && r.requestedBy !== me?.id && (
                 <Stack direction="row" wrap gap={2}>
                   <Button
@@ -193,7 +208,69 @@ export function ContactLog({ rows }: { rows: NonNullable<BeneficiaryProfile['con
                   ? tp('place_changed')
                   : tp('change', { old: c.oldValue ?? empty, new: c.newValue ?? empty })}
               </span>
-              <Text tone="muted">{formatDate(c.at)}</Text>
+              <Text tone="muted">
+                {c.byName
+                  ? tp('by_on', { name: c.byName, date: formatDate(c.at) })
+                  : formatDate(c.at)}
+              </Text>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ProfileSection>
+  );
+}
+
+/** The steps the trail tells, each with its words; another step shows a general line. */
+const TRAIL_STEPS = [
+  'beneficiary.create',
+  'beneficiary.contact_updated',
+  'beneficiary.correction_requested',
+  'beneficiary.correction_decided',
+  'beneficiary.identity_added',
+  'beneficiary.merge',
+  'beneficiary.merge_reverted',
+  'blocklist.set',
+  'blocklist.lift',
+  'application.submit',
+  'application.public_submitted',
+  'application.reviewed',
+  'application.approve',
+  'application.reject',
+  'application.waitlisted',
+  'application.pull_from_waitlist',
+  'application.reopened',
+  'application.transferred',
+  'application.unlock_decided',
+] as const;
+
+/**
+ * The audited steps of the person and of the applications the viewer sees, newest first: what was
+ * done, on which application, by whom and when.
+ */
+export function Trail({ steps }: { steps: NonNullable<BeneficiaryProfile['trail']> }) {
+  const tp = useTranslations('admin.beneficiaries.profile');
+  const tt = useTranslations('admin.beneficiaries.profile.trail');
+  const what = (action: string) =>
+    (TRAIL_STEPS as readonly string[]).includes(action)
+      ? tt(action.replace('.', '_') as 'beneficiary_create')
+      : tt('other');
+  return (
+    <ProfileSection title={tp('sections.activities')} icon="history">
+      {steps.length === 0 ? (
+        <p className="admin-muted">{tp('no_rows')}</p>
+      ) : (
+        <ul className="admin-plain-list">
+          {steps.map((step) => (
+            <li className="admin-plain-item" key={step.id}>
+              <strong>
+                {step.appNo
+                  ? tt('on_application', { what: what(step.action), appNo: step.appNo })
+                  : what(step.action)}
+              </strong>
+              <Text tone="muted">
+                {tp('by_on', { name: step.byName ?? tp('by_system'), date: formatDate(step.at) })}
+              </Text>
             </li>
           ))}
         </ul>

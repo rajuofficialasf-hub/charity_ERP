@@ -395,6 +395,105 @@ describe('the 360° profile', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('names who did each step: the trail, the contact changes, the corrections and the blocks', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        isBlocked: true,
+        contactLog: [
+          {
+            field: 'village',
+            oldValue: 'পুরনো গ্রাম',
+            newValue: 'নতুন গ্রাম',
+            by: ME.id,
+            byName: 'নমুনা এক্সিকিউটিভ',
+            at: '2026-11-20T04:00:00.000Z',
+          },
+        ],
+        corrections: [
+          {
+            id: '01900000-0000-7000-8000-0000000000e1',
+            beneficiaryId: ID,
+            field: 'name',
+            oldValue: 'রহিমা খাতুন',
+            newValue: 'রহিমা খাতুন বেগম',
+            reason: 'জন্মনিবন্ধনে এই নাম',
+            status: 'approved',
+            requestedBy: ME.id,
+            requestedByName: 'নমুনা আরপিএম',
+            requestedAt: '2026-11-20T05:00:00.000Z',
+            decidedBy: ME.id,
+            decidedByName: 'নমুনা পিএম',
+            decidedAt: '2026-11-21T05:00:00.000Z',
+          },
+        ],
+        blocks: [
+          {
+            id: '01900000-0000-7000-8000-0000000000e2',
+            reason: 'ভুয়া তথ্য',
+            active: true,
+            blockedByName: 'নমুনা আরপিএম',
+            blockedAt: '2026-11-22T05:00:00.000Z',
+            releasedByName: null,
+            releasedAt: null,
+            releaseReason: null,
+          },
+        ],
+        merges: [
+          {
+            id: '01900000-0000-7000-8000-0000000000e3',
+            role: 'kept',
+            otherId: null,
+            otherBenNo: 77,
+            status: 'reverted',
+            mergedAt: '2026-11-18T05:00:00.000Z',
+            revertedAt: '2026-11-19T05:00:00.000Z',
+            leftBehind: 1,
+          },
+        ],
+        trail: [
+          {
+            id: '01900000-0000-7000-8000-0000000000e4',
+            action: 'application.approve',
+            at: '2026-11-23T05:00:00.000Z',
+            byName: 'নমুনা আরপিএম',
+            applicationId: '01900000-0000-7000-8000-0000000000e5',
+            appNo: 'WC-2026-00012',
+          },
+          {
+            id: '01900000-0000-7000-8000-0000000000e6',
+            action: 'beneficiary.create',
+            at: '2026-11-01T05:00:00.000Z',
+            byName: null,
+            applicationId: null,
+            appNo: null,
+          },
+        ],
+      },
+    );
+    const { container } = openProfile();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'কার্যক্রমের ইতিহাস' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('আবেদন অনুমোদিত (WC-2026-00012)')).toBeInTheDocument();
+    expect(screen.getByText('নমুনা আরপিএম · 23-11-2026')).toBeInTheDocument();
+    expect(screen.getByText('সিস্টেম · 01-11-2026')).toBeInTheDocument();
+    expect(screen.getByText('নমুনা এক্সিকিউটিভ · 20-11-2026')).toBeInTheDocument();
+    expect(screen.getByText('নমুনা আরপিএম 20-11-2026-এ অনুরোধ করেছেন')).toBeInTheDocument();
+    expect(screen.getByText('নমুনা পিএম 21-11-2026-এ অনুমোদন করেছেন')).toBeInTheDocument();
+    expect(screen.getByText('নমুনা আরপিএম 22-11-2026-এ ব্লক করেছেন')).toBeInTheDocument();
+    // a reverted merge left nothing behind, and a blocked person is not told as active too
+    expect(screen.queryByText(/আবেদন রয়ে গেছে/)).toBeNull();
+    expect(
+      screen.getByText('19-11-2026-এ ফেরত নেওয়া হয়েছে', { exact: false }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('সক্রিয়')).toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
   it('lists the projects by year and the application history', async () => {
     refreshAs(HEAD);
     serve(
