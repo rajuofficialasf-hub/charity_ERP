@@ -356,7 +356,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U21. Registrations and one state name
 - **Goal:** a pending volunteer reads "অনুমোদনের অপেক্ষায়" everywhere and registrations need fewer presses.
