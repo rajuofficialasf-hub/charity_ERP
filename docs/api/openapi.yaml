@@ -5602,13 +5602,14 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     AuditEntry:
       type: object
-      required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
+      required: [id, createdAt, action, entityType, entityId, entityName, actor, actorRole, reason, ip, deviceSessionId, old, new]
       properties:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         action: { type: string }
         entityType: { type: string }
         entityId: { type: [string, 'null'], format: uuid }
+        entityName: { type: [string, 'null'], description: 'Who or what the entry is about: a person (user or volunteer) or a beneficiary by name, an application by its number; null for anything else' }
         actor:
           anyOf:
             - { $ref: '#/components/schemas/PersonRef' }

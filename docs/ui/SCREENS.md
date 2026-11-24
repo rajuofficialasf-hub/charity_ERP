@@ -1145,7 +1145,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The audit log for the global roles (D-098); PM and RPM histories come inside their pages later.
 - **Roles.** Department Head and Monitoring Team (`audit.view` at GLOBAL scope).
 - **Route.** `/admin/audit` with the filters in the address (`actorUserId`, `action`, `entityType`, `entityId`, `from`, `to`); sidebar "অডিট লগ".
-- **Data and actions.** The range the server used ("সময়সীমা: … থেকে …", the last 30 days by default, a year at most); rows newest first (time, person, action, entity, reason), page by page; filters: person search, action and entity type codes (an invalid code is marked), from and to dates. "বিস্তারিত" opens a drawer with time, person, role, action, entity, reason, IP, device session and the old and new values side by side (one under the other on a phone); "এই বিষয়ের পুরো ইতিহাস" filters the list to that entity for the last year, shown as a notice with "সব এন্ট্রি দেখুন". Secret-looking keys never reach the screen.
+- **Data and actions.** The range the server used ("সময়সীমা: … থেকে …", the last 30 days by default, a year at most); rows newest first (time, person, action, entity, reason), page by page; filters: person search, action and entity type codes (an invalid code is marked; Enter applies a code as leaving the field does), from and to dates. The entity is named where the log can name it (a person or a beneficiary by name, an application by its number). "বিস্তারিত" opens a drawer with time, person, role, action, entity, reason, "কী বদলাল" (the items added to or taken from a list and the fields changed, read from the old and new values), IP, device session and the old and new values side by side (one under the other on a phone); "এই বিষয়ের পুরো ইতিহাস" filters the list to that entity for the last year, shown as a notice with "সব এন্ট্রি দেখুন". Secret-looking keys never reach the screen.
 - **Built.** `apps/web/src/admin/audit/`; tests `audit.test.tsx`, E2E above.
 
 ### SCR-069 Active sessions
@@ -1178,7 +1178,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** Whether the queued emails and SMS went out (NOTIFICATIONS.md §7, D-099).
 - **Roles.** Department Head and Monitoring Team (`notification.delivery.view`).
 - **Route.** `/admin/deliveries`; sidebar "বার্তার অবস্থা".
-- **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown.
+- **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown. The one-time codes and the set-password links of new officials, which go out at once outside the queue, are listed too: what was sent and to whom, never the code or the link (the dummy code shows as পরীক্ষামূলক).
 - **Built.** `apps/web/src/admin/notifications/DeliveriesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ### SCR-077 Project list and project page

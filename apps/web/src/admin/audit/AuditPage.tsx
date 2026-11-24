@@ -61,16 +61,25 @@ function CodeFilter({
     if (valid) onCommit(next || undefined);
   };
   return (
-    <TextField
-      label={label}
-      hint={hint}
-      lang="en"
-      maxLength={100}
-      value={text}
-      onChange={setText}
-      onBlur={commit}
-      error={invalid ? hint : undefined}
-    />
+    // Enter applies the filter, as leaving the field does
+    <div
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+        event.preventDefault();
+        commit();
+      }}
+    >
+      <TextField
+        label={label}
+        hint={hint}
+        lang="en"
+        maxLength={100}
+        value={text}
+        onChange={setText}
+        onBlur={commit}
+        error={invalid ? hint : undefined}
+      />
+    </div>
   );
 }
 

@@ -219,6 +219,14 @@ describe('creating an official', () => {
     expect(links.rows).toHaveLength(1);
     expect(links.rows[0].emailed).toBe(true);
     expect(links.rows[0].token_hash).not.toContain(tokenOf(issued.link as string));
+    // the deliveries page lists the email it went to, never the link
+    const delivered = await h.db.query(
+      `SELECT status, channel, params FROM outbound_messages
+        WHERE template_key = 'staff_invitation' AND recipient_user_id = $1`,
+      [issued.userId],
+    );
+    expect(delivered.rows).toEqual([{ status: 'sent', channel: 'email', params: {} }]);
+    expect(JSON.stringify(delivered.rows)).not.toContain(tokenOf(issued.link as string));
     const created = (await auditRows(h.db, 'user.created')).at(-1)!;
     expect(created).toMatchObject({ actor_user_id: head.id, entity_id: issued.userId });
     expect(JSON.stringify(created.new)).not.toContain(body.email as string);

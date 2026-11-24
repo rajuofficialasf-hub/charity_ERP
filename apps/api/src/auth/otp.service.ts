@@ -9,6 +9,7 @@ import type { Clock } from '../core/clock.js';
 import { type PrismaService } from '../core/prisma.service.js';
 import { ApiError } from '../i18n/api-error.js';
 import type { EmailAdapter, SmsAdapter } from '../notifications/adapters.js';
+import type { DirectDeliveries } from '../notifications/direct-deliveries.js';
 
 /** OTP parameters (docs/architecture/AUTH.md, "Registration with two OTPs"). */
 export const OTP_RULES = {
@@ -59,6 +60,8 @@ export class OtpDeliveryService {
     private readonly sms: SmsAdapter,
     private readonly email: EmailAdapter,
     private readonly logger: Logger,
+    /** Lists each code on the deliveries page, without the code itself. */
+    private readonly deliveries?: DirectDeliveries,
   ) {}
 
   get dummy(): boolean {
@@ -82,6 +85,12 @@ export class OtpDeliveryService {
         { purpose: target.purpose, channel: target.channel },
         'dummy OTP issued; nothing sent',
       );
+      await this.deliveries?.record({
+        templateKey,
+        channel: target.channel,
+        address: target.address,
+        status: 'dry_run',
+      });
       return;
     }
     const template = NOTIFICATION_TEMPLATES.find((t) => t.key === templateKey);
@@ -90,9 +99,26 @@ export class OtpDeliveryService {
       code,
       minutes: String(OTP_RULES.validMs / 60_000),
     });
-    if (target.channel === 'sms') await this.sms.send({ to: target.address, body: text.body });
-    else
-      await this.email.send({ to: target.address, subject: text.subject ?? '', text: text.body });
+    try {
+      if (target.channel === 'sms') await this.sms.send({ to: target.address, body: text.body });
+      else
+        await this.email.send({ to: target.address, subject: text.subject ?? '', text: text.body });
+    } catch (error) {
+      await this.deliveries?.record({
+        templateKey,
+        channel: target.channel,
+        address: target.address,
+        status: 'failed',
+        error: error instanceof Error ? error.name : 'error',
+      });
+      throw error;
+    }
+    await this.deliveries?.record({
+      templateKey,
+      channel: target.channel,
+      address: target.address,
+      status: 'sent',
+    });
   }
 }
 

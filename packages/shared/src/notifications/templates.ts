@@ -241,6 +241,20 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'role_changed',
+    variables: ['role_name'],
+    channels: inApp(
+      {
+        title: 'আপনার রোল বদলেছে',
+        body: 'আপনার নতুন রোল: {{role_name}}। মেনু আর কাজের তালিকা এখন এই রোল অনুযায়ী।',
+      },
+      {
+        title: 'Your role changed',
+        body: 'Your new role: {{role_name}}. The menu and your work now follow this role.',
+      },
+    ),
+  },
+  {
     key: 'permission_changed',
     variables: ['summary'],
     channels: inApp(
@@ -854,6 +868,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
   message: 'এবার সম্ভব হলো না',
   app_no: 'WC-2026-00012',
+  role_name: { bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার', en: 'Regional Program Manager' },
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
   work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
@@ -881,6 +896,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'field_name',
   // the application's number, never the person's name
   'app_no',
+  // the reader's own new role
+  'role_name',
   // the reader's own new designation
   'designation',
   'project_name',

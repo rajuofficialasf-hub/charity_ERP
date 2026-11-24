@@ -25,6 +25,8 @@ export interface AuditEntryView {
   action: string;
   entityType: string;
   entityId: string | null;
+  /** Who or what the entry is about, by name or number: a person, a profile, an application. */
+  entityName: string | null;
   actor: { id: string; name: string } | null;
   actorRole: string | null;
   reason: string | null;
@@ -130,6 +132,7 @@ export class AuditLogService {
       secret: this.env.CURSOR_SECRET,
       binding,
     });
+    const nameOf = await this.entityNames(rows);
     return {
       rows: rows.map((r): AuditEntryView => ({
         id: r.id,
@@ -137,6 +140,7 @@ export class AuditLogService {
         action: r.action,
         entityType: r.entityType,
         entityId: r.entityId,
+        entityName: r.entityId ? (nameOf.get(`${r.entityType}:${r.entityId}`) ?? null) : null,
         actor: r.actorUser ? { id: r.actorUser.id, name: r.actorUser.displayName } : null,
         actorRole: r.actorRole,
         reason: r.reason,
@@ -147,6 +151,50 @@ export class AuditLogService {
       })),
       meta: { ...meta, from, to },
     };
+  }
+
+  /**
+   * The names of a page's entities, read once per kind: a person (an account or a volunteer) by
+   * name, a beneficiary profile by name, an application by its number.
+   */
+  private async entityNames(
+    rows: readonly { entityType: string; entityId: string | null }[],
+  ): Promise<Map<string, string>> {
+    const ids = (type: string) => [
+      ...new Set(rows.filter((r) => r.entityType === type && r.entityId).map((r) => r.entityId!)),
+    ];
+    const names = new Map<string, string>();
+    const [users, volunteers, beneficiaries, applications] = await Promise.all([
+      ids('user').length
+        ? this.prisma.user.findMany({
+            where: { id: { in: ids('user') } },
+            select: { id: true, displayName: true },
+          })
+        : [],
+      ids('volunteer').length
+        ? this.prisma.volunteer.findMany({
+            where: { id: { in: ids('volunteer') } },
+            select: { id: true, user: { select: { displayName: true } } },
+          })
+        : [],
+      ids('beneficiary').length
+        ? this.prisma.beneficiary.findMany({
+            where: { id: { in: ids('beneficiary') } },
+            select: { id: true, name: true },
+          })
+        : [],
+      ids('application').length
+        ? this.prisma.application.findMany({
+            where: { id: { in: ids('application') } },
+            select: { id: true, appNo: true },
+          })
+        : [],
+    ]);
+    for (const u of users) names.set(`user:${u.id}`, u.displayName);
+    for (const v of volunteers) names.set(`volunteer:${v.id}`, v.user.displayName);
+    for (const b of beneficiaries) names.set(`beneficiary:${b.id}`, b.name);
+    for (const a of applications) if (a.appNo) names.set(`application:${a.id}`, a.appNo);
+    return names;
   }
 
   /**

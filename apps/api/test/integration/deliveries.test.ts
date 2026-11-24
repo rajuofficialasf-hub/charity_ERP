@@ -115,6 +115,29 @@ describe('the delivery page', () => {
     expect(maskAddress('01712345678', 'sms')).toBe('017******78');
   });
 
+  it('lists a one-time code sent at once, with neither the code nor the address in full', async () => {
+    const start = await api().post('/api/v1/auth/register/start').send({});
+    const registrationId = start.body.data.registrationId as string;
+    const mobile = `017${String(Date.now()).slice(-8)}`;
+    await api()
+      .post('/api/v1/auth/register/otp/send')
+      .send({ registrationId, channel: 'sms', address: mobile })
+      .expect(204);
+    const res = await api()
+      .get('/api/v1/admin/deliveries')
+      .query({ channel: 'sms' })
+      .set(bearer(monitoring));
+    const row = (res.body.data as { address: string; templateKey: string; status: string }[]).find(
+      (d) => d.address === maskAddress(mobile, 'sms'),
+    );
+    // the dummy code of development and test sends nothing: the row says so
+    expect(row).toMatchObject({ status: 'dry_run' });
+    expect(row!.templateKey).toMatch(/otp/);
+    const text = JSON.stringify(res.body);
+    expect(text).not.toContain(mobile);
+    expect(text).not.toContain('123456');
+  });
+
   it('is for the global roles: 403 for a PM, 401 without a session', async () => {
     await api().get('/api/v1/admin/deliveries').set(bearer(pm)).expect(403);
     await api().get('/api/v1/admin/deliveries').expect(401);

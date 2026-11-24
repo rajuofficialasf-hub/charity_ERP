@@ -30,6 +30,7 @@ import { DeliveryError, type EmailAdapter } from '../notifications/adapters.js';
 import type { SettingsService } from './settings.js';
 import { assertHeadSeatFree, headSeatError } from './department-head.js';
 import { isGivableOfficialRole, refuseRole } from './registrations.js';
+import type { DirectDeliveries } from '../notifications/direct-deliveries.js';
 
 /** The set-password link: 72 hours, once. */
 export const INVITATION_RULES = { validMs: 72 * 3_600_000 } as const;
@@ -104,6 +105,8 @@ export class StaffAccountsService {
     private readonly email: EmailAdapter,
     private readonly logger: Logger,
     private readonly settings: SettingsService,
+    /** Lists each set-password link on the deliveries page, without the link. */
+    private readonly deliveries?: DirectDeliveries,
   ) {}
 
   /** Creates the pending account, gives the role and issues the link. */
@@ -372,7 +375,22 @@ export class StaffAccountsService {
       try {
         await this.email.send({ to: user.email, subject: text.subject ?? '', text: text.body });
         emailed = true;
+        await this.deliveries?.record({
+          templateKey: 'staff_invitation',
+          channel: 'email',
+          address: user.email,
+          recipientUserId: userId,
+          status: 'sent',
+        });
       } catch (error) {
+        await this.deliveries?.record({
+          templateKey: 'staff_invitation',
+          channel: 'email',
+          address: user.email,
+          recipientUserId: userId,
+          status: 'failed',
+          error: error instanceof DeliveryError ? error.message : 'error',
+        });
         // the adapter's error names the SMTP class only, never the address
         this.logger.warn(
           { userId, reason: error instanceof DeliveryError ? error.message : 'error' },

@@ -111,14 +111,13 @@ describe('a role change', () => {
         reason: REASON,
       },
     ]);
-    const told = await notificationsOf(h.db, 'permission_changed', target.id);
+    // a notice of its own naming the new role, never joined with a permission change after it
+    const told = await notificationsOf(h.db, 'role_changed', target.id);
     expect(told).toHaveLength(1);
     expect(told[0]!.params).toMatchObject({
-      summary: {
-        en: 'your role is now Regional Program Manager',
-        bn: 'আপনার রোল এখন রিজিওনাল প্রোগ্রাম ম্যানেজার',
-      },
+      role_name: { en: 'Regional Program Manager', bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার' },
     });
+    expect(await notificationsOf(h.db, 'permission_changed', target.id)).toEqual([]);
     // the next request with the token of the old role is refused, and a refresh would follow
     const stale = await api().get('/api/v1/auth/me').set(bearer(session)).expect(401);
     expect(stale.body.error.code).toBe('auth.token_stale');

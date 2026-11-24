@@ -1,3 +1,4 @@
+import { uuidv7 } from '@css/shared';
 import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import type { Bilingual, MessageKey, MessageParams } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
@@ -289,17 +290,12 @@ export class AccountEvents {
     role: { nameBn: string; nameEn: string },
     actorId: string,
   ): Promise<void> {
-    const key = 'common.notification.role_changed' satisfies MessageKey;
+    // a notice of its own, named by the new role, so a permission change after it never joins it
     await this.notifications.publish(tx, {
-      key: 'permission_changed',
+      key: 'role_changed',
       recipients: [{ user: userId }],
-      params: {
-        summary: {
-          bn: translate('bn', key, { role: role.nameBn }),
-          en: translate('en', key, { role: role.nameEn }),
-        },
-      },
-      about: userId,
+      params: { role_name: { bn: role.nameBn, en: role.nameEn } },
+      about: `role:${uuidv7()}`,
       actorId,
     });
   }

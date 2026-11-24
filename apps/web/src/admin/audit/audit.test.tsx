@@ -137,8 +137,8 @@ describe('the audit viewer', () => {
     await screen.findByRole('table', { name: 'অডিট লগের এন্ট্রি' });
     const user = userEvent.setup();
     const action = screen.getAllByRole('textbox', { name: /^কাজ/ })[0]!;
-    await user.type(action, 'settings.change');
-    await user.tab();
+    // Enter applies it, as leaving the field does
+    await user.type(action, 'settings.change{Enter}');
     await waitFor(() => expect(requests.at(-1)?.get('action')).toBe('settings.change'));
   });
 
@@ -157,10 +157,44 @@ describe('the audit viewer', () => {
     expect(before).toHaveTextContent('"reviewPendingDays": 7');
     expect(after).toHaveTextContent('"reviewPendingDays": 8');
     expect(within(drawer).getByText('10.1.2.3')).toBeInTheDocument();
+    // what changed, read from the two values
+    const changes = within(drawer).getByRole('region', { name: 'কী বদলাল' });
+    expect(changes).toHaveTextContent('reviewPendingDays');
+    expect(changes).toHaveTextContent('7 থেকে 8');
     await user.click(within(drawer).getByRole('button', { name: 'এই বিষয়ের পুরো ইতিহাস' }));
     await waitFor(() => expect(requests.at(-1)?.get('entityId')).toBe(ENTRY.entityId));
     expect(requests.at(-1)?.get('entityType')).toBe('reference_list');
     expect(await screen.findByText(/একটি বিষয়ের পুরো ইতিহাস/)).toBeInTheDocument();
+  });
+
+  it('names whom an entry is about, and the permissions a change added and took away', async () => {
+    refreshAs(MONITORING);
+    serve(() =>
+      HttpResponse.json({
+        data: [
+          {
+            ...ENTRY,
+            action: 'permission_change',
+            entityType: 'user',
+            entityName: 'নমুনা কর্মকর্তা',
+            old: { grants: ['permission.view', 'audit.view'] },
+            new: { grants: ['permission.view', 'application.review'] },
+          },
+        ],
+        meta: { nextCursor: null, prevCursor: null, from: '2026-09-17', to: '2026-10-17' },
+      }),
+    );
+    open();
+    const user = userEvent.setup();
+    const [details] = await screen.findAllByRole('button', {
+      name: 'permission_change বিস্তারিত দেখুন',
+    });
+    await user.click(details!);
+    const drawer = await screen.findByRole('dialog', { name: 'অডিট এন্ট্রি' });
+    expect(within(drawer).getByText('নমুনা কর্মকর্তা (user)')).toBeInTheDocument();
+    const changes = within(drawer).getByRole('region', { name: 'কী বদলাল' });
+    expect(changes).toHaveTextContent('যোগ হয়েছে: application.review');
+    expect(changes).toHaveTextContent('বাদ গেছে: audit.view');
   });
 
   it('shows the forbidden content to a Program Manager', async () => {

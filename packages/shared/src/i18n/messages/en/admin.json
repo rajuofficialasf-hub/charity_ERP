@@ -1996,7 +1996,11 @@
       "old": "Old value",
       "new": "New value",
       "nothing": "Nothing",
-      "history": "The whole history of this entity"
+      "history": "The whole history of this entity",
+      "changes": "What changed",
+      "added": "Added: {items}",
+      "removed": "Removed: {items}",
+      "changed": "{from} to {to}"
     },
     "eyebrow": "Accountability",
     "description": "Who changed or viewed what, and when: permission changes, views of sensitive data and important actions.",
