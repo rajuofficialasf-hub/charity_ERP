@@ -154,7 +154,10 @@ describe('the notification links', () => {
     ])
       expect(notificationLink(key, { applicationId: UUID }, 'volunteer'), key).toBe(
         `/my-applications/${UUID}`,
-      );
+      ); // an official who entered a returned value opens the office's page of the application
+    expect(notificationLink('field_refused', { applicationId: UUID }, 'staff')).toBe(
+      `/admin/applications/${UUID}`,
+    );
   });
 
   it('never turn a forged id into a path', () => {

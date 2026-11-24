@@ -83,7 +83,8 @@ export class ApplicationEvents {
         field_name: { bn: input.question.bn, en: input.question.en ?? input.question.bn },
         projectId: input.application.projectId,
         applicationId: input.application.id,
-        ...(input.message ? { message: input.message } : {}),
+        // the returned value's notice names the message, an empty one when none was written
+        ...(key === 'field_refused' ? { message: input.message ?? '' } : {}),
       },
       about: input.application.id,
       actorId: input.actorId,

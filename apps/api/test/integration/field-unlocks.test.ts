@@ -272,6 +272,15 @@ describe('an unlock from opening to the decision', () => {
       message: 'পরিবারের সদস্য আবার গুনে দিন',
     });
     expect(JSON.stringify(told)).not.toContain('সংখ্যা মেলেনি');
+    // a send-back without a message still tells, with nothing after the sentence
+    const again = await opened(rpm, id, 'q_count');
+    await fill(await as(world.users.general), again, { t: 'number', v: 8 });
+    expect((await decide(rpm, again, { decision: 'refuse', reason: 'আবার মেলেনি' })).status).toBe(
+      200,
+    );
+    expect(
+      (await notificationsOf(h.db, 'field_refused', world.users.general)).at(-1)?.params,
+    ).toMatchObject({ message: '' });
     expect(refused.body.data).toMatchObject({
       decision: 'refused',
       decisionReason: 'সংখ্যা মেলেনি',

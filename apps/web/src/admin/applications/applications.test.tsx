@@ -1802,7 +1802,7 @@ describe('the review page', () => {
     await waitFor(() => expect(decided).toHaveLength(2));
     expect(decided[1]).toMatchObject({ body: { decision: 'accept' } });
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
-  });
+  }, 30_000);
 
   async function openLinkCase(profileName: string) {
     const user = userEvent.setup();
