@@ -270,8 +270,9 @@ test.describe('registration approval', () => {
 
     // the volunteer fixes it on the phone and submits again
     await signIn(mobile, person.mobile, PASSWORD);
+    // the home names the correction asked of the volunteer, not only the wait
     await expect(
-      mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
+      mobile.getByText('আপনার নিবন্ধনে কিছু তথ্য ঠিক করতে বলা হয়েছে', { exact: false }),
     ).toBeVisible();
     await fromProfileMenu(mobile, 'আমার প্রোফাইল');
     await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
