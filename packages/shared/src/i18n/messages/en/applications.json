@@ -124,6 +124,7 @@
     "summary": "Showing {from}–{to} · {total} applications in all",
     "column": {
       "device_time": "Taken on the phone at",
+      "link_time": "Filled through the public link at",
       "person": "Beneficiary",
       "area": "Area",
       "status": "Status",
@@ -215,6 +216,8 @@
       "flag": {
         "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",
         "public_entry_short": "Public entry",
+        "public_entry_verified": "Came through the public link; the office verified it.",
+        "public_entry_came": "Came through the public link.",
         "late_sync": "Taken on a phone before the deadline and sent after it; check it and verify.",
         "stale_form_version": "Taken on a phone with an older version of the form; check whether the new questions matter.",
         "existing_identity": "A profile with this number already exists.",

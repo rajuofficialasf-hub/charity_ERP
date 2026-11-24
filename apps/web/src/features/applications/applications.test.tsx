@@ -613,8 +613,9 @@ describe('one application', () => {
     await expectNoAxeViolations(view.container);
     const send = screen.getByRole('button', { name: 'পাঠান' });
     expect(send).toBeDisabled();
+    // the new answer starts empty, the old one written above it, so typing never joins them
     const box = screen.getByRole('textbox', { name: /মন্তব্য/ });
-    await user.clear(box);
+    expect(box).toHaveValue('');
     await user.type(box, 'নতুন মন্তব্য');
     await user.click(send);
     expect(

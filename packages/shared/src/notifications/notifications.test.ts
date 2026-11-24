@@ -143,6 +143,20 @@ describe('the notification links', () => {
     );
   });
 
+  it('open the one application a decision or a returned answer is about', () => {
+    for (const key of [
+      'application_approved',
+      'application_rejected',
+      'application_waitlisted',
+      'application_reopened',
+      'field_unlocked',
+      'field_refused',
+    ])
+      expect(notificationLink(key, { applicationId: UUID }, 'volunteer'), key).toBe(
+        `/my-applications/${UUID}`,
+      );
+  });
+
   it('never turn a forged id into a path', () => {
     expect(
       notificationLink('project_assignment', { projectId: 'javascript:alert(1)' }, 'volunteer'),

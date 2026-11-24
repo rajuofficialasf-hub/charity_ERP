@@ -174,10 +174,18 @@ export const openUnlock = (applicationId: string, fieldKey: string, reason: stri
   });
 
 /** Accepts the entered value, or sends it back with a reason. */
-export const decideUnlock = (unlockId: string, decision: 'accept' | 'refuse', reason?: string) =>
+export const decideUnlock = (
+  unlockId: string,
+  decision: 'accept' | 'refuse',
+  texts: { reason?: string; message?: string } = {},
+) =>
   api<Unlock>(`/application-unlocks/${unlockId}/decision`, {
     method: 'POST',
-    body: { decision, ...(reason ? { reason } : {}) },
+    body: {
+      decision,
+      ...(texts.reason ? { reason: texts.reason } : {}),
+      ...(texts.message ? { message: texts.message } : {}),
+    },
   });
 
 /** Ends a waiting unlock with a reason; the old value stays. */

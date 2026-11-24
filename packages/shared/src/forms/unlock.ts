@@ -79,7 +79,12 @@ export type UnlockValue = z.infer<typeof unlockValueSchema>;
 
 /** The decision on an entered value; a refusal says why. */
 export const unlockDecisionSchema = z
-  .strictObject({ decision: z.enum(['accept', 'refuse']), reason: reason.optional() })
+  .strictObject({
+    decision: z.enum(['accept', 'refuse']),
+    reason: reason.optional(),
+    /** On a send-back, what the person who gave the value reads (never the office's reason); an acceptance ignores it. */
+    message: z.string().trim().min(3).max(2000).optional(),
+  })
   .refine((d) => d.decision === 'accept' || d.reason !== undefined, {
     path: ['reason'],
     message: 'validation.required',

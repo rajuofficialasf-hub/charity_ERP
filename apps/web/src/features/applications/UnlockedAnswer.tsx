@@ -29,7 +29,7 @@ export function AnswerValueText({ field, value }: { field: FormField; value: unk
 
 /**
  * One answer opened for correction, as the person who gives the new value sees it: the previous
- * answer, the question drawn as in the form with that answer to start from, and "পাঠান"; once
+ * answer, the question drawn as in the form and empty, and "পাঠান"; once
  * sent, the new answer waiting for the office's verification. The screen that owns the record
  * says how the value travels (through the outbox for a volunteer).
  */
@@ -49,7 +49,8 @@ export function UnlockedAnswer({
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const old = valueOf(unlock.oldValue);
-  const [value, setValue] = useState<AnswerValue | null>(old ?? null);
+  // the new answer starts empty, the old one written above it: typing never lands after it
+  const [value, setValue] = useState<AnswerValue | null>(null);
   const send = useMutation({
     mutationFn: () => fill(value),
     onSuccess: async () => {

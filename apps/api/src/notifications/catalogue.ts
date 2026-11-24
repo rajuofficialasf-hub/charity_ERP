@@ -56,6 +56,7 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   application_waitlisted: entry('info'),
   field_unlocked: entry('work'),
   field_updated: entry('work'),
+  field_refused: entry('work'),
   application_transferred: entry('work'),
   application_transferred_away: entry('info'),
   application_reopened: entry('info'),

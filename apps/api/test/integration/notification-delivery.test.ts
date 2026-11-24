@@ -240,22 +240,52 @@ describe('delivering a queued email', () => {
 });
 
 describe('the template sync of the deploy', () => {
-  it('inserts nothing the second time and never overwrites an edited template', async () => {
+  it('inserts nothing the second time and fills a missing language', async () => {
     const url = h.container.env.DATABASE_URL;
-    expect(await syncNotificationTemplates(url)).toBe(0);
-    await h.db.query(
-      `UPDATE notification_templates SET body = 'Edited by the admin'
-        WHERE key = 'registration_approved' AND channel = 'in_app' AND locale = 'en'`,
-    );
+    expect(await syncNotificationTemplates(url)).toEqual({ inserted: 0, upgraded: 0 });
     await h.db.query(
       `DELETE FROM notification_templates WHERE key = 'registration_rejected' AND locale = 'bn'`,
     );
-    expect(await syncNotificationTemplates(url)).toBe(1);
-    const { rows } = await h.db.query<{ body: string }>(
-      `SELECT body FROM notification_templates
-        WHERE key = 'registration_approved' AND channel = 'in_app' AND locale = 'en'`,
+    expect(await syncNotificationTemplates(url)).toEqual({ inserted: 1, upgraded: 0 });
+  });
+
+  it('gives a shipped text that changed a new version, and never touches one an administrator edited', async () => {
+    const url = h.container.env.DATABASE_URL;
+    const admin = (await account(h.db, { role: 'admin' })).id;
+    // a text the system wrote earlier, now different from the shipped one
+    await h.db.query(
+      `UPDATE notification_templates SET body = 'An earlier shipped text'
+        WHERE key = 'application_approved' AND channel = 'in_app' AND locale = 'en' AND active`,
     );
-    expect(rows.map((r) => r.body)).toEqual(['Edited by the admin']);
+    // an administrator's edit: a new version the person created
+    await h.db.query(
+      `UPDATE notification_templates SET active = false
+        WHERE key = 'registration_approved' AND channel = 'in_app' AND active`,
+    );
+    await h.db.query(
+      `INSERT INTO notification_templates (id, key, channel, locale, title, body, variables, version, active, created_by)
+       SELECT gen_random_uuid(), key, channel, locale, title, 'Edited by the admin', variables, version + 1, true, $1
+         FROM notification_templates WHERE key = 'registration_approved' AND channel = 'in_app' AND version = 1`,
+      [admin],
+    );
+    expect(await syncNotificationTemplates(url)).toEqual({ inserted: 0, upgraded: 1 });
+    const approved = await h.db.query<{ body: string; version: number; active: boolean }>(
+      `SELECT body, version, active FROM notification_templates
+        WHERE key = 'application_approved' AND channel = 'in_app' AND locale = 'en' ORDER BY version`,
+    );
+    // the old version stays for the entries it rendered; the new one is the shipped text
+    expect(approved.rows[0]).toMatchObject({ body: 'An earlier shipped text', active: false });
+    expect(approved.rows.at(-1)).toMatchObject({
+      active: true,
+      version: approved.rows[0]!.version + 1,
+    });
+    expect(approved.rows.at(-1)!.body).not.toBe('An earlier shipped text');
+    const edited = await h.db.query<{ body: string }>(
+      `SELECT body FROM notification_templates
+        WHERE key = 'registration_approved' AND channel = 'in_app' AND active`,
+    );
+    expect(edited.rows.map((r) => r.body)).toEqual(['Edited by the admin', 'Edited by the admin']);
+    expect(await syncNotificationTemplates(url)).toEqual({ inserted: 0, upgraded: 0 });
   });
 });
 

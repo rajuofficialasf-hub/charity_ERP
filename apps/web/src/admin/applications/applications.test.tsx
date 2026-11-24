@@ -766,6 +766,31 @@ describe('the list', () => {
 });
 
 describe('the review page', () => {
+  it('tells a verified public entry as one, without the words that asked for its verification', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            flags: ['public_entry', 'existing_identity'],
+            status: 'submitted',
+            clientCreatedAt: '2026-10-30T08:15:00.000Z',
+          }),
+        ),
+      ),
+    );
+    openReview();
+    expect(
+      await screen.findByText('পাবলিক লিংক থেকে এসেছে; অফিস যাচাই করেছে।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/যাচাই করে প্রোফাইলে যুক্ত করুন/)).toBeNull();
+    expect(screen.queryByText('এই নম্বরের একটি প্রোফাইল আগে থেকেই আছে।')).toBeNull();
+    // filled on the visitor's device through the link, not taken on a volunteer's phone
+    expect(screen.getByText('পাবলিক লিংক থেকে এসেছে')).toBeInTheDocument();
+    expect(screen.queryByText('ফোনে নেওয়া হয়েছে')).toBeNull();
+  });
+
   it('shows the signals, the official section, the steps with their actors, the change log, and only the allowed actions', async () => {
     refreshAs(EXECUTIVE);
     serve();
@@ -1750,15 +1775,20 @@ describe('the review page', () => {
       within(card).getByText('নতুন উত্তরটি আপনি দিয়েছেন, তাই অন্য একজন কর্মকর্তা যাচাই করবেন।'),
     ).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
-    // sending back asks why
+    // sending back asks why, and what the person who gave the value reads
     await user.click(within(card).getByRole('button', { name: 'ফেরত দিন' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন উত্তর ফেরত দিন' });
     await user.type(within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }), 'নাম মেলেনি');
+    expect(within(dialog).getByRole('button', { name: 'ফেরত দিন' })).toBeDisabled();
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /স্বেচ্ছাসেবকের জন্য বার্তা/ }),
+      'গ্রামের নাম আবার দেখে দিন',
+    );
     await user.click(within(dialog).getByRole('button', { name: 'ফেরত দিন' }));
     await waitFor(() => expect(decided).toHaveLength(1));
     expect(decided[0]).toEqual({
       id: '01900000-0000-7000-8000-0000000000f1',
-      body: { decision: 'refuse', reason: 'নাম মেলেনি' },
+      body: { decision: 'refuse', reason: 'নাম মেলেনি', message: 'গ্রামের নাম আবার দেখে দিন' },
     });
     await user.click(within(card).getByRole('button', { name: 'গ্রহণ করুন' }));
     await waitFor(() => expect(decided).toHaveLength(2));

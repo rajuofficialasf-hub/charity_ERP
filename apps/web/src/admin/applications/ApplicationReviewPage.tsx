@@ -323,7 +323,10 @@ function Review() {
             ...(a.clientCreatedAt
               ? [
                   {
-                    label: t('column.device_time'),
+                    // a public entry was filled on the visitor's own device, through the link
+                    label: t(
+                      a.flags.includes('public_entry') ? 'column.link_time' : 'column.device_time',
+                    ),
                     value: formatDateTime(a.clientCreatedAt, locale),
                   },
                 ]

@@ -699,6 +699,9 @@ describe('the waitlist', () => {
     expect(waitlisted.length).toBeGreaterThan(0);
     expect(approved.length).toBeGreaterThan(0);
     expect(JSON.stringify([...waitlisted, ...approved])).not.toContain('গোপন কারণ');
+    // each names the application's number and leads to it
+    for (const entry of [waitlisted.at(-1), approved.at(-1)])
+      expect(entry?.params).toMatchObject({ applicationId: id, app_no: expect.any(String) });
   });
 
   it('refuses the pull to a volunteer, to an official of another region and for an area outside the quotas', async () => {

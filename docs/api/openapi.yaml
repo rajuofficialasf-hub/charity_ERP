@@ -11109,7 +11109,9 @@ paths:
         accepted value replaces the answer if it is still the one the unlock opened (409
         application.unlock_stale otherwise); a mobile or an address reaches the person's profile
         through the contact service with its own change log, and the application's district and
-        union follow an address. Every step stays on the change log and in the audit log.
+        union follow an address. Every step stays on the change log and in the audit log. A refusal
+        tells the person who entered the value (`field_refused`, with the application's number and
+        the optional message written for them, never the reason).
       x-permission: application.unlock_field
       x-scope: application
       x-audit: application.unlock_decided
@@ -11126,6 +11128,7 @@ paths:
               properties:
                 decision: { type: string, enum: [accept, refuse] }
                 reason: { type: string, minLength: 3, maxLength: 1000, description: Required for a refusal }
+                message: { type: string, minLength: 3, maxLength: 2000, description: 'On a refusal, what the person who entered the value reads; an acceptance ignores it' }
       responses:
         '200':
           description: Decided; the answer is locked again
