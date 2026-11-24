@@ -91,7 +91,8 @@ export function StaffPage() {
       <Page
         eyebrow={t('eyebrow')}
         title={t('title')}
-        description={t('description')}
+        // whoever cannot add an official is not told to
+        description={t(manage ? 'description' : 'description_view')}
         actions={
           <>
             <StaffViewSwitch value="list" />

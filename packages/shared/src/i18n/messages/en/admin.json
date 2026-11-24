@@ -57,7 +57,10 @@
       "place_required": "Choose the area.",
       "ref_required": "Choose which one.",
       "limit": "No more than {max} at once. Give these first, then the rest.",
-      "project_cap": "The newest {count} sessions are shown."
+      "project_cap": "The newest {count} sessions are shown.",
+      "title_revoke": "Take permissions away",
+      "admin_only": "Given by an Admin only",
+      "scope_choose": "Choose the scope"
     },
     "granted": "Permission granted",
     "removed": "Permission removed",
@@ -91,7 +94,31 @@
     "lift_title": "Give a permission back",
     "lift_body": "This permission taken away takes effect again: {permission}",
     "lift_confirm": "Give back",
-    "lifted": "The permission has been given back"
+    "lifted": "The permission has been given back",
+    "modules": {
+      "M01": "Sign-in and sessions",
+      "M02": "Users, roles and permissions",
+      "M03": "Registration and approval",
+      "M04": "Volunteers",
+      "M05": "Beneficiaries",
+      "M06": "Programs and projects",
+      "M07": "Forms",
+      "M08": "Applications",
+      "M09": "Project activities",
+      "M10": "Budget and ledger",
+      "M11": "Qurbani",
+      "M12": "Dawah",
+      "M13": "Documents (SOP)",
+      "M14": "Monitoring and follow-up",
+      "M15": "Audit log",
+      "M16": "Dashboards, reports and exports",
+      "M17": "Notifications",
+      "M18": "Files and media",
+      "M19": "Locations",
+      "M20": "Languages",
+      "M21": "Admin and settings",
+      "M22": "Offline sync"
+    }
   },
   "registrations": {
     "title": "Registrations",
@@ -1718,7 +1745,8 @@
       "given_by_system": "Given by the system, {date}",
       "ended_by": "Ended by {name}, {date}",
       "none": "No role has been given."
-    }
+    },
+    "description_view": "See the officials' profiles, roles and programs."
   },
   "settings": {
     "title": "Settings",

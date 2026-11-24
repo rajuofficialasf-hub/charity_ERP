@@ -168,6 +168,16 @@ beforeEach(() => {
   catalogue();
 });
 
+/** Chooses the scope of a change by its name. */
+async function chooseScope(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+  name: string,
+) {
+  await user.click(within(dialog).getByRole('combobox', { name: /স্কোপ/ }));
+  await user.click(await screen.findByRole('option', { name }));
+}
+
 describe('permission panel', () => {
   it('shows a user effective permissions by module with scope and source', async () => {
     const user = userEvent.setup();
@@ -188,7 +198,7 @@ describe('permission panel', () => {
     );
     await chooseExecutive(user);
     const section = await screen.findByRole('region', { name: 'কার্যকর পারমিশন' });
-    expect(within(section).getByRole('heading', { name: 'মডিউল M08' })).toBeInTheDocument();
+    expect(within(section).getByRole('heading', { name: 'আবেদন' })).toBeInTheDocument();
     // each permission by its name, with its code beside it
     expect(within(section).getAllByText('আবেদন রিভিউ করা').length).toBeGreaterThan(0);
     expect(within(section).getAllByText('application.review').length).toBeGreaterThan(0);
@@ -359,6 +369,52 @@ describe('permission panel', () => {
     await waitFor(() => expect(projectReads).toBeGreaterThan(before));
   }, 30_000);
 
+  it('marks an Admin’s own permissions and offers them only to an Admin to give', async () => {
+    const user = userEvent.setup();
+    const catalogue = [
+      {
+        name: 'settings.manage',
+        title: { bn: 'সেটিংস পরিচালনা', en: 'Manage settings' },
+        module: 'M21',
+        sensitive: false,
+        description: 'Test',
+        adminOnly: true,
+      },
+      {
+        name: 'permission.view',
+        title: { bn: 'কার কী পারমিশন আছে দেখা', en: 'View who holds what' },
+        module: 'M02',
+        sensitive: false,
+        description: 'Test',
+        adminOnly: false,
+      },
+    ];
+    server.use(
+      http.get('*/api/v1/permissions', () => HttpResponse.json({ data: catalogue, meta })),
+    );
+    const head = renderPanel(HEAD);
+    await chooseExecutive(user);
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    let dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন যোগ করুন/ }), 'সেটিংস');
+    expect(screen.queryByRole('option', { name: /সেটিংস পরিচালনা/ })).toBeNull();
+    // taking it away is the Head's as well, and the dialog says it takes away
+    await user.click(within(dialog).getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' }));
+    expect(await screen.findByRole('dialog', { name: 'পারমিশন সরিয়ে নিন' })).toBeInTheDocument();
+    head.unmount();
+    resetClientForTests();
+    renderPanel({ ...HEAD, roles: ['admin'] });
+    await chooseExecutive(user);
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    await addPermission(
+      user,
+      dialog,
+      'সেটিংস',
+      /^সেটিংস পরিচালনা · settings\.manage · শুধু অ্যাডমিন দেন$/,
+    );
+  });
+
   it('shows the message of a refused change', async () => {
     const user = userEvent.setup();
     server.use(
@@ -383,6 +439,9 @@ describe('permission panel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     await addPermission(user, dialog, 'permission', /permission\.view$/);
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Trying it');
+    // the scope starts empty, so the whole country is never given by a forgotten choice
+    expect(within(dialog).getByRole('button', { name: 'দিন' })).toBeDisabled();
+    await chooseScope(user, dialog, 'সারা দেশ (GLOBAL)');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
     expect(
       await within(dialog).findByText('এই পারমিশন পরিবর্তন অনুমোদিত নয়।'),
@@ -531,6 +590,7 @@ describe('permission panel', () => {
     await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
     const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
     await addPermission(user, dialog, 'permission', /permission\.view$/);
+    await chooseScope(user, dialog, 'সারা দেশ (GLOBAL)');
     await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Long reason');
     await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
     expect(await within(dialog).findByText('লেখা অনেক লম্বা।')).toBeInTheDocument();

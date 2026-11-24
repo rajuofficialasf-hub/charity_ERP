@@ -27,7 +27,18 @@
   "permission": {
     "denied": "এই কাজের অনুমতি আপনার নেই।",
     "not_found": "খুঁজে পাওয়া যায়নি।",
-    "grant_refused": "এই পারমিশন পরিবর্তন অনুমোদিত নয়।"
+    "grant_refused": "এই পারমিশন পরিবর্তন অনুমোদিত নয়।",
+    "refused": {
+      "self_change": "নিজের পারমিশন নিজে বদলানো যায় না: {permission}।",
+      "top_role_protected": "অ্যাডমিন বা ডিপার্টমেন্ট হেডের পারমিশন সরিয়ে নেওয়া যায় না: {permission}।",
+      "key_permission_admin_only": "এই পারমিশন শুধু অ্যাডমিন দিতে পারেন: {permission}।",
+      "owner_transfer_only_admin": "এই পারমিশন শুধু একজন অ্যাডমিনকে দেওয়া যায়: {permission}।",
+      "global_scope_protected": "গ্লোবাল রোলের সারা দেশের পারমিশন সরিয়ে নেওয়া যায় না: {permission}।",
+      "sensitive_to_volunteer": "স্বেচ্ছাসেবককে এই সংবেদনশীল পারমিশন দেওয়া যায় না: {permission}।",
+      "role_admin_only": "এই রোল শুধু অ্যাডমিন দিতে পারেন: {permission}।",
+      "whole_country_top_roles_only": "সারা দেশের জন্য পারমিশন শুধু অ্যাডমিন বা ডিপার্টমেন্ট হেড দিতে পারেন: {permission}।",
+      "outside_own_reach": "নিজের এলাকার বাইরে এই পারমিশন দেওয়া যায় না: {permission}।"
+    }
   },
   "validation": {
     "name_variant_one_word": "একটি শব্দ লিখুন, মাঝে ফাঁকা জায়গা ছাড়া।",

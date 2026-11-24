@@ -1305,13 +1305,14 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     Permission:
       type: object
-      required: [name, title, module, sensitive, description]
+      required: [name, title, module, sensitive, description, adminOnly]
       properties:
         name: { type: string }
         title: { $ref: '#/components/schemas/Bilingual', description: 'The short name the panel shows, in both languages (D-188)' }
         module: { type: string }
         sensitive: { type: boolean }
         description: { type: string }
+        adminOnly: { type: boolean, description: 'A key permission: the administration of the system, which an Admin alone gives (a grant by anyone else answers 403 permission.grant_refused, its detail naming the permission)' }
     PermissionList:
       type: object
       required: [data, meta]

@@ -10,6 +10,7 @@ import { uuidv7 } from '@css/shared';
 import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective.js';
 import {
   type AccessChange,
+  KEY_PERMISSIONS,
   changeRefusal,
   endRefusal,
   type HardRule,
@@ -116,6 +117,8 @@ export class AccessPanelService {
       module: p.module,
       sensitive: p.sensitive,
       description: p.description,
+      // the administration of the system, which an Admin alone gives
+      adminOnly: KEY_PERMISSIONS.has(p.name),
     }));
   }
 
@@ -285,6 +288,8 @@ export class AccessPanelService {
     rule: RefusalRule | 'system_owner_protected',
     attempted: Record<string, string | string[] | null>,
     reason: string,
+    /** The permission of the request the rule refused, named in the answer. */
+    permission?: string,
   ): Promise<never> {
     await this.prisma.$transaction((tx) =>
       this.audit.record(tx, {
@@ -296,7 +301,14 @@ export class AccessPanelService {
       }),
     );
     if (rule === 'system_owner_protected') throw new ApiError('user.system_owner_protected', 409);
-    throw new ApiError('permission.grant_refused', 403, { rule });
+    throw new ApiError(
+      'permission.grant_refused',
+      403,
+      { rule },
+      permission
+        ? [{ path: 'permissions', code: `permission.refused.${rule}`, params: { permission } }]
+        : undefined,
+    );
   }
 
   /** Serializes permission changes of one user: role changes and version bumps lock the same row. */
@@ -366,7 +378,7 @@ export class AccessPanelService {
           effect: body.effect,
           scopeType: body.scopeType,
         });
-        if (rule) return { refused: rule };
+        if (rule) return { refused: rule, permission };
       }
       const old = {
         grants: await this.grantsOf(target.id, tx),
@@ -423,7 +435,14 @@ export class AccessPanelService {
       );
       return { refused: null, created };
     });
-    if (outcome.refused) return this.refuse(body.userId, outcome.refused, attempted, body.reason);
+    if (outcome.refused)
+      return this.refuse(
+        body.userId,
+        outcome.refused,
+        attempted,
+        body.reason,
+        'permission' in outcome ? outcome.permission : undefined,
+      );
     this.versions.settled(body.userId);
     return outcome.created.map((row) => ({
       id: row.id,

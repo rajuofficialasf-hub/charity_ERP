@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { api } from '../../api/client';
 import { LoadError } from '../../components/LoadError';
 import { showFailure, useSchemaResolver } from '../../lib/form-schema';
+import { useAuth } from '../../lib/auth';
 import type { PanelUser } from '../UserSearch';
 import { PERMISSIONS_KEY, permissionCatalogue } from './catalogue';
 import { ScopePicker } from './ScopePicker';
@@ -40,7 +41,8 @@ const GRANT_SCHEMA = z
   .object({
     effect: z.enum(['grant', 'revoke']),
     permissions: z.array(z.string()).max(PERMISSIONS_PER_REQUEST),
-    scopeType: z.enum(SCOPE_TYPES),
+    // chosen each time, never the whole country by default
+    scopeType: z.enum(SCOPE_TYPES).or(z.literal('')),
     scopeRef: z.string(),
     reason: z.string(),
     expiresAt: z.string(),
@@ -48,7 +50,9 @@ const GRANT_SCHEMA = z
   .superRefine((v, ctx) => {
     if (v.permissions.length === 0)
       ctx.addIssue({ code: 'custom', path: ['permissions'], message: 'validation.required' });
-    if (!UNBOUND.includes(v.scopeType) && !v.scopeRef.trim())
+    if (v.scopeType === '')
+      ctx.addIssue({ code: 'custom', path: ['scopeType'], message: 'validation.required' });
+    else if (!UNBOUND.includes(v.scopeType) && !v.scopeRef.trim())
       ctx.addIssue({ code: 'custom', path: ['scopeRef'], message: 'validation.required' });
     if (v.reason.trim().length < 3)
       ctx.addIssue({ code: 'custom', path: ['reason'], message: 'validation.too_short' });
@@ -57,7 +61,7 @@ type GrantFields = z.infer<typeof GRANT_SCHEMA>;
 const EMPTY: GrantFields = {
   effect: 'grant',
   permissions: [],
-  scopeType: 'GLOBAL',
+  scopeType: '',
   scopeRef: '',
   reason: '',
   expiresAt: '',
@@ -84,6 +88,9 @@ export function GrantDialog({
   const tc = useTranslations('common.action');
   const ts = useTranslations('common.state.error');
   const locale = useLocale() as Locale;
+  const { me } = useAuth();
+  // the key permissions are an Admin's to give; anyone else sees them marked and closed
+  const admin = me?.roles.includes('admin') ?? false;
   const form = useForm<GrantFields>({
     resolver: useSchemaResolver(GRANT_SCHEMA),
     defaultValues: EMPTY,
@@ -116,6 +123,7 @@ export function GrantDialog({
   };
 
   const save = async (v: GrantFields) => {
+    if (v.scopeType === '') return;
     try {
       await api<unknown>('/permission-grants', {
         method: 'POST',
@@ -144,7 +152,8 @@ export function GrantDialog({
 
   return (
     <Dialog
-      title={t('grant')}
+      // the title says what the dialog does: give or take away
+      title={values.effect === 'revoke' ? t('dialog.title_revoke') : t('grant')}
       open={open}
       onClose={close}
       dismissible={!pending}
@@ -161,7 +170,11 @@ export function GrantDialog({
         />
       }
     >
-      <Form form={form} onSubmit={save} label={t('grant')}>
+      <Form
+        form={form}
+        onSubmit={save}
+        label={values.effect === 'revoke' ? t('dialog.title_revoke') : t('grant')}
+      >
         {error && <Alert tone="error">{error}</Alert>}
         <Controller
           control={form.control}
@@ -211,9 +224,13 @@ export function GrantDialog({
                   onBlur={field.onBlur}
                   options={(permissions.data ?? [])
                     .filter((p) => !field.value.includes(p.name))
+                    // an Admin's own permissions are offered to an Admin to give, to anyone to take away
+                    .filter((p) => admin || !p.adminOnly || values.effect === 'revoke')
                     .map((p) => ({
                       value: p.name,
-                      label: `${localized(p.title, locale)} · ${p.name}`,
+                      label: `${localized(p.title, locale)} · ${p.name}${
+                        p.adminOnly ? ` · ${t('dialog.admin_only')}` : ''
+                      }`,
                     }))}
                   error={fieldState.error ? t('dialog.none_chosen') : undefined}
                 />
@@ -242,6 +259,7 @@ export function GrantDialog({
             <SelectField
               label={t('dialog.scope')}
               required
+              placeholder={t('dialog.scope_choose')}
               value={field.value}
               onChange={(id) => {
                 if (!id) return;
@@ -255,14 +273,14 @@ export function GrantDialog({
             />
           )}
         />
-        {values.scopeType && !UNBOUND.includes(values.scopeType) && (
+        {values.scopeType && !UNBOUND.includes(values.scopeType as ScopeTypeName) && (
           <Controller
             control={form.control}
             name="scopeRef"
             render={({ field, fieldState }) => (
               <ScopePicker
                 key={values.scopeType}
-                scopeType={values.scopeType!}
+                scopeType={values.scopeType as ScopeTypeName}
                 onChange={field.onChange}
                 error={fieldState.error ? t('dialog.ref_required') : undefined}
               />

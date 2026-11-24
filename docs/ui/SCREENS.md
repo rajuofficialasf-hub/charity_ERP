@@ -1406,6 +1406,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ## 9. Later-phase key screens
 
+- **After the Phase 1 and 2 UAT (2026-11-24).** The change dialog starts with no scope ("স্কোপ বেছে নিন"), so nothing goes to the whole country by a forgotten choice; its title says what it does ("পারমিশন দিন" or "পারমিশন সরিয়ে নিন"); an Admin's own permissions (`adminOnly` in `GET /permissions`) are marked "শুধু অ্যাডমিন দেন" for an Admin and not offered to anyone else to give, and a refused change names the permission its rule refused; the effective permissions are grouped by module name ("আবেদন", not "মডিউল M08"). The user picker of the panel, the handover and the project staff shows a person's role beside the name (it follows a role change, the designation may not), and the officials page tells whoever cannot add an official only what they can do.
+
 ### SCR-070 Issue log
 
 - **Purpose.** Raise, assign and resolve issues with photos on a project. Mainly house construction; safe water as well. Each entry is visible to everyone on the project (BD-24, BD-25).
