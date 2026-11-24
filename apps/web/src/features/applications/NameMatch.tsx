@@ -104,6 +104,7 @@ export function NameMatch({
         <TextField
           label={t('name')}
           value={name}
+          required
           error={errors.name}
           maxLength={200}
           onChange={(v) => {
@@ -114,6 +115,7 @@ export function NameMatch({
         <TextField
           label={t('father')}
           value={father}
+          required
           error={errors.father}
           maxLength={200}
           onChange={(v) => {
@@ -132,6 +134,7 @@ export function NameMatch({
         <TextField
           label={t('village')}
           value={village}
+          required
           error={errors.village}
           maxLength={200}
           onChange={(v) => {
