@@ -243,7 +243,9 @@ describe('the statistics of the volunteer tab', () => {
     const active = await someone(tree, { volunteer: { inactive_flag: true } });
     await someone(tree, { state: 'pending' });
     await someone(tree, { state: 'blocked' });
-    await someone(tree, { state: 'deactivated' });
+    // closed after its approval, and a registration the office rejected (never approved)
+    await someone(tree, { state: 'deactivated', volunteer: { approved_at: new Date() } });
+    const rejected = await someone(tree, { state: 'deactivated' });
     const project = await f.project(h.db);
     for (const status of ['draft', 'submitted', 'under_review', 'approved', 'completed'])
       await f.application(
@@ -259,9 +261,24 @@ describe('the statistics of the volunteer tab', () => {
     const res = await statistics(monitoring, { districtId: tree.district });
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({
-      volunteers: { total: 4, active: 1, pending: 1, blocked: 1, deactivated: 1, inactive: 1 },
+      volunteers: {
+        total: 5,
+        active: 1,
+        pending: 1,
+        blocked: 1,
+        deactivated: 1,
+        rejected: 1,
+        inactive: 1,
+      },
       applications: { total: 4, approved: 2, underReview: 2 },
     });
+    // the rejected registration is listed apart and told as rejected
+    const only = await list(monitoring, { districtId: tree.district, state: 'rejected' });
+    expect(only.body.data.map((r: { id: string; state: string }) => [r.id, r.state])).toEqual([
+      [rejected.volunteerId, 'rejected'],
+    ]);
+    const closed = await list(monitoring, { districtId: tree.district, state: 'deactivated' });
+    expect(closed.body.data.map((r: { state: string }) => r.state)).toEqual(['deactivated']);
     const narrower = await statistics(monitoring, { districtId: tree.district, state: 'pending' });
     expect(narrower.body.data.volunteers).toMatchObject({ total: 1, pending: 1, active: 0 });
     expect(narrower.body.data.applications.total).toBe(0);
@@ -269,7 +286,7 @@ describe('the statistics of the volunteer tab', () => {
     const daee = await placed('official_daee', tree);
     const masked = await statistics(daee, { districtId: tree.district });
     expect(masked.body.data.volunteers).not.toHaveProperty('inactive');
-    expect(masked.body.data.volunteers.total).toBe(4);
+    expect(masked.body.data.volunteers.total).toBe(5);
   });
 
   it('count everyone without a filter, the applications by their owner alone', async () => {

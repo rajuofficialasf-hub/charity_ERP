@@ -743,9 +743,37 @@ describe('ProfileView states', () => {
     );
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     await user.type(await screen.findByRole('textbox', { name: /NID number/ }), '123');
-    await user.click(screen.getByRole('button', { name: 'Answer' }));
+    // one field asked: one press answers it and submits the registration again
+    await user.click(screen.getByRole('button', { name: 'Answer and submit' }));
     expect(await screen.findByRole('textbox', { name: /NID number/ })).toHaveAccessibleDescription(
       /10, 13 or 17 digits/,
     );
+  });
+
+  it('answers one asked field and submits the registration again in one press', async () => {
+    const user = userEvent.setup();
+    refreshAs({ ...ME, kind: 'volunteer', state: 'pending', roles: [] });
+    serve(profile(), () => [row('01900000-0000-7000-8000-0000000000c7', 'nid')]);
+    const sent: string[] = [];
+    server.use(
+      http.patch('*/api/v1/me/change-requests/:id', ({ request }) => {
+        sent.push(new URL(request.url).pathname);
+        return HttpResponse.json({ data: null, meta: {} });
+      }),
+      http.post('*/api/v1/me/registration/resubmit', ({ request }) => {
+        sent.push(new URL(request.url).pathname);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await user.type(await screen.findByRole('textbox', { name: /NID number/ }), '1234567890');
+    await user.click(screen.getByRole('button', { name: 'Answer and submit' }));
+    await waitFor(() =>
+      expect(sent).toEqual([
+        '/api/v1/me/change-requests/01900000-0000-7000-8000-0000000000c7',
+        '/api/v1/me/registration/resubmit',
+      ]),
+    );
+    expect(screen.queryByRole('button', { name: 'Submit again' })).toBeNull();
   });
 });

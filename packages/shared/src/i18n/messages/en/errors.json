@@ -1,6 +1,6 @@
 {
   "auth": {
-    "invalid_credentials": "The mobile number, email or password is incorrect.",
+    "invalid_credentials": "The Job ID, mobile number, email or password is incorrect.",
     "account_locked": "The account is locked for a while after repeated failed attempts. Try again later.",
     "account_pending": "Your registration is still waiting for approval.",
     "account_blocked": "This account is blocked.",
@@ -27,7 +27,18 @@
   "permission": {
     "denied": "You do not have permission for this action.",
     "not_found": "Not found.",
-    "grant_refused": "This permission change is not allowed."
+    "grant_refused": "This permission change is not allowed.",
+    "refused": {
+      "self_change": "Nobody changes their own permissions: {permission}.",
+      "top_role_protected": "An Admin's or the Department Head's permissions are not taken away: {permission}.",
+      "key_permission_admin_only": "Only an Admin gives this permission: {permission}.",
+      "owner_transfer_only_admin": "This permission goes to an Admin only: {permission}.",
+      "global_scope_protected": "A global role's whole-country permission is not taken away: {permission}.",
+      "sensitive_to_volunteer": "This sensitive permission never goes to a volunteer: {permission}.",
+      "role_admin_only": "Only an Admin gives this role: {permission}.",
+      "whole_country_top_roles_only": "Only an Admin or the Department Head gives a permission for the whole country: {permission}.",
+      "outside_own_reach": "This permission is not given outside your own reach: {permission}."
+    }
   },
   "validation": {
     "name_variant_one_word": "Write one word, without a space.",

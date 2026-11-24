@@ -8,6 +8,8 @@ export const auditEntrySchema = z.object({
   action: z.string(),
   entityType: z.string(),
   entityId: z.string().nullable(),
+  /** Who or what the entry is about, by name or number; null where the log names none. */
+  entityName: z.string().nullable().optional(),
   actor: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   actorRole: z.string().nullable(),
   reason: z.string().nullable(),

@@ -310,6 +310,20 @@ describe('the new personal, profession and skills data in the registration', () 
       .set(bearer(rpm))
       .send({ fields: ['bloodGroup', 'profession'], note: 'রক্তের গ্রুপ ও পেশা ঠিক করুন' });
     expect(created.status).toBe(201);
+    // the office's detail names who asked each correction and when
+    const detail = await api().get(`/api/v1/registrations/${dhaka.userId}`).set(bearer(rpm));
+    const name = (
+      await h.db.query('SELECT display_name FROM users WHERE id = $1', [world.users.rpmDhaka])
+    ).rows[0].display_name as string;
+    expect(detail.body.data.corrections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'bloodGroup',
+          requestedByName: name,
+          requestedAt: expect.any(String),
+        }),
+      ]),
+    );
     const rows = (await api().get('/api/v1/me/change-requests').set(bearer(own))).body.data as {
       id: string;
       field: string;

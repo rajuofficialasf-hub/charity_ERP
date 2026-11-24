@@ -106,6 +106,22 @@ describe('the audit viewer', () => {
     expect(steps).toEqual([5, 4, 3, 2, 1]);
   });
 
+  it('names the person an entry is about, and leaves another kind of entity unnamed', async () => {
+    const head = await as(world.users.head);
+    await h.db.query(
+      `INSERT INTO audit_log (id, action, entity_type, entity_id, actor_user_id, new)
+       VALUES ($1, 'test.about_user', 'user', $2, $3, '{}')`,
+      [randomUUID(), world.users.pm, world.users.head],
+    );
+    const named = await list(head, { action: 'test.about_user' });
+    const name = (
+      await h.db.query('SELECT display_name FROM users WHERE id = $1', [world.users.pm])
+    ).rows[0].display_name as string;
+    expect(named.body.data[0]).toMatchObject({ entityType: 'user', entityName: name });
+    const unnamed = await list(head, { entityType: 'test_entity', entityId: entity, limit: 1 });
+    expect(unnamed.body.data[0].entityName).toBeNull();
+  });
+
   it('pages through entries written at the same microsecond without losing one', async () => {
     const head = await as(world.users.head);
     const seen: number[] = [];

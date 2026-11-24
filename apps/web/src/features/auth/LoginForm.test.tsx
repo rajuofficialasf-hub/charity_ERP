@@ -69,6 +69,20 @@ describe('LoginForm', () => {
     expect(window.localStorage.getItem('css_locale')).toBe('en');
   });
 
+  it('goes back to the page of the app a link opened, as a notice’s email sends an official', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(ME), meta: {} })),
+    );
+    const page = '/admin/applications/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c02';
+    const { router } = renderApp(<LoginForm />, 'bn', {
+      path: '/login',
+      initialPath: `/login?next=${encodeURIComponent(page)}`,
+    });
+    await fill(user, 'pm.hum@example.org', 'Nadi kul 2026');
+    await waitFor(() => expect(router.state.location.pathname).toBe(page));
+  });
+
   it("goes back to a photo's page it was sent from, and never to another address", async () => {
     const user = userEvent.setup();
     server.use(
@@ -96,13 +110,13 @@ describe('LoginForm', () => {
     const user = userEvent.setup();
     server.use(
       http.post('*/api/v1/auth/login', () =>
-        apiError(401, 'auth.invalid_credentials', 'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।'),
+        apiError(401, 'auth.invalid_credentials', 'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।'),
       ),
     );
     const { router } = mount();
     await fill(user, 'a@example.org', 'wrong 123');
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
+      'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
     );
     expect(router.state.location.pathname).toBe('/login');
   });
@@ -125,7 +139,7 @@ describe('LoginForm', () => {
     const user = userEvent.setup();
     server.use(
       http.post('*/api/v1/auth/login', () =>
-        apiError(401, 'auth.invalid_credentials', 'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।'),
+        apiError(401, 'auth.invalid_credentials', 'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।'),
       ),
     );
     mount();
@@ -165,7 +179,7 @@ describe('LoginForm', () => {
         apiError(
           401,
           'auth.invalid_credentials',
-          'The mobile number, email or password is incorrect.',
+          'The Job ID, mobile number, email or password is incorrect.',
         ),
       ),
     );
@@ -180,7 +194,7 @@ describe('LoginForm', () => {
     await user.type(password, 'Secret pass 9');
     await user.click(screen.getByRole('button', { name: 'Log in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The mobile number, email or password is incorrect.',
+      'The Job ID, mobile number, email or password is incorrect.',
     );
     expectNothingStored('Secret pass 9');
   });
@@ -204,7 +218,11 @@ describe('LoginForm', () => {
     server.use(
       http.post('*/api/v1/auth/login', () => {
         calls += 1;
-        return apiError(401, 'auth.invalid_credentials', 'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।');
+        return apiError(
+          401,
+          'auth.invalid_credentials',
+          'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
+        );
       }),
     );
     mount();
@@ -217,7 +235,7 @@ describe('LoginForm', () => {
     expect(calls).toBe(0);
     await fill(user, 'a@example.org', 'wrong 123');
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
+      'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
     );
     expect(calls).toBe(1);
   });

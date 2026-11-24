@@ -1,5 +1,9 @@
 import { BLOOD_GROUPS, VOLUNTEER_TYPES } from '@css/shared/registration';
-import { type VolunteerFilter, volunteerFilterSchema } from '@css/shared/volunteers';
+import {
+  type VolunteerFilter,
+  volunteerFilterSchema,
+  VOLUNTEER_STATES,
+} from '@css/shared/volunteers';
 import { reasonRequestSchema, type ReasonRequest, USER_STATES } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -56,7 +60,7 @@ const volunteerRow = z.object({
   userId: z.uuid(),
   displayName: z.string(),
   type: z.enum(VOLUNTEER_TYPES),
-  state: z.enum(USER_STATES),
+  state: z.enum(VOLUNTEER_STATES),
   divisionId: z.uuid(),
   districtId: z.uuid(),
   upazilaId: z.uuid(),
@@ -78,6 +82,7 @@ const volunteerStatistics = z.object({
     pending: count,
     blocked: count,
     deactivated: count,
+    rejected: count,
     // a schema of its own: `sensitive` marks the instance it is given
     inactive: sensitive(z.number().int().min(0), 'volunteer.rating').optional(),
   }),

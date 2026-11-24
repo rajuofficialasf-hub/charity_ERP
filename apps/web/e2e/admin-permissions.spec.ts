@@ -75,8 +75,9 @@ test.describe('permission panel', () => {
       dialog.getByRole('list', { name: 'বাছাই করা পারমিশন' }).getByText('কার কী পারমিশন আছে দেখা'),
     ).toBeVisible();
     // the own records, not the whole country, which would ask the demo account for a new password
+    // nothing is chosen for the person: the scope is picked every time
     await dialog.getByRole('combobox', { name: /স্কোপ/ }).press('Enter');
-    await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
+    await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeVisible();
     await settle(page);
     await page.getByRole('option', { name: 'নিজের (SELF)' }).click();
     await expect(dialog.getByRole('combobox', { name: /স্কোপ/ })).toContainText('নিজের (SELF)');
@@ -146,8 +147,12 @@ test.describe('permission panel', () => {
     await page.getByRole('combobox', { name: /ব্যবহারকারী খুঁজুন/ }).fill(jobId.toLowerCase());
     await page.getByRole('option', { name: new RegExp(name) }).click();
     await page.getByRole('button', { name: 'পারমিশন দিন' }).click();
-    const dialog = page.getByRole('dialog', { name: 'পারমিশন দিন' });
-    await dialog.getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' }).check();
+    await page
+      .getByRole('dialog', { name: 'পারমিশন দিন' })
+      .getByRole('radio', { name: 'পারমিশন সরিয়ে নেওয়া' })
+      .check();
+    // the dialog is named by what it does now
+    const dialog = page.getByRole('dialog', { name: 'পারমিশন সরিয়ে নিন' });
     await dialog.getByRole('combobox', { name: /পারমিশন যোগ করুন/ }).fill('বাজেট');
     await page.getByRole('option', { name: 'প্রকল্পের বাজেট দেখা · budget.view' }).click();
     await dialog.getByRole('combobox', { name: /স্কোপ/ }).click();

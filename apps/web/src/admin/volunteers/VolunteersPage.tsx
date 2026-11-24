@@ -156,6 +156,12 @@ function VolunteerTab({ categories }: { categories: boolean }) {
           id: 'deactivated',
           label: t('stats.deactivated'),
           value: counts.volunteers.deactivated,
+          icon: 'user-block' as const,
+        },
+        {
+          id: 'rejected',
+          label: t('stats.rejected'),
+          value: counts.volunteers.rejected,
           icon: 'rejected' as const,
         },
         ...(counts.volunteers.inactive === undefined
@@ -465,6 +471,7 @@ const STATE_TONE: Record<string, ColorTone> = {
   active: 'success',
   pending: 'warning',
   blocked: 'error',
+  rejected: 'neutral',
   deactivated: 'neutral',
 };
 

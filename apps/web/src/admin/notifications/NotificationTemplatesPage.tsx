@@ -33,6 +33,7 @@ import {
   saveTemplate,
   TEMPLATES_KEY,
 } from './notifications-admin-api';
+import { useTemplateName } from './template-name';
 import { LoadError } from '../../components/LoadError';
 
 const LOCALES = ['bn', 'en'] as const;
@@ -49,6 +50,7 @@ export function NotificationTemplatesPage() {
   const locale = useLocale() as Locale;
   const [editing, setEditing] = useState<NotificationTemplate | null>(null);
   const [notice, setNotice] = useState<string>();
+  const nameOf = useTemplateName();
   const allowed = Boolean(me && canAdministerSystem(me));
   const list = useQuery({
     queryKey: TEMPLATES_KEY,
@@ -74,7 +76,7 @@ export function NotificationTemplatesPage() {
     {
       id: 'key',
       header: t('column.key'),
-      cell: (n) => <code lang="en">{n.key}</code>,
+      cell: (n) => nameOf(n.key),
       isRowHeader: true,
     },
     { id: 'category', header: t('column.category'), cell: (n) => t(`category.${n.category}`) },
@@ -104,7 +106,7 @@ export function NotificationTemplatesPage() {
         columns={columns}
         rows={list.data ?? []}
         getRowId={(n) => n.key}
-        rowLabel={(n) => n.key}
+        rowLabel={(n) => nameOf(n.key)}
         loading={list.isPending}
         error={
           list.error ? (
@@ -113,11 +115,15 @@ export function NotificationTemplatesPage() {
         }
         emptyTitle={t('table')}
         rowActions={(n) => (
-          <IconButton label={t('edit', { key: n.key })} icon="edit" onClick={() => edit(n)} />
+          <IconButton
+            label={t('edit', { name: nameOf(n.key) })}
+            icon="edit"
+            onClick={() => edit(n)}
+          />
         )}
         cardRenderer={(n) => (
           <div className="admin-permission-card">
-            <code lang="en">{n.key}</code>
+            <strong>{nameOf(n.key)}</strong>
             <span>{t(`category.${n.category}`)}</span>
             {channels(n)}
           </div>
@@ -131,7 +137,7 @@ export function NotificationTemplatesPage() {
             setEditing(null);
             setNotice(
               t('saved', {
-                key: saved.key,
+                name: nameOf(saved.key),
                 version: formatCount(saved.channels[channel]?.version ?? 1, locale),
               }),
             );
@@ -164,6 +170,7 @@ function TemplateEditor({
 }) {
   const t = useTranslations('admin.notification_templates');
   const tc = useTranslations('common');
+  const name = useTemplateName()(template.key);
   const queryClient = useQueryClient();
   const available = Object.keys(template.channels) as EditableChannel[];
   const [channel, setChannel] = useState<EditableChannel>(available[0]!);
@@ -214,7 +221,7 @@ function TemplateEditor({
 
   return (
     <Dialog
-      title={t('editor_title', { key: template.key })}
+      title={t('editor_title', { name })}
       size="large"
       fullScreenOnPhone
       open
@@ -252,7 +259,7 @@ function TemplateEditor({
       <Form
         form={form}
         onSubmit={send}
-        label={t('editor_title', { key: template.key })}
+        label={t('editor_title', { name })}
         error={form.formState.errors.root?.server?.message}
       >
         {LOCALES.map((l) => (

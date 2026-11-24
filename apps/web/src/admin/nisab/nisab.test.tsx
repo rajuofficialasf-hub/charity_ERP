@@ -126,6 +126,41 @@ describe('the nisab page', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('lists every addition and withdrawal in the history, newest first, with who and why', async () => {
+    refreshAs(PM);
+    serve();
+    const head = '01900000-0000-7000-8000-0000000000c2';
+    server.use(
+      http.get('*/api/v1/nisab-versions', () =>
+        HttpResponse.json({
+          data: [
+            {
+              ...VERSIONS[0],
+              withdrawn: {
+                at: '2026-10-17T06:30:00.000Z',
+                by: { id: head, name: 'নমুনা প্রধান' },
+                reason: 'ভুল তারিখ',
+              },
+            },
+            VERSIONS[1],
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    open();
+    const history = await screen.findByRole('list', { name: 'পরিবর্তনের ইতিহাস' });
+    const entries = within(history).getAllByRole('listitem');
+    expect(entries).toHaveLength(3);
+    const [withdrawal, addition, first] = entries as [HTMLElement, HTMLElement, HTMLElement];
+    expect(withdrawal).toHaveTextContent('নিসাব প্রত্যাহার');
+    expect(withdrawal).toHaveTextContent('নমুনা প্রধান');
+    expect(withdrawal).toHaveTextContent('ভুল তারিখ');
+    expect(addition).toHaveTextContent('যোগ হয়েছে');
+    expect(addition).toHaveTextContent('নমুনা পিএম');
+    expect(first).toHaveTextContent('রুপার দাম');
+  });
+
   it('adds a version and shows the server message on the date it refuses', async () => {
     refreshAs(PM);
     serve();

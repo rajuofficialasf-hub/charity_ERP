@@ -1,10 +1,13 @@
+import type { Me } from '@css/shared/auth';
 import { Alert } from '@/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { InstallHint } from '../sync/InstallHint';
 import { SyncReminder } from '../sync/SyncReminder';
 import { AttentionList } from './AttentionList';
+import { ATTENTION_KEY, attention } from './home-api';
 import { ComingLater, LiveWidgetCard, ProjectStates } from './HomeWidgets';
 import { TodayBanner } from './TodayBanner';
 import './home.css';
@@ -17,7 +20,6 @@ import { isLater, widgetsFor } from './widgets';
  * module comes later shows a quiet "coming later" card.
  */
 export function MyWorkPage() {
-  const t = useTranslations('auth');
   const th = useTranslations('home.page');
   const tn = useTranslations('nav');
   const tc = useTranslations('common.app');
@@ -36,7 +38,7 @@ export function MyWorkPage() {
         return (
           <>
             <DocumentTitle title={tc('name')} />
-            {me.state === 'pending' && <Alert tone="info">{t('account.pending')}</Alert>}
+            {me.state === 'pending' && <PendingBanner me={me} />}
             {me.kind === 'volunteer' && <InstallHint />}
             <SyncReminder withLink />
             <TodayBanner />
@@ -64,5 +66,25 @@ export function MyWorkPage() {
         );
       }}
     </AccountPage>
+  );
+}
+
+/**
+ * The banner of an account that waits for approval: while the office asks for corrections it says
+ * the person's turn has come, not that the office decides.
+ */
+function PendingBanner({ me }: { me: Me }) {
+  const t = useTranslations('auth');
+  // the same read as the attention list beside it
+  const items = useQuery({
+    queryKey: ATTENTION_KEY,
+    queryFn: attention,
+    enabled: me.kind === 'volunteer',
+  });
+  const correcting = items.data?.some((i) => i.kind === 'corrections' && i.count > 0) ?? false;
+  return (
+    <Alert tone={correcting ? 'warning' : 'info'}>
+      {t(correcting ? 'account.correcting' : 'account.pending')}
+    </Alert>
   );
 }

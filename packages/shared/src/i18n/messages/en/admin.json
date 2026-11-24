@@ -57,7 +57,10 @@
       "place_required": "Choose the area.",
       "ref_required": "Choose which one.",
       "limit": "No more than {max} at once. Give these first, then the rest.",
-      "project_cap": "The newest {count} sessions are shown."
+      "project_cap": "The newest {count} sessions are shown.",
+      "title_revoke": "Take permissions away",
+      "admin_only": "Given by an Admin only",
+      "scope_choose": "Choose the scope"
     },
     "granted": "Permission granted",
     "removed": "Permission removed",
@@ -91,13 +94,37 @@
     "lift_title": "Give a permission back",
     "lift_body": "This permission taken away takes effect again: {permission}",
     "lift_confirm": "Give back",
-    "lifted": "The permission has been given back"
+    "lifted": "The permission has been given back",
+    "modules": {
+      "M01": "Sign-in and sessions",
+      "M02": "Users, roles and permissions",
+      "M03": "Registration and approval",
+      "M04": "Volunteers",
+      "M05": "Beneficiaries",
+      "M06": "Programs and projects",
+      "M07": "Forms",
+      "M08": "Applications",
+      "M09": "Project activities",
+      "M10": "Budget and ledger",
+      "M11": "Qurbani",
+      "M12": "Dawah",
+      "M13": "Documents (SOP)",
+      "M14": "Monitoring and follow-up",
+      "M15": "Audit log",
+      "M16": "Dashboards, reports and exports",
+      "M17": "Notifications",
+      "M18": "Files and media",
+      "M19": "Locations",
+      "M20": "Languages",
+      "M21": "Admin and settings",
+      "M22": "Offline sync"
+    }
   },
   "registrations": {
     "title": "Registrations",
     "tabs": {
       "label": "Registration work",
-      "pending": "Pending registrations",
+      "pending": "Officials' registrations",
       "edits": "Edit requests",
       "staff_edits": "Officials’ requests"
     },
@@ -113,7 +140,7 @@
       "staff": "Official"
     },
     "status": {
-      "awaiting_review": "Waiting for review",
+      "awaiting_review": "Awaiting approval",
       "in_correction": "In correction"
     },
     "empty": "No registration is waiting.",
@@ -205,14 +232,16 @@
       "own": "Your own request",
       "photo_now": "Photo now"
     },
-    "shown": "Showing {shown} of {total}"
+    "shown": "Showing {shown} of {total}",
+    "volunteers_elsewhere": "The volunteers waiting for approval are in the volunteer tab.",
+    "volunteers_link": "See them"
   },
   "handover": {
     "title": "Handover",
     "search": "Find the official",
     "search_hint": "Pick from the list, or type at least 2 characters of the name, email or mobile number.",
     "state": {
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Deactivated"
@@ -272,7 +301,7 @@
     "search": "Search by name or mobile number",
     "chips": {
       "all": "All",
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Closed"
@@ -281,7 +310,7 @@
       "label": "Volunteer counts",
       "total": "Total",
       "active": "Active",
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "blocked": "Blocked",
       "deactivated": "Closed",
       "inactive": "Inactive",
@@ -289,7 +318,8 @@
       "approved": "Approved",
       "under_review": "Under review",
       "more": "More states",
-      "more_value": "{count} more"
+      "more_value": "{count} more",
+      "rejected": "Rejected"
     },
     "column": {
       "name": "Name",
@@ -311,10 +341,11 @@
       "group_other": "Other"
     },
     "state": {
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
-      "deactivated": "Closed"
+      "deactivated": "Closed",
+      "rejected": "Rejected"
     },
     "blocklisted": "On the blocklist",
     "no_projects": "No project",
@@ -385,12 +416,14 @@
         "correction": "Correction asked: {field}",
         "awaiting": "Awaiting approval",
         "approved": "Registration approved",
-        "blocked": "Put on the blocklist"
+        "blocked": "Put on the blocklist",
+        "asked_by": "Asked by {name}"
       },
       "photo_failed": "Could not load",
       "transfer": "Hand over applications",
       "pending": "{n, plural, one {{count} record not yet sent (as of {time})} other {{count} records not yet sent (as of {time})}}",
-      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}"
+      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}",
+      "sessions_out_of_reach": "You cannot see this volunteer’s devices. Only the devices of volunteers working on your projects are shown to you."
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",
@@ -1713,7 +1746,8 @@
       "given_by_system": "Given by the system, {date}",
       "ended_by": "Ended by {name}, {date}",
       "none": "No role has been given."
-    }
+    },
+    "description_view": "See the officials' profiles, roles and programs."
   },
   "settings": {
     "title": "Settings",
@@ -1920,7 +1954,9 @@
     },
     "history": {
       "title": "History of changes",
-      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen."
+      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen.",
+      "added": "{value} added, in force from {date}",
+      "withdrawn": "The nisab of {date} withdrawn"
     }
   },
   "audit": {
@@ -1963,7 +1999,11 @@
       "old": "Old value",
       "new": "New value",
       "nothing": "Nothing",
-      "history": "The whole history of this entity"
+      "history": "The whole history of this entity",
+      "changes": "What changed",
+      "added": "Added: {items}",
+      "removed": "Removed: {items}",
+      "changed": "{from} to {to}"
     },
     "eyebrow": "Accountability",
     "description": "Who changed or viewed what, and when: permission changes, views of sensitive data and important actions.",
@@ -2032,7 +2072,37 @@
     },
     "eyebrow": "Administration",
     "description": "The state of the database, the file storage and the job queue, and how the storage grows.",
-    "build": "Version {version}"
+    "build": "Version {version}",
+    "env": {
+      "development": "Development (test computer)",
+      "test": "Test",
+      "staging": "Staging (final checks)",
+      "production": "Live system"
+    },
+    "bucket": {
+      "documents": "Documents",
+      "photos": "Work photos",
+      "vouchers": "Vouchers",
+      "profiles": "Profile and ID photos",
+      "media": "Media",
+      "exports": "Export files",
+      "uploads": "Uploads in progress"
+    },
+    "kind": {
+      "distribution_proof": "Distribution proof",
+      "construction_proof": "Construction proof",
+      "evidence": "Evidence",
+      "voucher": "Voucher",
+      "payment_copy": "Payment copy",
+      "document": "Document",
+      "animal_photo": "Animal photo",
+      "profile_photo": "Profile photo",
+      "nid_photo": "NID photo",
+      "media_asset": "Media file",
+      "issue_photo": "Issue photo",
+      "form_photo": "Application photo",
+      "cover_photo": "Cover photo"
+    }
   },
   "notification_templates": {
     "title": "Notification templates",
@@ -2055,8 +2125,8 @@
       "email": "Email"
     },
     "version": "{channel}, version {version}",
-    "edit": "Edit {key}",
-    "editor_title": "Edit {key}",
+    "edit": "Edit “{name}”",
+    "editor_title": "Edit “{name}”",
     "variables": "Values you can use: {list}",
     "variables_none": "This notification has no values to fill in.",
     "language": {
@@ -2070,7 +2140,7 @@
     "preview_title": "Preview with sample values",
     "save": "Save as new version",
     "cancel": "Cancel",
-    "saved": "{key} saved as version {version}.",
+    "saved": "“{name}” saved as version {version}.",
     "eyebrow": "Messages"
   },
   "deliveries": {

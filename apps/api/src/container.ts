@@ -132,6 +132,7 @@ import { OrganogramService } from './services/organogram.js';
 import { StaffAccountsService } from './services/staff-accounts.js';
 import { UsersService } from './services/users.js';
 import { createDriver, createStorage, type StorageDriver } from './storage/index.js';
+import { DirectDeliveries } from './notifications/direct-deliveries.js';
 
 /**
  * The services of one process, built once from the validated configuration (no DI container): the
@@ -333,7 +334,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ...(env.LOCAL_KEY_PREVIOUS_SECRET ? [env.LOCAL_KEY_PREVIOUS_SECRET] : []),
     ]);
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
-  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
+  // the codes and the set-password links sent at once, listed on the deliveries page
+  const directDeliveries = new DirectDeliveries(prisma, clock, logger);
+  const otpDelivery =
+    o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger, directDeliveries);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   const auth =
     o.auth ??
@@ -502,6 +506,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         email,
         logger,
         settings,
+        directDeliveries,
       ),
     organogram: o.organogram ?? new OrganogramService(prisma, access),
     accessPanel:

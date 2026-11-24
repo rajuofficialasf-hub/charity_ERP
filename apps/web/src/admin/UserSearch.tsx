@@ -1,9 +1,11 @@
+import { type Locale, localized } from '@css/shared/i18n';
 import { Combobox } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useTranslations } from 'use-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { api } from '../api/client';
 import type { PanelUser } from '../api/schemas';
+import { roles } from './registrations/registrations-api';
 
 export type { PanelUser };
 
@@ -19,8 +21,8 @@ export const usersWithRole = (role: string) => (text: string) =>
  * Finds a user by name, email or mobile through the server search (GET /users; the permission
  * panel and the handover page), or through another search the caller gives (the officials a
  * project may be given). Opening the field lists the first ones by name before any text;
- * two letters narrow the list on the server. The option shows the
- * designation, not the contact details.
+ * two letters narrow the list on the server. The option shows the person's role, which follows a
+ * role change (the designation may not), else the designation; never the contact details.
  */
 export function UserSearch({
   label,
@@ -39,10 +41,16 @@ export function UserSearch({
   const t = useTranslations('admin.permissions');
   const [text, setText] = useState('');
   const [opened, setOpened] = useState(false);
-  const optionLabel = (u: PanelUser) =>
-    u.designation
-      ? t('user_option', { name: u.displayName, detail: u.designation })
-      : u.displayName;
+  const locale = useLocale() as Locale;
+  const roleList = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, staleTime: 300_000 });
+  const roleName = (u: PanelUser) => {
+    const role = roleList.data?.find((r) => u.roles.includes(r.key));
+    return role ? localized(role.name, locale) : null;
+  };
+  const optionLabel = (u: PanelUser) => {
+    const detail = roleName(u) ?? u.designation;
+    return detail ? t('user_option', { name: u.displayName, detail }) : u.displayName;
+  };
   const typed = text.trim().length >= MIN_SEARCH && (!selected || text !== optionLabel(selected));
   // until two letters are typed the list shows the first users by name
   const term = typed ? text.trim().slice(0, 100) : '';

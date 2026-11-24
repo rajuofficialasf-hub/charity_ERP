@@ -776,6 +776,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Built (T1.9).** `/admin/registrations` in the admin area (`apps/web/src/admin/registrations/`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U13), open to the Department Head, Monitoring Team, PM, RPM and Project Executive: the pending registrations in scope (name, kind and type, status, district, submitted) and, for the edit approvers, a tab of edit requests with who asked, the field, the new value and the reason (approve, or refuse with a reason). The detail `/admin/registrations/{userId}` shows the details with the address names, the photos streamed by the API (a hidden NID or bank value reads "not visible to you"), the correction rows and the actions: approve (not while blocklisted or in correction), ask for corrections (checked fields and one note), reject with a reason, blocklist or lift with a reason (PM, RPM and the global roles), and for an official the staff decision with a role. Not yet: the split view and the stale-version notice (the decisions are guarded by row locks on the server), filters and paging beyond 100 rows (the volunteer tab of T1.10 takes the list over). Tests `registrations.test.tsx`, `apps/web/e2e/registration.spec.ts`.
 - **Paged (2026-11-23).** The pending staff registrations, the volunteers' edit requests and the officials' own requests are read 50 rows at a time: the first page asks for the count of the whole list, which the counts above the tabs show, and "পরের পাতা" ("আরও দেখুন" on a phone) reads the next page by its cursor, with "{total}টির মধ্যে {shown}টি দেখানো হচ্ছে" beside it; a cursor belongs to the person it was given to.
 
+- **After the Phase 1 and 2 UAT (2026-11-24).** A volunteer waiting for approval reads "অনুমোদনের অপেক্ষায়" everywhere (the list, its chip and count, the profile, the registrations), and a registration the office rejected is counted and filtered apart as "প্রত্যাখ্যাত" (`state=rejected`: a closed account never approved), so "বন্ধ" counts only accounts closed after approval. The registrations page's tab of the officials reads "কর্মীর নিবন্ধন" with a link to the volunteers waiting in the volunteer tab; the registration history names who asked each correction and when; a volunteer with one field to correct answers and submits again in one press ("উত্তর দিয়ে জমা দিন"), and their home says the correction is theirs to make while one is open. A new official's Job ID is checked against the officials the creator sees before the second step opens (the save checks it again). "অ্যাডমিন" is spelled one way.
+
 ### SCR-041 Application review list and detail
 
 - **Built (D-172, the earlier help at review, BR-307).** Below the signals of the record, a card "আগে কতবার সাহায্য পেয়েছেন" (English "Help received before") shows the person's help by their other applications and those a merge left on a profile retired into them, as the profile's help does (`HelpHistory.tsx`, the same component): the total, since which year, this year, the marks "এক বছরে একাধিকবার" and "একই প্রকল্পে একাধিকবার", and the years newest first with each project the viewer sees and "অন্য প্রকল্পে N বার" for the others; "এর আগে কোনো সাহায্য পাননি।" when there is none. The application itself never counts as its own earlier help. Only for a role with the application history class (`helpedBefore`; the volunteer who brings the application and every other role get no card).
@@ -874,7 +876,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | View the list and open a profile (the row menu's "প্রোফাইল দেখুন") | `volunteer.view_all` |
 | Review a pending registration (row menu, pending rows) | `registration.approve` |
 | Block or lift a block, with the reason (row menu) | `volunteer.block` |
-| See and end the device sessions (row menu) | `session.revoke_user` |
+| See and end the device sessions (row menu; an RPM reaches only the volunteers working on the own projects, and for anyone else the dialog says so in words) | `session.revoke_user` |
 | Export volunteers | `export.volunteers` |
 
 - **States.**
@@ -1135,7 +1137,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The zakat nisab, versioned with effective dates (BR-211, D-098).
 - **Roles.** Program Manager and above (`nisab.set`).
 - **Route.** `/admin/nisab`; sidebar "নিসাব".
-- **Data and actions.** The nisab in force today as a stat card; every version newest first with its effective date, amount, state (কার্যকর, আসন্ন, আগের, প্রত্যাহার করা), basis and who added or withdrew it. "নতুন নিসাব": amount in Taka (at most 1,00,00,000), an effective date from today to a year ahead and after the latest version, an optional basis; the server's message stands on the field it refuses. A version not yet in effect is withdrawn with a reason; a version is never edited.
+- **Data and actions.** The nisab in force today as a stat card; every version newest first with its effective date, amount, state (কার্যকর, আসন্ন, আগের, প্রত্যাহার করা), basis and who added or withdrew it. "নতুন নিসাব": amount in Taka (at most 1,00,00,000), an effective date from today to a year ahead and after the latest version, an optional basis; the server's message stands on the field it refuses. A version not yet in effect is withdrawn with a reason; a version is never edited. "পরিবর্তনের ইতিহাস" lists every addition (the amount, the date it takes effect from, who added it, the basis) and every withdrawal (who and why), newest first, read from the versions.
 - **Built.** `apps/web/src/admin/nisab/`; tests `nisab.test.tsx`, E2E above.
 
 ### SCR-068 Audit viewer
@@ -1143,7 +1145,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The audit log for the global roles (D-098); PM and RPM histories come inside their pages later.
 - **Roles.** Department Head and Monitoring Team (`audit.view` at GLOBAL scope).
 - **Route.** `/admin/audit` with the filters in the address (`actorUserId`, `action`, `entityType`, `entityId`, `from`, `to`); sidebar "অডিট লগ".
-- **Data and actions.** The range the server used ("সময়সীমা: … থেকে …", the last 30 days by default, a year at most); rows newest first (time, person, action, entity, reason), page by page; filters: person search, action and entity type codes (an invalid code is marked), from and to dates. "বিস্তারিত" opens a drawer with time, person, role, action, entity, reason, IP, device session and the old and new values side by side (one under the other on a phone); "এই বিষয়ের পুরো ইতিহাস" filters the list to that entity for the last year, shown as a notice with "সব এন্ট্রি দেখুন". Secret-looking keys never reach the screen.
+- **Data and actions.** The range the server used ("সময়সীমা: … থেকে …", the last 30 days by default, a year at most); rows newest first (time, person, action, entity, reason), page by page; filters: person search, action and entity type codes (an invalid code is marked; Enter applies a code as leaving the field does), from and to dates. The entity is named where the log can name it (a person or a beneficiary by name, an application by its number). "বিস্তারিত" opens a drawer with time, person, role, action, entity, reason, "কী বদলাল" (the items added to or taken from a list and the fields changed, read from the old and new values), IP, device session and the old and new values side by side (one under the other on a phone); "এই বিষয়ের পুরো ইতিহাস" filters the list to that entity for the last year, shown as a notice with "সব এন্ট্রি দেখুন". Secret-looking keys never reach the screen.
 - **Built.** `apps/web/src/admin/audit/`; tests `audit.test.tsx`, E2E above.
 
 ### SCR-069 Active sessions
@@ -1159,7 +1161,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The state of the system and the storage growth for the IT team (BD-46, D-098).
 - **Roles.** Department Head and Monitoring Team (`system.health.view`).
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
-- **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment (by its name: চালু সিস্টেম, স্টেজিং, টেস্ট, ডেভেলপমেন্ট) and the month the audit partitions reach; the buckets and the file kinds are named in words, never by their codes; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
 - **Storage by bucket (T2.1).** A table before the kinds: each bucket with its files, bytes and the growth since the nightly snapshot of at least 30 days ago ("এখনো জানা নেই" until one exists); on a phone a list of cards.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
@@ -1168,7 +1170,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The texts of the notifications in both languages (NOTIFICATIONS.md §6, D-099).
 - **Roles.** Department Head and Monitoring Team (`notification.template.manage`).
 - **Route.** `/admin/notification-templates`; sidebar "নোটিফিকেশনের লেখা".
-- **Data and actions.** Every notification of the catalogue with its kind and the version of each channel; "বদলান" opens the editor: the channel (in the app or email), the title or subject and the text in Bangla and English, the values the notification can fill in, "প্রিভিউ" with sample values in both languages, and "নতুন ভার্সন হিসেবে সংরক্ষণ". A text with markup or a link, an unknown value or a person's name in an in-app text is refused with the message beside its field. Messages already written keep their version.
+- **Data and actions.** Every notification of the catalogue by its name (its in-app title or email subject as shipped, never its code) with its kind and the version of each channel; "বদলান" opens the editor: the channel (in the app or email), the title or subject and the text in Bangla and English, the values the notification can fill in, "প্রিভিউ" with sample values in both languages, and "নতুন ভার্সন হিসেবে সংরক্ষণ". A text with markup or a link, an unknown value or a person's name in an in-app text is refused with the message beside its field. Messages already written keep their version.
 - **Built.** `apps/web/src/admin/notifications/NotificationTemplatesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ### SCR-075 Message deliveries
@@ -1176,7 +1178,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** Whether the queued emails and SMS went out (NOTIFICATIONS.md §7, D-099).
 - **Roles.** Department Head and Monitoring Team (`notification.delivery.view`).
 - **Route.** `/admin/deliveries`; sidebar "বার্তার অবস্থা".
-- **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown.
+- **Data.** Newest first: when queued, the notification by its name, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown. The one-time codes and the set-password links of new officials, which go out at once outside the queue, are listed too: what was sent and to whom, never the code or the link (the dummy code shows as পরীক্ষামূলক).
 - **Built.** `apps/web/src/admin/notifications/DeliveriesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ### SCR-077 Project list and project page
@@ -1403,6 +1405,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Phase · task.** 1 · T1.8. **API.** tags access, users, sessions.
 
 ## 9. Later-phase key screens
+
+- **After the Phase 1 and 2 UAT (2026-11-24).** The change dialog starts with no scope ("স্কোপ বেছে নিন"), so nothing goes to the whole country by a forgotten choice; its title says what it does ("পারমিশন দিন" or "পারমিশন সরিয়ে নিন"); an Admin's own permissions (`adminOnly` in `GET /permissions`) are marked "শুধু অ্যাডমিন দেন" for an Admin and not offered to anyone else to give, and a refused change names the permission its rule refused; the effective permissions are grouped by module name ("আবেদন", not "মডিউল M08"). The user picker of the panel, the handover and the project staff shows a person's role beside the name (it follows a role change, the designation may not), and the officials page tells whoever cannot add an official only what they can do.
 
 ### SCR-070 Issue log
 

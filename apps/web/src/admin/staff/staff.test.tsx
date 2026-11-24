@@ -385,7 +385,7 @@ describe('the officials page', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'নতুন অফিসিয়াল' }));
     const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), 'css-310');
+    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), 'css-311');
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নতুন কর্মকর্তা');
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'Project Executive');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'New@Example.org');
@@ -395,7 +395,9 @@ describe('the officials page', () => {
       within(dialog).queryByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }),
     ).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
-    expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: 'পরের ধাপ' })).not.toBeInTheDocument(),
+    );
     expect(within(dialog).queryByRole('button', { name: 'বাতিল' })).not.toBeInTheDocument();
     // an official's area comes from the projects: the account asks for a program and no area
     expect(within(dialog).getByRole('combobox', { name: /প্রোগ্রাম/ })).toBeInTheDocument();
@@ -407,7 +409,7 @@ describe('the officials page', () => {
     await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));
     await waitFor(() => expect(created).toHaveLength(1));
     expect(created[0]).toMatchObject({
-      jobId: 'css-310',
+      jobId: 'css-311',
       email: 'new@example.org',
       mobile: null,
       roleKey: 'project_executive',
@@ -424,6 +426,25 @@ describe('the officials page', () => {
     expect(writeText).toHaveBeenCalledWith(ISSUED.link);
     expect(await within(linkDialog).findByText('লিঙ্ক কপি হয়েছে।')).toBeInTheDocument();
   }, 15_000);
+
+  it('says at the first step that another official holds the Job ID', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন অফিসিয়াল' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), 'css-310');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নতুন কর্মকর্তা');
+    await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'Project Executive');
+    await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'new@example.org');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    expect(
+      await within(dialog).findByText('এই Job ID অন্য একটি অ্যাকাউন্টে আছে।'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'পরের ধাপ' })).toBeInTheDocument();
+    expect(listQueries.at(-1)?.get('q')).toBe('css-310');
+  });
 
   it('shows the server message when the job ID is taken', async () => {
     refreshAs(HEAD);

@@ -40,6 +40,7 @@ const ROW_SELECT = {
   photoFileId: true,
   category: true,
   inactiveFlag: true,
+  approvedAt: true,
   user: { select: { displayName: true, state: true } },
   projectVolunteersVolunteer: {
     where: { endedAt: null },
@@ -92,7 +93,11 @@ export class VolunteerListService {
       if (value) and.push({ [column]: value });
     }
     if (filter.type) and.push({ type: filter.type });
-    if (filter.state) and.push({ user: { state: filter.state } });
+    // a closed account never approved is a rejected registration; one approved, a closed account
+    if (filter.state === 'rejected') and.push({ user: { state: 'deactivated' }, approvedAt: null });
+    else if (filter.state === 'deactivated')
+      and.push({ user: { state: 'deactivated' }, approvedAt: { not: null } });
+    else if (filter.state) and.push({ user: { state: filter.state } });
     if (filter.projectId)
       and.push({
         projectVolunteersVolunteer: { some: { projectId: filter.projectId, endedAt: null } },
@@ -194,7 +199,10 @@ export class VolunteerListService {
         userId: v.userId,
         displayName: v.user.displayName,
         type: v.type,
-        state: v.user.state,
+        state:
+          v.user.state === 'deactivated' && v.approvedAt === null
+            ? ('rejected' as const)
+            : v.user.state,
         divisionId: v.divisionId,
         districtId: v.districtId,
         upazilaId: v.upazilaId,
@@ -235,12 +243,19 @@ export class VolunteerListService {
       });
       const sum = (states: readonly string[]) =>
         stages.filter((g) => states.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
+      // the closed accounts that were never approved are the rejected registrations
+      const rejected = byState.get('deactivated')
+        ? await tx.volunteer.count({
+            where: { AND: [where, { user: { state: 'deactivated' } }, { approvedAt: null }] },
+          })
+        : 0;
       const volunteers = {
         total: people.reduce((n, g) => n + g._count._all, 0),
         active: byState.get('active') ?? 0,
         pending: byState.get('pending') ?? 0,
         blocked: byState.get('blocked') ?? 0,
-        deactivated: byState.get('deactivated') ?? 0,
+        deactivated: (byState.get('deactivated') ?? 0) - rejected,
+        rejected,
         ...(seesCategories
           ? {
               inactive: await tx.volunteer.count({

@@ -126,6 +126,7 @@ function SessionList() {
                 <div className="session-row">
                   <p>{t('last_seen', { time: formatDateTime(session.lastSeenAt, locale) })}</p>
                   <p>{t('created', { date: formatDateTime(session.createdAt, locale) })}</p>
+                  {session.ipHint ? <p>{t('network', { ip: session.ipHint })}</p> : null}
                   {pendingOf(session, 'pending') !== null && <p>{pendingOf(session, 'pending')}</p>}
                 </div>
               </Card>

@@ -22,6 +22,7 @@ const session = (over: Partial<DeviceSession>): DeviceSession => ({
   revokedAt: null,
   pendingCount: null,
   pendingReportedAt: null,
+  ipHint: null,
   ...over,
 });
 
@@ -35,7 +36,7 @@ describe('SessionsView', () => {
     const user = userEvent.setup();
     let list = [
       session({ id: 'a', deviceName: 'Edge · Windows', platform: 'desktop', current: true }),
-      session({ id: 'b' }),
+      session({ id: 'b', ipHint: '203.0.113.x' }),
     ];
     const revoked: string[] = [];
     server.use(
@@ -47,6 +48,8 @@ describe('SessionsView', () => {
       }),
     );
     const { container } = renderApp(<SessionsView />, 'en');
+    // two devices of one kind are told apart by the network each was seen from
+    expect(await screen.findByText('Network: 203.0.113.x')).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'My devices' }),
     ).toBeInTheDocument();

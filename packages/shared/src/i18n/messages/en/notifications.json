@@ -26,7 +26,7 @@
   "email": {
     "title": "Email",
     "label": "Email for events that can wait",
-    "help": "Security notices and work assigned to you always arrive at once.",
+    "help": "Of the notices that also go by email, security notices and work assigned to you always arrive at once. A change of your permissions or role is told in the app only.",
     "immediate": "At once",
     "digest": "Daily summary",
     "saved": "Saved."

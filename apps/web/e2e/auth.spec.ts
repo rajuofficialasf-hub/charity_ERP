@@ -82,8 +82,9 @@ test.describe('login and logout', () => {
     await fromProfileMenu(page, 'লগআউট');
     await expect(page).toHaveURL(/\/login\?ended=logout$/);
     await expect(page.getByText('আপনি লগআউট করেছেন।')).toBeVisible();
+    // a page opened signed out is where the sign-in returns
     await page.goto('/account/sessions');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Faccount%2Fsessions$/);
   });
 
   test('shows the same generic message for a wrong password', async ({ page }, info) => {
@@ -99,7 +100,7 @@ test.describe('login and logout', () => {
     await page.getByRole('button', { name: 'লগইন', exact: true }).click();
     // Next's route announcer is an alert too; the error is the one inside the form.
     await expect(page.locator('form').getByRole('alert')).toHaveText(
-      'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
+      'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
     );
   });
 
@@ -134,7 +135,7 @@ test.describe('devices', () => {
     // The revoked device is sent to the login screen with the reason (docs/architecture/AUTH.md,
     // "Devices: listing, remote revocation and local-data wipe").
     await otherPage.reload();
-    await expect(otherPage).toHaveURL(/\/login\?ended=revoked$/);
+    await expect(otherPage).toHaveURL(/\/login\?ended=revoked(&next=[^&]+)?$/);
     await expect(otherPage.getByText('এই ডিভাইসের সেশন শেষ হয়েছে। আবার লগইন করুন।')).toBeVisible();
     await other.close();
     // this device signs out too, so a repeat of the test finds one other device again

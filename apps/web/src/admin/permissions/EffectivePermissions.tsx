@@ -127,7 +127,10 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
         {effective.data && rows.length === 0 && <EmptyState title={t('effective_empty')} />}
         {modules.map((module) => {
           const inModule = rows.filter((r) => r.module === module);
-          const title = t('module', { module });
+          // the module by its name; one the list does not know keeps its code
+          const title = /^M\d{2}$/.test(module)
+            ? t(`modules.${module as 'M01'}`)
+            : t('module', { module });
           return (
             <div key={module} className="admin-panel-group">
               <h3 className="admin-group-title">{title}</h3>

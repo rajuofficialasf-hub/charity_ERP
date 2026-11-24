@@ -116,4 +116,10 @@ export interface DeviceSession {
   /** Records the device last reported as still waiting on it, and when; null before any report. */
   pendingCount: number | null;
   pendingReportedAt: string | null;
+  /**
+   * The network the device was last seen from, enough to tell two devices apart and never the
+   * whole address (`203.0.113.x`, or the first three groups of an IPv6 address); only on the
+   * person's own list, null where none is known.
+   */
+  ipHint: string | null;
 }

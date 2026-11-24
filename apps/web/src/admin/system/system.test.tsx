@@ -224,6 +224,9 @@ describe('the system health', () => {
     const checks = within(screen.getByRole('list', { name: 'সেবাগুলোর অবস্থা' }));
     expect(checks.getAllByRole('listitem')).toHaveLength(4);
     expect(checks.getByText(/^ভার্সন /)).toBeInTheDocument();
+    // the environment, the kinds and the buckets by their names, never their codes
+    expect(checks.getByText('ডেভেলপমেন্ট (পরীক্ষার কম্পিউটার)')).toBeInTheDocument();
+    expect(screen.queryByText('development')).toBeNull();
     const storage = screen.getByText('ফাইল স্টোরেজ').closest('li') as HTMLElement;
     expect(within(storage).getByText('বন্ধ')).toBeInTheDocument();
     const database = screen.getByText('ডাটাবেস').closest('li') as HTMLElement;
@@ -231,16 +234,19 @@ describe('the system health', () => {
     expect(screen.getByText('2027-12')).toBeInTheDocument();
     expect(screen.getByText(/^5টি ফাইল, মোট /)).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'ধরন অনুযায়ী ফাইল' })).toHaveTextContent(
-      'profile_photo',
+      'প্রোফাইল ছবি',
+    );
+    expect(screen.getByRole('table', { name: 'ধরন অনুযায়ী ফাইল' })).not.toHaveTextContent(
+      'nid_photo',
     );
     // each bucket with its growth since a month ago, in English digits
     const buckets = screen.getByRole('table', { name: 'বাকেট অনুযায়ী স্টোরেজ' });
-    const photos = within(buckets).getByRole('row', { name: /photos/ });
+    const photos = within(buckets).getByRole('row', { name: /কাজের ছবি/ });
     expect(photos).toHaveTextContent('+1');
     expect(photos).toHaveTextContent(/2\.5/);
-    expect(within(buckets).getByRole('row', { name: /profiles/ })).toHaveTextContent(
-      'এখনো জানা নেই',
-    );
+    expect(
+      within(buckets).getByRole('row', { name: /প্রোফাইল ও পরিচয়পত্রের ছবি/ }),
+    ).toHaveTextContent('এখনো জানা নেই');
     await expectNoAxeViolations(container);
   });
 });

@@ -1,4 +1,4 @@
-import { formatDate, formatTaka, isoDateInDhaka } from '@css/shared/format';
+import { formatDate, formatDateTime, formatTaka, isoDateInDhaka } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import type { NisabVersionView } from '@css/shared/settings';
 import {
@@ -11,7 +11,9 @@ import {
   Page,
   StatCard,
   Text,
+  Timeline,
   type DataTableExtendedColumn,
+  type TimelineStep,
 } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -24,6 +26,45 @@ import { canKeepNisab } from '../roles';
 import { NisabDialog } from './NisabDialog';
 import { NISAB_KEY, nisabVersions, withdrawNisab } from './nisab-api';
 import { LoadError } from '../../components/LoadError';
+
+/**
+ * The changes of the nisab, newest first: each version added (by whom, its amount and the date
+ * it takes effect from) and each one withdrawn (by whom and why), read from the versions, which
+ * keep both.
+ */
+function NisabHistory({ rows }: { rows: readonly NisabVersionView[] }) {
+  const t = useTranslations('admin.nisab.history');
+  const locale = useLocale() as Locale;
+  if (!rows.length) return null;
+  const events = rows.flatMap((v) => {
+    const added = {
+      id: `${v.id}-added`,
+      at: v.createdAt,
+      title: t('added', {
+        value: formatTaka(Number(v.value), locale),
+        date: formatDate(v.effectiveFrom),
+      }),
+      actor: v.setBy.name,
+      comment: v.basisNote ?? undefined,
+    };
+    return v.withdrawn
+      ? [
+          added,
+          {
+            id: `${v.id}-withdrawn`,
+            at: v.withdrawn.at,
+            title: t('withdrawn', { date: formatDate(v.effectiveFrom) }),
+            actor: v.withdrawn.by.name,
+            comment: v.withdrawn.reason,
+          },
+        ]
+      : [added];
+  });
+  const steps: TimelineStep[] = events
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .map(({ at, ...e }) => ({ ...e, time: formatDateTime(at, locale), status: 'done' }));
+  return <Timeline label={t('title')} steps={steps} showActor />;
+}
 
 /**
  * The zakat nisab (docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17): the
@@ -163,6 +204,7 @@ export function NisabPage() {
       />
       <Card title={t('history.title')} headingLevel={2}>
         <Text tone="muted">{t('history.body')}</Text>
+        <NisabHistory rows={rows} />
       </Card>
       {adding && (
         <NisabDialog

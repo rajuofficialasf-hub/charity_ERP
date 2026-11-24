@@ -44,6 +44,8 @@ export const permissionSchema = z.object({
   module: z.string(),
   sensitive: z.boolean(),
   description: z.string(),
+  /** A key permission: the administration of the system, given by an Admin alone. */
+  adminOnly: z.boolean(),
 });
 export type PermissionInfo = z.infer<typeof permissionSchema>;
 

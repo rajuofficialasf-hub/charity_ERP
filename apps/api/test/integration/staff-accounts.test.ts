@@ -219,6 +219,14 @@ describe('creating an official', () => {
     expect(links.rows).toHaveLength(1);
     expect(links.rows[0].emailed).toBe(true);
     expect(links.rows[0].token_hash).not.toContain(tokenOf(issued.link as string));
+    // the deliveries page lists the email it went to, never the link
+    const delivered = await h.db.query(
+      `SELECT status, channel, params FROM outbound_messages
+        WHERE template_key = 'staff_invitation' AND recipient_user_id = $1`,
+      [issued.userId],
+    );
+    expect(delivered.rows).toEqual([{ status: 'sent', channel: 'email', params: {} }]);
+    expect(JSON.stringify(delivered.rows)).not.toContain(tokenOf(issued.link as string));
     const created = (await auditRows(h.db, 'user.created')).at(-1)!;
     expect(created).toMatchObject({ actor_user_id: head.id, entity_id: issued.userId });
     expect(JSON.stringify(created.new)).not.toContain(body.email as string);
@@ -252,6 +260,15 @@ describe('creating an official', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.emailed).toBe(false);
     expect(await check(tokenOf(res.body.data.link)).then((r) => r.status)).toBe(200);
+    // the deliveries page lists the refused email with the SMTP class, never the link
+    const refused = await h.db.query(
+      `SELECT status, sent_at, last_error, params FROM outbound_messages
+        WHERE template_key = 'staff_invitation' AND recipient_user_id = $1`,
+      [res.body.data.userId],
+    );
+    expect(refused.rows).toEqual([
+      { status: 'failed', sent_at: null, last_error: 'smtp ECONNREFUSED', params: {} },
+    ]);
   });
 
   it('is refused to an official without the permission', async () => {

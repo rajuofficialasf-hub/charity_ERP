@@ -57,7 +57,6 @@
     "permission_granted": "Permission given: {permission}",
     "permission_denied": "Permission taken away: {permission}",
     "permission_ended": "Separate setting ended: {permission}",
-    "role_changed": "your role is now {role}",
     "extra_area_given": "an extra area for volunteers was given: {area}",
     "extra_area_ended": "an extra area was taken away: {area}",
     "whole_country": "the whole country",

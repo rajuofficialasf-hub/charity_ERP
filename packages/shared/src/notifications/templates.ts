@@ -20,6 +20,8 @@ interface Text {
 
 export interface NotificationTemplateSeed {
   key: string;
+  /** The name the admin screens show, for a notification with no title or subject of its own. */
+  name?: Record<Locale, string>;
   variables: string[];
   channels: Partial<Record<NotificationChannel, Record<Locale, Text>>>;
 }
@@ -30,6 +32,10 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   // ---- 4.1 Registration, accounts and security ----
   {
     key: 'otp_registration_sms',
+    name: {
+      bn: 'নিবন্ধনের মোবাইল যাচাই কোড',
+      en: 'Mobile verification code for your registration',
+    },
     variables: ['code', 'minutes'],
     channels: {
       sms: {
@@ -238,6 +244,20 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
         body: '"{{field_name}}" বদলানোর অনুরোধটি বন্ধ করা হয়েছে।',
       },
       { title: 'Edit request closed', body: 'Your request to change "{{field_name}}" was closed.' },
+    ),
+  },
+  {
+    key: 'role_changed',
+    variables: ['role_name'],
+    channels: inApp(
+      {
+        title: 'আপনার রোল বদলেছে',
+        body: 'আপনার নতুন রোল: {{role_name}}। মেনু আর কাজের তালিকা এখন এই রোল অনুযায়ী।',
+      },
+      {
+        title: 'Your role changed',
+        body: 'Your new role: {{role_name}}. The menu and your work now follow this role.',
+      },
     ),
   },
   {
@@ -854,6 +874,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
   message: 'এবার সম্ভব হলো না',
   app_no: 'WC-2026-00012',
+  role_name: { bn: 'রিজিওনাল প্রোগ্রাম ম্যানেজার', en: 'Regional Program Manager' },
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
   work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
@@ -869,6 +890,23 @@ export function templateVariables(text: string): string[] {
 }
 
 /**
+ * The name of a notification for the admin screens, in both languages: its own name, else its
+ * in-app title, else its email subject as shipped, a value in it shown as "…". Null for a key the
+ * catalogue does not know, which the screen shows as it is.
+ */
+export function templateName(key: string): Record<Locale, string> | null {
+  const t = NOTIFICATION_TEMPLATES.find((x) => x.key === key);
+  if (!t) return null;
+  const pick = (l: Locale) =>
+    // eslint-disable-next-line security/detect-object-injection -- l is one of the two languages
+    (t.name?.[l] ?? t.channels.in_app?.[l].title ?? t.channels.email?.[l].subject ?? key).replace(
+      PLACEHOLDER,
+      '…',
+    );
+  return { bn: pick('bn'), en: pick('en') };
+}
+
+/**
  * The values an in-app row may keep: what happened, the place, the project, counts, the reader's
  * own text and the record ids of the link. Anything else, a person's name above all, is left out.
  */
@@ -881,6 +919,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'field_name',
   // the application's number, never the person's name
   'app_no',
+  // the reader's own new role
+  'role_name',
   // the reader's own new designation
   'designation',
   'project_name',

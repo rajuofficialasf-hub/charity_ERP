@@ -185,6 +185,23 @@ describe('scope on the user endpoints', () => {
       .expect(404);
   });
 
+  it("tells a person the network of their own devices, and an official never another person's", async () => {
+    const volunteer = await as(world.users.general);
+    const own = await api().get('/api/v1/sessions').set(bearer(volunteer)).expect(200);
+    const hints = (own.body.data as { ipHint: string | null }[]).map((d) => d.ipHint);
+    expect(hints).toContain('127.0.0.x');
+    // never the whole address
+    expect(JSON.stringify(own.body.data)).not.toMatch(/127\.0\.0\.1(?!\d)/);
+    const rpm = await as(world.users.rpmDhaka);
+    const theirs = await api()
+      .get(`/api/v1/users/${world.users.general}/sessions`)
+      .set(bearer(rpm))
+      .expect(200);
+    expect((theirs.body.data as { ipHint: string | null }[]).every((d) => d.ipHint === null)).toBe(
+      true,
+    );
+  });
+
   it('refuses a role without the permission with 403 and logs the denial', async () => {
     const executive = await as(world.users.executive);
     const before = deniedEvents().length;

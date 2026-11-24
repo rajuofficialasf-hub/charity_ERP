@@ -475,6 +475,26 @@ describe('refusals', () => {
   it('leaves the key permissions to an Admin: the Head is refused, and may still take one away', async () => {
     for (const permission of ['permission.panel.manage', 'user.role.change', 'settings.manage'])
       await refused({ permissions: [permission] }, 'key_permission_admin_only', world.users.pm);
+    // the answer names the permission the rule refused, among others that would have passed
+    const named = await api()
+      .post('/api/v1/permission-grants')
+      .set(bearer(await as(world.users.head)))
+      .send({
+        effect: 'grant',
+        scopeType: 'PROGRAM',
+        scopeRef: world.a1.program,
+        reason: REASON,
+        userId: world.users.pm,
+        permissions: ['program.view', 'settings.manage'],
+      })
+      .expect(403);
+    expect(named.body.error.details).toEqual([
+      expect.objectContaining({
+        path: 'permissions',
+        code: 'permission.refused.key_permission_admin_only',
+        message: expect.stringContaining('settings.manage'),
+      }),
+    ]);
     const admin = await as(world.users.admin);
     const head = await as(world.users.head);
     // the PM's own program, not the whole country, which would ask for a new password first

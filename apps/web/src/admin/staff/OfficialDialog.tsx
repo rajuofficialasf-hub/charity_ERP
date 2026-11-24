@@ -32,6 +32,7 @@ import { type PanelUser, UserSearch } from '../UserSearch';
 import {
   createOfficial,
   findSupervisors,
+  jobIdTaken,
   type StaffMember,
   staffWithEtag,
   updateProfile,
@@ -173,6 +174,7 @@ function OfficialForm({
   const t = useTranslations('admin.staff.dialog');
   const ta = useTranslations('admin.staff.affiliation');
   const tc = useTranslations('common.action');
+  const te = useTranslations('errors');
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const schema = useMemo(() => officialSchema(!official), [official]);
@@ -256,7 +258,19 @@ function OfficialForm({
 
   /** The first step's fields, checked before the second step opens (the server checks again). */
   const next = async () => {
-    if (await form.trigger(FIRST_STEP as Path<OfficialFields>[])) setStep(1);
+    if (!(await form.trigger(FIRST_STEP as Path<OfficialFields>[]))) return;
+    // a Job ID another official holds is told now, not after the second step; without an
+    // answer the second step opens and the save checks it
+    const jobId = form.getValues('jobId').trim();
+    // the official's own Job ID, in any case, is not taken by them
+    if (!official || jobId.toLowerCase() !== (official.jobId ?? '').toLowerCase()) {
+      const taken = await jobIdTaken(jobId).catch(() => false);
+      if (taken) {
+        form.setError('jobId', { message: te('user.job_id_taken') });
+        return;
+      }
+    }
+    setStep(1);
   };
 
   const ready =

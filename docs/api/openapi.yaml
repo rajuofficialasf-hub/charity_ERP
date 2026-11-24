@@ -153,7 +153,8 @@ components:
     VolunteerStateFilter:
       name: state
       in: query
-      schema: { type: string, enum: [pending, active, blocked, deactivated] }
+      description: "A closed account: deactivated after its approval; rejected, a registration the office rejected"
+      schema: { type: string, enum: [pending, active, blocked, deactivated, rejected] }
     VolunteerProjectId:
       name: projectId
       in: query
@@ -839,6 +840,7 @@ components:
         revokedAt: { type: [string, 'null'], format: date-time }
         pendingCount: { type: [integer, 'null'], minimum: 0, description: Records the device last reported as still waiting on it (a sync batch or a logout); null before any report }
         pendingReportedAt: { type: [string, 'null'], format: date-time }
+        ipHint: { type: [string, 'null'], description: "The network the device was last seen from (203.0.113.x, or the first three groups of an IPv6 address), never the whole address; only on the caller's own list (GET /sessions), null on another person's" }
     DeviceSessionList:
       type: object
       required: [data, meta]
@@ -1303,13 +1305,14 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     Permission:
       type: object
-      required: [name, title, module, sensitive, description]
+      required: [name, title, module, sensitive, description, adminOnly]
       properties:
         name: { type: string }
         title: { $ref: '#/components/schemas/Bilingual', description: 'The short name the panel shows, in both languages (D-188)' }
         module: { type: string }
         sensitive: { type: boolean }
         description: { type: string }
+        adminOnly: { type: boolean, description: 'A key permission: the administration of the system, which an Admin alone gives (a grant by anyone else answers 403 permission.grant_refused, its detail naming the permission)' }
     PermissionList:
       type: object
       required: [data, meta]
@@ -1425,7 +1428,7 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         type: { type: string, enum: [general, local_daee, both, team_member, paid] }
-        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        state: { type: string, enum: [pending, active, blocked, deactivated, rejected], description: rejected is a registration the office rejected }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -1450,13 +1453,14 @@ components:
       properties:
         volunteers:
           type: object
-          required: [total, active, pending, blocked, deactivated]
+          required: [total, active, pending, blocked, deactivated, rejected]
           properties:
             total: { type: integer, minimum: 0 }
             active: { type: integer, minimum: 0 }
             pending: { type: integer, minimum: 0 }
             blocked: { type: integer, minimum: 0 }
-            deactivated: { type: integer, minimum: 0 }
+            deactivated: { type: integer, minimum: 0, description: Accounts closed after their approval }
+            rejected: { type: integer, minimum: 0, description: Registrations the office rejected }
             inactive: { type: integer, minimum: 0, x-sensitive-class: volunteer.rating, description: The BD-40 inactive flag }
         applications:
           type: object
@@ -1712,6 +1716,8 @@ components:
         contactVerified: { type: boolean, description: 'For a mobile or email change: the code to the new value was verified' }
         decidedAt: { type: [string, 'null'], format: date-time }
         volunteerName: { type: string, description: 'Display name of the volunteer; only in the approvers'' list (GET /edit-requests)' }
+        requestedAt: { type: string, format: date-time, description: "On a registration's corrections (GET /registrations/{userId}): when it was asked" }
+        requestedByName: { type: [string, 'null'], description: "On a registration's corrections: who asked, by name; null for the system" }
     ChangeRequestResponse:
       type: object
       required: [data, meta]
@@ -5596,13 +5602,14 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     AuditEntry:
       type: object
-      required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
+      required: [id, createdAt, action, entityType, entityId, entityName, actor, actorRole, reason, ip, deviceSessionId, old, new]
       properties:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         action: { type: string }
         entityType: { type: string }
         entityId: { type: [string, 'null'], format: uuid }
+        entityName: { type: [string, 'null'], description: 'Who or what the entry is about: a person (user or volunteer) or a beneficiary by name, an application by its number; null for anything else' }
         actor:
           anyOf:
             - { $ref: '#/components/schemas/PersonRef' }

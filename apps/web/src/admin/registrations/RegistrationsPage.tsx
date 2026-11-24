@@ -1,14 +1,28 @@
 import type { Locale } from '@css/shared/i18n';
 import { formatDateTime } from '@css/shared/format';
-import { Alert, Chip, DataTable, Page, PersonCell, Tabs, type DataTableExtendedColumn } from '@/ui';
+import {
+  Alert,
+  Chip,
+  DataTable,
+  Page,
+  PersonCell,
+  Tabs,
+  Text,
+  type DataTableExtendedColumn,
+} from '@/ui';
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canApproveStaff, canDecideEdits, canDecideStaffEdits } from '../roles';
+import {
+  canApproveRegistrations,
+  canApproveStaff,
+  canDecideEdits,
+  canDecideStaffEdits,
+} from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import { EditRequests } from './EditRequests';
 import { StaffEditRequests } from './StaffEditRequests';
@@ -191,33 +205,45 @@ function PendingList() {
       cell: (r) => formatDateTime(r.submittedAt, locale),
     },
   ];
+  const { me } = useAuth();
   return (
-    <DataTable
-      label={t('tabs.pending')}
-      columns={columns}
-      rows={rows}
-      getRowId={(r) => r.userId}
-      rowLabel={(r) => r.displayName}
-      loading={list.isPending}
-      error={
-        list.error ? (
-          <LoadError error={list.error} onRetry={() => void list.refetch()} />
-        ) : undefined
-      }
-      emptyTitle={t('empty')}
-      cursorPagination={pagination}
-      cardRenderer={(r) => (
-        <div className="admin-permission-card">
-          {name(r)}
-          <span>
-            {kind(r)} · {type(r)}
-          </span>
-          {status(r)}
-          <District row={r} />
-          <span className="admin-muted">{formatDateTime(r.submittedAt, locale)}</span>
-        </div>
-      )}
-    />
+    <>
+      {/* the officials' registrations are here; the volunteers' wait in the volunteer tab */}
+      {me && canApproveRegistrations(me) ? (
+        <Text tone="muted">
+          {t('volunteers_elsewhere')}{' '}
+          <Link className="admin-inline-link" to="/admin/volunteers?state=pending">
+            {t('volunteers_link')}
+          </Link>
+        </Text>
+      ) : null}
+      <DataTable
+        label={t('tabs.pending')}
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => r.userId}
+        rowLabel={(r) => r.displayName}
+        loading={list.isPending}
+        error={
+          list.error ? (
+            <LoadError error={list.error} onRetry={() => void list.refetch()} />
+          ) : undefined
+        }
+        emptyTitle={t('empty')}
+        cursorPagination={pagination}
+        cardRenderer={(r) => (
+          <div className="admin-permission-card">
+            {name(r)}
+            <span>
+              {kind(r)} · {type(r)}
+            </span>
+            {status(r)}
+            <District row={r} />
+            <span className="admin-muted">{formatDateTime(r.submittedAt, locale)}</span>
+          </div>
+        )}
+      />
+    </>
   );
 }
 

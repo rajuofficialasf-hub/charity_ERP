@@ -81,25 +81,39 @@ export function useAuth(): AuthValue {
   return useContext(AuthContext);
 }
 
-/** Login path with the reason a session ended, so the login screen can say why. */
+/**
+ * Login path with the reason a session ended, so the login screen can say why, and the page to
+ * return to. An explicit logout keeps no page: whoever signs in next on the device starts at their
+ * own home.
+ */
 export function loginPath(ended?: SessionEnd, next?: string): string {
   const query = new URLSearchParams();
   if (ended && ended !== 'expired') query.set('ended', ended);
-  if (next && returnPath(next)) query.set('next', next);
+  if (ended !== 'logout' && next && returnPath(next)) query.set('next', next);
   const search = query.toString();
   return search ? `/login?${search}` : '/login';
 }
 
 /**
- * The pages the sign-in returns to: the app's own address of a photo, which a copied link opens.
- * Anything else, another host or a scheme among it, leads home, so the sign-in never sends a
- * person away from the app.
+ * The pages the sign-in returns to: an address of the app itself, as a link in a notice or an
+ * email opens it. It starts with one slash (never `//` or `/\`), holds no backslash, space or
+ * control character and no `..` step, and is not the sign-in itself; anything else (another host,
+ * a scheme) leads home, so the sign-in never sends a person away from the app.
  */
-const RETURN_PATHS = [/^\/photos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/];
+// eslint-disable-next-line no-control-regex -- control characters are what the class refuses
+const RETURN_PATH = /^\/(?![/\\])[^\\\s\u0000-\u001f]*$/;
+const RETURN_MAX = 1000;
 
 /** The path the sign-in may return to, or null. */
 export function returnPath(next: string | null | undefined): string | null {
-  return next && RETURN_PATHS.some((path) => path.test(next)) ? next : null;
+  if (!next || next.length > RETURN_MAX || !RETURN_PATH.test(next)) return null;
+  // the router matches paths in any case, so the sign-in itself is told apart in any case too
+  const path = next.split(/[?#]/)[0]!.toLowerCase();
+  if (path.split('/').some((step) => step === '..' || step === '.')) return null;
+  if (path === '/login' || path.startsWith('/login/')) return null;
+  // home is where a sign-in goes anyway
+  if (next === '/') return null;
+  return next;
 }
 
 /** The screen a signed-in user with a new password due is kept on. */
@@ -110,10 +124,12 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
   const { status, me, ended } = useAuth();
   const navigate = useNavigate();
   const t = useTranslations('common.state');
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   useEffect(() => {
-    if (status === 'signed-out') void navigate(loginPath(ended, pathname), { replace: true });
-  }, [status, ended, navigate, pathname]);
+    // the whole address of the page, so a list opens again with its filters and page
+    if (status === 'signed-out')
+      void navigate(loginPath(ended, pathname + search + hash), { replace: true });
+  }, [status, ended, navigate, pathname, search, hash]);
   const content = useMemo(() => (me ? children(me) : null), [me, children]);
   // a new password is due before anything else (a global role was approved)
   if (me?.passwordChangeRequired && pathname !== PASSWORD_PATH)

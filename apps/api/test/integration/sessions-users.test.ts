@@ -48,6 +48,8 @@ describe('own device sessions', () => {
       revokedAt: null,
       pendingCount: null,
       pendingReportedAt: null,
+      // the person's own network, with its last part hidden
+      ipHint: expect.stringMatching(/\.x$|:/),
     });
     expect(res.body.meta).toMatchObject({ limit: 2, nextCursor: null });
   });

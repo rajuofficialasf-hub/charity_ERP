@@ -103,13 +103,15 @@ describe('NotificationTemplatesPage', () => {
       ),
     );
     const { container } = renderApp(<NotificationTemplatesPage />, 'en');
-    expect((await screen.findAllByText('handover_items_assigned')).length).toBeGreaterThan(0);
+    // each notification by its name, never its code
+    expect((await screen.findAllByText('Handed-over work')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('handover_items_assigned')).toBeNull();
     expect(screen.getAllByText('Email, version 2').length).toBeGreaterThan(0);
     expect(screen.getByText('Messages')).toBeInTheDocument();
     await expectNoAxeViolations(container);
 
-    await user.click(screen.getAllByRole('button', { name: 'Edit handover_items_assigned' })[0]!);
-    const dialog = await screen.findByRole('dialog', { name: 'Edit handover_items_assigned' });
+    await user.click(screen.getAllByRole('button', { name: 'Edit “Handed-over work”' })[0]!);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit “Handed-over work”' });
     expect(within(dialog).getByText('Values you can use: {{from_name}}, {{count}}')).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Preview' }));
     const shown = await within(dialog).findByRole('region', { name: 'Preview with sample values' });
@@ -160,11 +162,11 @@ describe('NotificationTemplatesPage', () => {
     );
     renderApp(<NotificationTemplatesPage />, 'en');
     await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit handover_items_assigned' }))[0]!,
+      (await screen.findAllByRole('button', { name: 'Edit “Handed-over work”' }))[0]!,
     );
-    const dialog = await screen.findByRole('dialog', { name: 'Edit handover_items_assigned' });
+    const dialog = await screen.findByRole('dialog', { name: 'Edit “Handed-over work”' });
     await user.click(within(dialog).getByRole('button', { name: 'Save as new version' }));
-    expect(await screen.findByText('handover_items_assigned saved as version 2.')).toBeVisible();
+    expect(await screen.findByText('“Handed-over work” saved as version 2.')).toBeVisible();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(saved).toEqual([
       {
@@ -201,9 +203,9 @@ describe('NotificationTemplatesPage', () => {
     );
     renderApp(<NotificationTemplatesPage />, 'en');
     await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit handover_items_assigned' }))[0]!,
+      (await screen.findAllByRole('button', { name: 'Edit “Handed-over work”' }))[0]!,
     );
-    const dialog = await screen.findByRole('dialog', { name: 'Edit handover_items_assigned' });
+    const dialog = await screen.findByRole('dialog', { name: 'Edit “Handed-over work”' });
     await user.click(within(dialog).getByRole('radio', { name: 'Email' }));
     const subjects = within(dialog).getAllByRole('textbox', { name: /Subject/ });
     expect(subjects[1]).toHaveValue('Work handed over');
@@ -246,6 +248,9 @@ describe('DeliveriesPage', () => {
     expect(await screen.findAllByText('r***@example.org')).not.toHaveLength(0);
     expect(screen.getByText('Delivery audit')).toBeInTheDocument();
     expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
+    // the notification by its name, never its code
+    expect(screen.getAllByText('Handed-over work').length).toBeGreaterThan(0);
+    expect(screen.queryByText('handover_items_assigned')).toBeNull();
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole('button', { name: 'Failed', pressed: false }));
     await waitFor(() => expect(requests.at(-1)?.get('status')).toBe('failed'));

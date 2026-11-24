@@ -141,7 +141,8 @@
       "answer": "Answer",
       "answered": "Answered",
       "resubmit": "Submit again",
-      "resubmitted": "The corrections were submitted. The approver will look again."
+      "resubmitted": "The corrections were submitted. The approver will look again.",
+      "answer_and_send": "Answer and submit"
     },
     "sections": {
       "personal": "Personal details",

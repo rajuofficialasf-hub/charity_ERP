@@ -31,6 +31,10 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
     },
   });
   if (sessions.isPending) return <Skeleton count={2} />;
+  // the list offers the devices by role; the server reaches only the volunteers working on the
+  // caller's own projects, so for anyone else it says so in words, with nothing to retry
+  if (sessions.error instanceof ApiFailure && sessions.error.status === 404)
+    return <p className="admin-muted">{t('sessions_out_of_reach')}</p>;
   if (sessions.error)
     return <LoadError error={sessions.error} onRetry={() => void sessions.refetch()} />;
   const device = (s: DeviceSession) => s.deviceName ?? t('unknown_device');

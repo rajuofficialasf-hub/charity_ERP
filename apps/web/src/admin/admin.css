@@ -124,6 +124,10 @@
   color: var(--color-brand-primary-dark);
   text-decoration: underline;
 }
+/* a link inside running text: underlined, so it never relies on its colour alone */
+.admin-inline-link {
+  text-decoration: underline;
+}
 .admin-person-meta {
   font-size: var(--text-caption);
   color: var(--color-text-secondary);
