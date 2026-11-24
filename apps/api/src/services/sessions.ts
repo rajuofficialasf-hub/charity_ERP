@@ -10,7 +10,31 @@ import type { AccountEvents } from '../notifications/account-events.js';
 
 type SessionRow = Awaited<ReturnType<SessionService['list']>>[number];
 
-function view(row: SessionRow, currentId: string | null): DeviceSession {
+/**
+ * A device's last address cut to its network: the last part of an IPv4 address and all but the
+ * first three groups of an IPv6 one dropped, so two devices can be told apart without the address.
+ */
+export function ipHintOf(ip: string | null): string | null {
+  if (!ip) return null;
+  const bare = ip.replace(/\/\d+$/, '').replace(/^::ffff:/i, '');
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/.exec(bare);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.x`;
+  if (!/^[0-9a-f:]+$/i.test(bare)) return null;
+  // `::` stands for the zero groups between its sides
+  const [head = '', tail = ''] = bare.split('::');
+  const before = head.split(':').filter(Boolean);
+  const after = tail.split(':').filter(Boolean);
+  const groups = bare.includes('::')
+    ? [
+        ...before,
+        ...Array<string>(Math.max(0, 8 - before.length - after.length)).fill('0'),
+        ...after,
+      ]
+    : before;
+  return groups.length >= 3 ? `${groups.slice(0, 3).join(':')}:…` : null;
+}
+
+function view(row: SessionRow, currentId: string | null, own = false): DeviceSession {
   return {
     id: row.id,
     deviceName: row.deviceName,
@@ -23,6 +47,8 @@ function view(row: SessionRow, currentId: string | null): DeviceSession {
     // what the device last reported as still waiting on it (a sync batch, or the logout)
     pendingCount: row.pendingCount ?? null,
     pendingReportedAt: row.pendingReportedAt?.toISOString() ?? null,
+    // the network one's own device was seen from; another person's stays theirs
+    ipHint: own ? ipHintOf(row.lastIp) : null,
   };
 }
 
@@ -41,7 +67,7 @@ export class SessionsService {
 
   async listOwn(user: Principal): Promise<DeviceSession[]> {
     const rows = await this.sessions.list(user.userId);
-    return rows.map((r) => view(r, user.sessionId));
+    return rows.map((r) => view(r, user.sessionId, true));
   }
 
   /** One of the user's open sessions, or 404 (an unknown or already revoked id looks the same). */

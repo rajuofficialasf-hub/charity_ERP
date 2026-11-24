@@ -839,6 +839,7 @@ components:
         revokedAt: { type: [string, 'null'], format: date-time }
         pendingCount: { type: [integer, 'null'], minimum: 0, description: Records the device last reported as still waiting on it (a sync batch or a logout); null before any report }
         pendingReportedAt: { type: [string, 'null'], format: date-time }
+        ipHint: { type: [string, 'null'], description: "The network the device was last seen from (203.0.113.x, or the first three groups of an IPv6 address), never the whole address; only on the caller's own list (GET /sessions), null on another person's" }
     DeviceSessionList:
       type: object
       required: [data, meta]

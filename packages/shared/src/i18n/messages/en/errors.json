@@ -1,6 +1,6 @@
 {
   "auth": {
-    "invalid_credentials": "The mobile number, email or password is incorrect.",
+    "invalid_credentials": "The Job ID, mobile number, email or password is incorrect.",
     "account_locked": "The account is locked for a while after repeated failed attempts. Try again later.",
     "account_pending": "Your registration is still waiting for approval.",
     "account_blocked": "This account is blocked.",

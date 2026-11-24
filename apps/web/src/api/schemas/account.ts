@@ -156,6 +156,7 @@ export const deviceSessionSchema = z.object({
   revokedAt: dateTime.nullable(),
   pendingCount: z.number().int().nullable(),
   pendingReportedAt: dateTime.nullable(),
+  ipHint: z.string().nullable(),
 }) satisfies z.ZodType<DeviceSession>;
 
 /** What the set-password page shows before the password is chosen. */

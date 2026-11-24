@@ -87,15 +87,23 @@ describe('the page of a photo that cannot be read', () => {
 });
 
 describe('the return after signing in', () => {
-  it("leads back to a photo's page and to nothing else", () => {
+  it('leads back to a page of the app itself and to nothing else', () => {
     expect(returnPath(`/photos/${PHOTO}`)).toBe(`/photos/${PHOTO}`);
+    expect(returnPath('/admin/applications/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c02')).toBe(
+      '/admin/applications/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c02',
+    );
+    expect(returnPath('/admin/users?page=2')).toBe('/admin/users?page=2');
     for (const next of [
       '//evil.example',
+      '/\\evil.example',
       'https://evil.example',
       'javascript:alert(1)',
       `/photos/${PHOTO}/../../admin`,
-      '/admin/users',
+      '/login?next=/admin',
+      '/a b',
       `\\\\evil.example/photos/${PHOTO}`,
+      'x'.repeat(5),
+      `/${'a'.repeat(1001)}`,
       null,
     ])
       expect(returnPath(next), String(next)).toBeNull();
@@ -105,7 +113,11 @@ describe('the return after signing in', () => {
     expect(loginPath(undefined, `/photos/${PHOTO}`)).toBe(
       `/login?next=${encodeURIComponent(`/photos/${PHOTO}`)}`,
     );
-    expect(loginPath('revoked', '/admin/users')).toBe('/login?ended=revoked');
+    expect(loginPath('revoked', '/admin/users')).toBe(
+      `/login?ended=revoked&next=${encodeURIComponent('/admin/users')}`,
+    );
+    // a logout of one's own keeps no page for whoever signs in next
+    expect(loginPath('logout', '/admin/users')).toBe('/login?ended=logout');
     expect(loginPath()).toBe('/login');
   });
 });

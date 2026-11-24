@@ -81,25 +81,36 @@ export function useAuth(): AuthValue {
   return useContext(AuthContext);
 }
 
-/** Login path with the reason a session ended, so the login screen can say why. */
+/**
+ * Login path with the reason a session ended, so the login screen can say why, and the page to
+ * return to. An explicit logout keeps no page: whoever signs in next on the device starts at their
+ * own home.
+ */
 export function loginPath(ended?: SessionEnd, next?: string): string {
   const query = new URLSearchParams();
   if (ended && ended !== 'expired') query.set('ended', ended);
-  if (next && returnPath(next)) query.set('next', next);
+  if (ended !== 'logout' && next && returnPath(next)) query.set('next', next);
   const search = query.toString();
   return search ? `/login?${search}` : '/login';
 }
 
 /**
- * The pages the sign-in returns to: the app's own address of a photo, which a copied link opens.
- * Anything else, another host or a scheme among it, leads home, so the sign-in never sends a
- * person away from the app.
+ * The pages the sign-in returns to: an address of the app itself, as a link in a notice or an
+ * email opens it. It starts with one slash (never `//` or `/\`), holds no backslash, space or
+ * control character and no `..` step, and is not the sign-in itself; anything else (another host,
+ * a scheme) leads home, so the sign-in never sends a person away from the app.
  */
-const RETURN_PATHS = [/^\/photos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/];
+// eslint-disable-next-line no-control-regex -- control characters are what the class refuses
+const RETURN_PATH = /^\/(?![/\\])[^\\\s\u0000-\u001f]*$/;
+const RETURN_MAX = 1000;
 
 /** The path the sign-in may return to, or null. */
 export function returnPath(next: string | null | undefined): string | null {
-  return next && RETURN_PATHS.some((path) => path.test(next)) ? next : null;
+  if (!next || next.length > RETURN_MAX || !RETURN_PATH.test(next)) return null;
+  const path = next.split(/[?#]/)[0]!;
+  if (path.split('/').some((step) => step === '..' || step === '.')) return null;
+  if (path === '/login' || path.startsWith('/login/')) return null;
+  return next;
 }
 
 /** The screen a signed-in user with a new password due is kept on. */

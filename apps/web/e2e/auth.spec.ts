@@ -99,7 +99,7 @@ test.describe('login and logout', () => {
     await page.getByRole('button', { name: 'লগইন', exact: true }).click();
     // Next's route announcer is an alert too; the error is the one inside the form.
     await expect(page.locator('form').getByRole('alert')).toHaveText(
-      'মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
+      'Job ID, মোবাইল/ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।',
     );
   });
 
