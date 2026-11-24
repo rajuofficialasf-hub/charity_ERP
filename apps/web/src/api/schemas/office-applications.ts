@@ -218,6 +218,19 @@ export const pulledApplicationSchema = recordOf(
 );
 export type PulledApplication = z.infer<typeof pulledApplicationSchema>;
 
+/** Who a pull of an area would take now, or null when nobody waits. */
+export const nextWaitlistedSchema = recordOf(
+  z
+    .object({
+      id: z.uuid(),
+      appNo: z.string().nullable(),
+      beneficiaryName: z.string().nullable(),
+      totalScore: z.number().nullable(),
+    })
+    .nullable(),
+);
+export type NextWaitlisted = z.infer<typeof nextWaitlistedSchema>['data'];
+
 /** The result of one row of the office's bulk review. */
 export const bulkRowResultSchema = z.object({
   clientUuid: z.uuid(),

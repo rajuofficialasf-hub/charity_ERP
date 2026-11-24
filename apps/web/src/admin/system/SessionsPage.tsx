@@ -36,7 +36,9 @@ export function SessionsPage() {
   const t = useTranslations('admin.sessions');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
-  const { filters, change, q, onSearch, cursor, setCursor } = useTabView(['kind'] as const);
+  const { filters, change, q, onSearch, initialSearch, cursor, setCursor } = useTabView([
+    'kind',
+  ] as const);
   const [target, setTarget] = useState<ActiveSession | null>(null);
   const [notice, setNotice] = useState<string>();
   // a stale or edited link with another kind shows every session instead of an error
@@ -133,6 +135,7 @@ export function SessionsPage() {
         toolbar={
           <FilterBar
             onSearch={onSearch}
+            initialSearch={initialSearch}
             searchPlaceholder={t('search')}
             chips={[
               { id: 'all', label: t('kind.all') },

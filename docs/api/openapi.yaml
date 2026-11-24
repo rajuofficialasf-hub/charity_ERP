@@ -11201,6 +11201,51 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/waitlist/next:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [applications]
+      operationId: applications.waitlist.next
+      summary: 'Who a pull of the area would take now (the highest score, then the earliest waitlisted), or null; nothing is held'
+      description: >-
+        Read before "পরেরজনকে আনুন", so the dialog names the person and the score. The area follows
+        the pull's rule (422 for an area the project's quotas do not weigh by). Only applications the
+        caller's application scope reaches are read; nothing is locked, so a pull in between may take
+        this person and the next pull another. A project out of reach 404.
+      x-permission: application.waitlist
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - name: areaId
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The next waitlisted application, or null when nobody waits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    oneOf:
+                      - type: 'null'
+                      - type: object
+                        required: [id, appNo, beneficiaryName, totalScore]
+                        properties:
+                          id: { $ref: '#/components/schemas/Uuid' }
+                          appNo: { type: [string, 'null'] }
+                          beneficiaryName: { type: [string, 'null'] }
+                          totalScore: { type: [number, 'null'] }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/waitlist/pull-next:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

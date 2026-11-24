@@ -147,7 +147,17 @@ function BeneficiaryTab({
     // the order lives in the URL beside the filters, but only the list reads it
     ...(history ? (['sort'] as const) : []),
   ];
-  const { filters: view, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(keys);
+  const {
+    filters: view,
+    setFilters,
+    change,
+    q,
+    onSearch,
+    initialSearch,
+    page,
+    cursor,
+    goTo,
+  } = useTabView(keys);
   const { sort: sortValue, ...filters } = view;
   const sort = isSort(sortValue) ? sortValue : undefined;
 
@@ -418,6 +428,7 @@ function BeneficiaryTab({
         toolbar={
           <FilterBar
             onSearch={onSearch}
+            initialSearch={initialSearch}
             searchPlaceholder={t('search')}
             collapsible
             activeFilters={activeFilters}

@@ -12,6 +12,7 @@ import type {
   OfficeApplicationPage,
   OfficeApplicationRecord,
   OfficeTimelineEntry,
+  NextWaitlisted,
   PulledApplication,
   ScoreItem,
   Unlock,
@@ -147,6 +148,12 @@ export const pullNext = (
     headers: { 'Idempotency-Key': key },
     envelope: true,
   });
+
+/** Who a pull of the area would take now; nothing is held, so the pull may take another. */
+export const nextWaitlisted = (projectId: string, areaId?: string) =>
+  api<NextWaitlisted>(
+    `/projects/${projectId}/waitlist/next${areaId ? `?areaId=${encodeURIComponent(areaId)}` : ''}`,
+  );
 
 /** The comment reasons a refused decision names, when the server asked for a comment. */
 export const askedComments = (error: unknown): CommentReason[] | null =>

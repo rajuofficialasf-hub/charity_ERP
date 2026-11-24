@@ -659,6 +659,34 @@ describe('the waitlist', () => {
     expect(empty.body.error.code).toBe('workflow.waitlist_empty');
   });
 
+  it('names who a pull would take next, holding nobody, and nobody once the waitlist is empty', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const rpm = await as(world.users.rpmDhaka);
+    const nextOf = (s: Session, areaId: string) =>
+      at(s, 'get', `/projects/${project}/waitlist/next?areaId=${areaId}`);
+    const empty = await nextOf(rpm, world.dhaka.union);
+    expect(empty.status, JSON.stringify(empty.body)).toBe(200);
+    expect(empty.body.data).toBeNull();
+    const low = await reviewed('other');
+    const top = await reviewed('widow');
+    for (const id of [low, top]) await moved(rpm, id, 'waitlist', { reason: 'মালামাল কম' });
+    const next = await nextOf(rpm, world.dhaka.union);
+    expect(next.body.data).toEqual({
+      id: top,
+      appNo: expect.any(String),
+      beneficiaryName: expect.any(String),
+      totalScore: 30,
+    });
+    // the read holds nobody: the pull takes the same person
+    expect((await pullNext(rpm, { areaId: world.dhaka.union })).body.data.id).toBe(top);
+    expect((await nextOf(rpm, world.dhaka.union)).body.data.id).toBe(low);
+    // refused as the pull is: a volunteer, an official of another region, an area outside the quotas
+    expect((await nextOf(await as(world.users.general), world.dhaka.union)).status).toBe(403);
+    expect((await nextOf(await as(world.users.rpmRangpur), world.dhaka.union)).status).toBe(404);
+    expect((await nextOf(rpm, world.dhaka.district)).status).toBe(422);
+  });
+
   it('tells the volunteer of the waitlisting and of the pull, never the office reason', async () => {
     await clearQueue();
     await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);

@@ -100,6 +100,21 @@ describe('the lookup field', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('searches when Enter is pressed in the number, and names the gender as the form does', async () => {
+    answer({
+      found: true,
+      blocked: false,
+      alreadyAppliedInProject: false,
+      mobileIsCallerOwn: false,
+      autofill,
+    });
+    open();
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('textbox', { name: /NID নম্বর/ }), '1000001000{Enter}');
+    await waitFor(() => expect(bodies).toEqual([{ nid: '1000001000', projectId: PROJECT }]));
+    expect(await screen.findByText('মহিলা')).toBeInTheDocument();
+  });
+
   it('drops an answer that arrives after the number was changed', async () => {
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => (release = resolve));

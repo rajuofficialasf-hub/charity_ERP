@@ -1,5 +1,5 @@
 import { uuidv7 } from '@css/shared';
-import { formatCount } from '@css/shared/format';
+import { formatCount, formatDecimal } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { Alert, Button, Card, Chip, ProgressBar, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,13 @@ import { ApiFailure } from '../../api/client';
 import { useAuth } from '../../lib/auth';
 import { type Quota, quotas as loadQuotas } from '../projects/setup/setup-api';
 import { canDecideApplications } from '../roles';
-import { APPLICATIONS_KEY, askedComments, type CommentReason, pullNext } from './applications-api';
+import {
+  APPLICATIONS_KEY,
+  askedComments,
+  type CommentReason,
+  nextWaitlisted,
+  pullNext,
+} from './applications-api';
 import { DecisionDialog } from './DecisionDialog';
 import { LoadError } from '../../components/LoadError';
 
@@ -82,17 +88,19 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       : undefined;
   // the list of locations that names the area is its parent's
   const untargetedParent = level === 'union' ? area.upazilaId : area.divisionId;
-  // the pull approves the next person and locks their answers, so it asks first
-  const start = (areaId?: string) => {
+  // the pull approves the next person and locks their answers, so it asks first; into a full
+  // quota the comment the server would ask for is asked at once
+  const start = (areaId?: string, full = false) => {
     setNotice(null);
     pull.reset();
-    setAsking({ areaId, reasons: [] });
+    setAsking({ areaId, reasons: full ? ['quota_full'] : [] });
   };
   const dialog = asking ? (
     <DecisionDialog
       title={t('pull.title')}
       confirm={t('pull.title')}
       withReason={false}
+      lead={<NextPerson projectId={projectId} areaId={asking.areaId} />}
       note={t('dialog.approve_note')}
       comments={asking.reasons}
       pending={pull.isPending}
@@ -144,7 +152,7 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
                         variant="secondary"
                         size="small"
                         loading={pull.isPending && pull.variables?.areaId === q.locationId}
-                        onClick={() => start(q.locationId)}
+                        onClick={() => start(q.locationId, q.full)}
                       >
                         {t('pull.area', { name })}
                       </Button>
@@ -204,6 +212,32 @@ function QuotaRow({
       />
       {pull ? <div>{pull(name)}</div> : null}
     </li>
+  );
+}
+
+/** Who the pull would take now, read when its dialog opens: the name, the number and the score. */
+function NextPerson({ projectId, areaId }: { projectId: string; areaId?: string }) {
+  const t = useTranslations('applications.office');
+  const locale = useLocale() as Locale;
+  const next = useQuery({
+    queryKey: [...APPLICATIONS_KEY, projectId, 'waitlist-next', areaId ?? null],
+    queryFn: () => nextWaitlisted(projectId, areaId),
+    // always the waitlist as it stands now
+    staleTime: 0,
+  });
+  if (next.isPending || next.error) return null;
+  const person = next.data;
+  if (!person) return <Alert tone="warning">{t('pull.nobody')}</Alert>;
+  const values = {
+    name: person.beneficiaryName ?? t('unnamed'),
+    appNo: person.appNo ?? t('no_number'),
+  };
+  return (
+    <Alert tone="info">
+      {person.totalScore === null
+        ? t('pull.next_unscored', values)
+        : t('pull.next', { ...values, score: formatDecimal(person.totalScore, 2, locale) })}
+    </Alert>
   );
 }
 

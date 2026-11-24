@@ -482,6 +482,8 @@ export type UiLabels = {
   selectRow: string;
   /** For example "3 selected". */
   selectedCount: string;
+  /** The bulk bar's line while no row is ticked, so the bar keeps its place. */
+  selectHint: string;
   /** The header of the row actions column. */
   rowActions: string;
   loadMore: string;

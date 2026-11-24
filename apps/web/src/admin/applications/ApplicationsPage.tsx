@@ -129,7 +129,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, q, onSearch, initialSearch, page, cursor, goTo } =
+    useTabView(FILTER_KEYS);
   const list = useQuery({
     queryKey: [...APPLICATIONS_KEY, projectId, filters, q, page, cursor],
     queryFn: () => applicationPage(projectId, filters, q, page, cursor),
@@ -496,6 +497,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         toolbar={
           <FilterBar
             onSearch={onSearch}
+            initialSearch={initialSearch}
             searchPlaceholder={t('search')}
             collapsible
             activeFilters={activeFilters}

@@ -322,7 +322,10 @@
       "title": "Bring in the next",
       "area": "Bring in the next ({name})",
       "help": "The highest score on the waitlist is approved; on a tie, the one who has waited longest.",
-      "done": "{appNo} is approved from the waitlist."
+      "done": "{appNo} is approved from the waitlist.",
+      "next": "Next: {name} ({appNo}), score {score}",
+      "next_unscored": "Next: {name} ({appNo})",
+      "nobody": "Nobody is on the waitlist of this area now."
     },
     "verify": {
       "profile": "The profile it will be linked to",

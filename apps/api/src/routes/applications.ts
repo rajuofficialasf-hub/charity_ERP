@@ -30,7 +30,12 @@ import { ok, page } from '../http/send.js';
 import { defineRoute, type RouteDeps } from '../openapi/define-route.js';
 import type { Replayable } from '../services/uploads.js';
 import { versionView } from './forms.js';
-import { type PullNext, pullNextSchema } from '../applications/waitlist.js';
+import {
+  nextQuerySchema,
+  nextWaitlistedSchema,
+  type PullNext,
+  pullNextSchema,
+} from '../applications/waitlist.js';
 import {
   type TransferRequest,
   transferCandidate,
@@ -509,6 +514,23 @@ export function applicationsRouter(
       if (outcome.replay) c.idempotency.markReplay(res);
       return ok({ results: outcome.results });
     },
+  });
+
+  defineRoute<unknown, { areaId?: string }, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/projects/:projectId/waitlist/next',
+    operationId: 'applications.waitlist.next',
+    summary:
+      'Who a pull of the area would take now (the highest score, then the earliest waitlisted), or null; nothing is held',
+    permission: 'application.waitlist',
+    scope: 'application',
+    audit: 'none',
+    params: { projectId: uuid },
+    query: nextQuerySchema,
+    responses: { 200: nextWaitlistedSchema, 403: null, 404: null, 422: null },
+    handler: async ({ params, query, req }) =>
+      ok(await c.waitlist.next(principalOf(req), params.projectId, query.areaId)),
   });
 
   defineRoute<PullNext, unknown, { projectId: string }>(router, deps, {
