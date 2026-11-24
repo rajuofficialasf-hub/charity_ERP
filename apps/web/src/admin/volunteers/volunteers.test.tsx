@@ -38,7 +38,14 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 const STATS = {
-  volunteers: { total: 1250, active: 1100, pending: 75, blocked: 25, deactivated: 50 },
+  volunteers: {
+    total: 1250,
+    active: 1100,
+    pending: 75,
+    blocked: 25,
+    deactivated: 40,
+    rejected: 10,
+  },
   applications: { total: 3400, approved: 2100, underReview: 800 },
 };
 
@@ -162,8 +169,8 @@ describe('the volunteer tab', () => {
       'aria-pressed',
       'true',
     );
-    // the application counts sit behind the last card
-    expect(within(counts).getByRole('button', { name: /^আরও অবস্থা/ })).toHaveTextContent('3টি');
+    // the application counts sit behind the last card, with a rejected registration told apart
+    expect(within(counts).getByRole('button', { name: /^আরও অবস্থা/ })).toHaveTextContent('4টি');
     expect((await screen.findAllByText('নমুনা স্বেচ্ছাসেবক')).length).toBeGreaterThan(0);
     expect((await screen.findAllByText('সাভার উপজেলা, ঢাকা জেলা')).length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
@@ -174,7 +181,9 @@ describe('the volunteer tab', () => {
     serve();
     const user = userEvent.setup();
     const { router } = open();
-    await user.click(await screen.findByRole('button', { name: 'অপেক্ষমাণ 75', pressed: false }));
+    await user.click(
+      await screen.findByRole('button', { name: 'অনুমোদনের অপেক্ষায় 75', pressed: false }),
+    );
     await waitFor(() => expect(router.state.location.search).toBe('?state=pending'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('state')).toBe('pending'));
     // the other cards keep their numbers

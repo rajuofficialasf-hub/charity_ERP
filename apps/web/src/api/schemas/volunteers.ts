@@ -1,6 +1,6 @@
 import { USER_STATES } from '@css/shared/auth';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
-import type { VolunteerRow, VolunteerStatistics } from '@css/shared/volunteers';
+import { VOLUNTEER_STATES, type VolunteerRow, type VolunteerStatistics } from '@css/shared/volunteers';
 import { z } from 'zod';
 import { dateTime, tabPageOf } from './common';
 
@@ -12,7 +12,7 @@ export const volunteerRowSchema = z.object({
   userId: z.uuid(),
   displayName: z.string(),
   type: z.enum(VOLUNTEER_TYPES),
-  state: z.enum(USER_STATES),
+  state: z.enum(VOLUNTEER_STATES),
   divisionId: z.uuid(),
   districtId: z.uuid(),
   upazilaId: z.uuid(),
@@ -36,6 +36,7 @@ export const volunteerStatisticsSchema = z.object({
     pending: z.number().int(),
     blocked: z.number().int(),
     deactivated: z.number().int(),
+    rejected: z.number().int(),
     inactive: z.number().int().optional(),
   }),
   applications: z.object({

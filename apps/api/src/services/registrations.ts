@@ -342,6 +342,7 @@ export class RegistrationsService {
             volunteerChangeRequestsVolunteer: {
               where: { kind: CORRECTION },
               orderBy: { createdAt: 'asc' },
+              include: { requestedByRef: { select: { displayName: true, kind: true } } },
             },
           },
         },
@@ -405,7 +406,12 @@ export class RegistrationsService {
         : null,
       blocklisted,
       // the corrected values are in the profile itself; the rows say what was asked
-      corrections: (v?.volunteerChangeRequestsVolunteer ?? []).map((r) => changeView(r, false)),
+      // with who asked each and when; the system asks under no name
+      corrections: (v?.volunteerChangeRequestsVolunteer ?? []).map((r) => ({
+        ...changeView(r, false),
+        requestedAt: r.createdAt.toISOString(),
+        requestedByName: r.requestedByRef.kind === 'system' ? null : r.requestedByRef.displayName,
+      })),
     };
   }
 

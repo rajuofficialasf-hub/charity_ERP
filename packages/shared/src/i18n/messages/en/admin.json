@@ -97,7 +97,7 @@
     "title": "Registrations",
     "tabs": {
       "label": "Registration work",
-      "pending": "Pending registrations",
+      "pending": "Officials' registrations",
       "edits": "Edit requests",
       "staff_edits": "Officials’ requests"
     },
@@ -113,7 +113,7 @@
       "staff": "Official"
     },
     "status": {
-      "awaiting_review": "Waiting for review",
+      "awaiting_review": "Awaiting approval",
       "in_correction": "In correction"
     },
     "empty": "No registration is waiting.",
@@ -205,14 +205,16 @@
       "own": "Your own request",
       "photo_now": "Photo now"
     },
-    "shown": "Showing {shown} of {total}"
+    "shown": "Showing {shown} of {total}",
+    "volunteers_elsewhere": "The volunteers waiting for approval are in the volunteer tab.",
+    "volunteers_link": "See them"
   },
   "handover": {
     "title": "Handover",
     "search": "Find the official",
     "search_hint": "Pick from the list, or type at least 2 characters of the name, email or mobile number.",
     "state": {
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Deactivated"
@@ -272,7 +274,7 @@
     "search": "Search by name or mobile number",
     "chips": {
       "all": "All",
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Closed"
@@ -281,7 +283,7 @@
       "label": "Volunteer counts",
       "total": "Total",
       "active": "Active",
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "blocked": "Blocked",
       "deactivated": "Closed",
       "inactive": "Inactive",
@@ -289,7 +291,8 @@
       "approved": "Approved",
       "under_review": "Under review",
       "more": "More states",
-      "more_value": "{count} more"
+      "more_value": "{count} more",
+      "rejected": "Rejected"
     },
     "column": {
       "name": "Name",
@@ -311,10 +314,11 @@
       "group_other": "Other"
     },
     "state": {
-      "pending": "Pending",
+      "pending": "Awaiting approval",
       "active": "Active",
       "blocked": "Blocked",
-      "deactivated": "Closed"
+      "deactivated": "Closed",
+      "rejected": "Rejected"
     },
     "blocklisted": "On the blocklist",
     "no_projects": "No project",
@@ -385,7 +389,8 @@
         "correction": "Correction asked: {field}",
         "awaiting": "Awaiting approval",
         "approved": "Registration approved",
-        "blocked": "Put on the blocklist"
+        "blocked": "Put on the blocklist",
+        "asked_by": "Asked by {name}"
       },
       "photo_failed": "Could not load",
       "transfer": "Hand over applications",

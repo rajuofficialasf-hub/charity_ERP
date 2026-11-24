@@ -70,6 +70,9 @@ export const changeRequestSchema = z.object({
   newValue: z.unknown().optional(),
   note: z.string().nullable(),
   status: z.enum(['open', 'submitted', 'approved', 'rejected', 'closed']),
+  /** On a registration's corrections, for the office: when it was asked and who asked. */
+  requestedAt: z.string().optional(),
+  requestedByName: z.string().nullable().optional(),
 });
 export type ChangeRequest = z.infer<typeof changeRequestSchema>;
 

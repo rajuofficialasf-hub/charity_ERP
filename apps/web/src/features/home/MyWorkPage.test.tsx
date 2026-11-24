@@ -369,11 +369,23 @@ describe('My Work home', () => {
   it('shows a pending registrant the notice and the corrections only', async () => {
     attentionIs([{ kind: 'corrections', count: 1, href: '/account/profile' }]);
     openHome({ ...VOLUNTEER, state: 'pending' });
-    expect(await screen.findByText(/অনুমোদনের অপেক্ষায়/)).toBeInTheDocument();
+    // while corrections are asked, the notice says it is the person's turn
+    expect(
+      await screen.findByText(
+        'আপনার নিবন্ধনে কিছু তথ্য ঠিক করতে বলা হয়েছে। প্রোফাইলে গিয়ে ঠিক করে জমা দিন।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/আপনার নিবন্ধন অনুমোদনের অপেক্ষায়/)).toBeNull();
     expect(
       await screen.findByRole('link', { name: /নিবন্ধনে 1টি সংশোধন চাওয়া হয়েছে/ }),
     ).toHaveAttribute('href', '/account/profile');
     expect(screen.queryByRole('heading', { name: 'আমার প্রকল্প' })).toBeNull();
+  });
+
+  it('tells a pending registrant without corrections that the office decides', async () => {
+    attentionIs([]);
+    openHome({ ...VOLUNTEER, state: 'pending' });
+    expect(await screen.findByText(/আপনার নিবন্ধন অনুমোদনের অপেক্ষায়/)).toBeInTheDocument();
   });
 
   it('reads well in English', async () => {

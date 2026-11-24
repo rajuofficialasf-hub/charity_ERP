@@ -153,7 +153,8 @@ components:
     VolunteerStateFilter:
       name: state
       in: query
-      schema: { type: string, enum: [pending, active, blocked, deactivated] }
+      description: "A closed account: deactivated after its approval; rejected, a registration the office rejected"
+      schema: { type: string, enum: [pending, active, blocked, deactivated, rejected] }
     VolunteerProjectId:
       name: projectId
       in: query
@@ -1426,7 +1427,7 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         type: { type: string, enum: [general, local_daee, both, team_member, paid] }
-        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        state: { type: string, enum: [pending, active, blocked, deactivated, rejected], description: rejected is a registration the office rejected }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -1451,13 +1452,14 @@ components:
       properties:
         volunteers:
           type: object
-          required: [total, active, pending, blocked, deactivated]
+          required: [total, active, pending, blocked, deactivated, rejected]
           properties:
             total: { type: integer, minimum: 0 }
             active: { type: integer, minimum: 0 }
             pending: { type: integer, minimum: 0 }
             blocked: { type: integer, minimum: 0 }
-            deactivated: { type: integer, minimum: 0 }
+            deactivated: { type: integer, minimum: 0, description: Accounts closed after their approval }
+            rejected: { type: integer, minimum: 0, description: Registrations the office rejected }
             inactive: { type: integer, minimum: 0, x-sensitive-class: volunteer.rating, description: The BD-40 inactive flag }
         applications:
           type: object
@@ -1713,6 +1715,8 @@ components:
         contactVerified: { type: boolean, description: 'For a mobile or email change: the code to the new value was verified' }
         decidedAt: { type: [string, 'null'], format: date-time }
         volunteerName: { type: string, description: 'Display name of the volunteer; only in the approvers'' list (GET /edit-requests)' }
+        requestedAt: { type: string, format: date-time, description: "On a registration's corrections (GET /registrations/{userId}): when it was asked" }
+        requestedByName: { type: [string, 'null'], description: "On a registration's corrections: who asked, by name; null for the system" }
     ChangeRequestResponse:
       type: object
       required: [data, meta]

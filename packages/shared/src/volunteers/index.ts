@@ -11,6 +11,13 @@ import { VOLUNTEER_TYPES } from '../registration/index.js';
 export const VOLUNTEER_CATEGORY_FILTERS = ['A', 'B', 'C', 'D', 'inactive'] as const;
 export type VolunteerCategoryFilter = (typeof VOLUNTEER_CATEGORY_FILTERS)[number];
 
+/**
+ * The states the volunteer tab tells: the account's, with a registration the office rejected told
+ * apart from an account closed after its approval (both are closed accounts).
+ */
+export const VOLUNTEER_STATES = [...USER_STATES, 'rejected'] as const;
+export type VolunteerState = (typeof VOLUNTEER_STATES)[number];
+
 export const volunteerFilterSchema = z.strictObject({
   /** A name, or an exact mobile number (or NID inside the caller's sensitive scope) in digits. */
   q: z.string().trim().min(2).max(100).optional(),
@@ -19,7 +26,7 @@ export const volunteerFilterSchema = z.strictObject({
   upazilaId: z.uuid().optional(),
   unionId: z.uuid().optional(),
   type: z.enum(VOLUNTEER_TYPES).optional(),
-  state: z.enum(USER_STATES).optional(),
+  state: z.enum(VOLUNTEER_STATES).optional(),
   projectId: z.uuid().optional(),
   category: z.enum(VOLUNTEER_CATEGORY_FILTERS).optional(),
   blocked: z.enum(['true', 'false']).optional(),
@@ -32,7 +39,7 @@ export interface VolunteerRow {
   userId: string;
   displayName: string;
   type: (typeof VOLUNTEER_TYPES)[number];
-  state: (typeof USER_STATES)[number];
+  state: VolunteerState;
   divisionId: string;
   districtId: string;
   upazilaId: string;
@@ -51,6 +58,8 @@ export interface VolunteerStatistics {
     pending: number;
     blocked: number;
     deactivated: number;
+    /** Registrations the office rejected, apart from the accounts closed after approval. */
+    rejected: number;
     inactive?: number;
   };
   applications: { total: number; approved: number; underReview: number };

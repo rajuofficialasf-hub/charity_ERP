@@ -72,6 +72,9 @@ const changeRequest = z.object({
   contactVerified: z.boolean().optional(),
   decidedAt: z.string().nullable(),
   volunteerName: z.string().optional(),
+  /** On a registration's corrections: when it was asked and who asked, by name. */
+  requestedAt: z.string().optional(),
+  requestedByName: z.string().nullable().optional(),
 });
 
 /** An official's waiting request as its deciders see it: the person and their current value. */

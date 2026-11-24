@@ -380,7 +380,7 @@ describe('registration list', () => {
       'aria-current',
       'page',
     );
-    const table = await screen.findByRole('table', { name: 'অপেক্ষমাণ নিবন্ধন' });
+    const table = await screen.findByRole('table', { name: 'কর্মীর নিবন্ধন' });
     const staffRow = (
       await within(table).findByRole('link', { name: 'নতুন কর্মকর্তা (নমুনা)' })
     ).closest<HTMLElement>('tr')!;
@@ -397,7 +397,7 @@ describe('registration list', () => {
     const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
     const card = (label: string) => counts.getByText(label).parentElement!;
     // the staff row only: the volunteer one waits in the volunteer tab
-    await waitFor(() => expect(card('অপেক্ষমাণ নিবন্ধন')).toHaveTextContent('1'));
+    await waitFor(() => expect(card('কর্মীর নিবন্ধন')).toHaveTextContent('1'));
     expect(card('পরিবর্তনের অনুরোধ')).toBeInTheDocument();
   });
 
@@ -453,7 +453,7 @@ describe('registration list', () => {
     );
     renderPage(HEAD);
     const counts = within(await screen.findByRole('region', { name: 'অপেক্ষমাণ কাজ' }));
-    await waitFor(() => expect(counts.getByText('অপেক্ষমাণ নিবন্ধন')).toBeInTheDocument());
+    await waitFor(() => expect(counts.getByText('কর্মীর নিবন্ধন')).toBeInTheDocument());
     await waitFor(() => expect(counts.queryByText('পরিবর্তনের অনুরোধ')).not.toBeInTheDocument());
   });
 
@@ -504,7 +504,7 @@ describe('registration list', () => {
 
   it('is accessible in English', async () => {
     const { container } = renderPage(HEAD, 'en');
-    await screen.findByRole('table', { name: 'Pending registrations' });
+    await screen.findByRole('table', { name: "Officials' registrations" });
     await expectNoAxeViolations(container);
   });
 });

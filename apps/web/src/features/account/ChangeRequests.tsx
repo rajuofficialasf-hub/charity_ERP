@@ -72,10 +72,16 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
           <>
             <Text>{t('intro')}</Text>
             {rows.map((row) => (
-              <CorrectionRow key={row.id} row={row} onAnswered={refresh} />
+              <CorrectionRow
+                key={row.id}
+                row={row}
+                // one field asked: its answer sends the registration again in the same press
+                alone={rows.length === 1}
+                onAnswered={rows.length === 1 ? () => again.mutate() : refresh}
+              />
             ))}
             {again.error && <Alert tone="error">{messageOf(again.error)}</Alert>}
-            {allAnswered && (
+            {allAnswered && rows.length > 1 && (
               <Button onClick={() => again.mutate()} loading={again.isPending}>
                 {t('resubmit')}
               </Button>
@@ -87,7 +93,15 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
   );
 }
 
-function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: () => void }) {
+function CorrectionRow({
+  row,
+  alone,
+  onAnswered,
+}: {
+  row: ChangeRequest;
+  alone: boolean;
+  onAnswered: () => void;
+}) {
   const t = useTranslations('registration');
   const messageOf = useMessageOf();
   const field = row.field as RequestField;
@@ -142,8 +156,12 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
                   />
                 )}
               />
-              <Button type="submit" variant="secondary" loading={answer.isPending}>
-                {t('profile.corrections.answer')}
+              <Button
+                type="submit"
+                variant={alone ? 'primary' : 'secondary'}
+                loading={answer.isPending}
+              >
+                {t(alone ? 'profile.corrections.answer_and_send' : 'profile.corrections.answer')}
               </Button>
             </>
           )}

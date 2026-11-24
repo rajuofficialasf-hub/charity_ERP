@@ -622,7 +622,15 @@ function RegistrationTimeline({
       title: t('history.correction', {
         field: c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field,
       }),
-      comment: [tr(`corrections.status.${c.status}`), c.note].filter(Boolean).join(' · '),
+      // who asked and when, then where it stands and the note
+      ...(c.requestedAt ? { time: formatDateTime(c.requestedAt, locale) } : {}),
+      comment: [
+        c.requestedByName ? t('history.asked_by', { name: c.requestedByName }) : null,
+        tr(`corrections.status.${c.status}`),
+        c.note,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       status: c.status === 'open' ? 'current' : 'done',
     })),
     ...(registration

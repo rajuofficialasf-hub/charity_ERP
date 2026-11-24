@@ -51,6 +51,18 @@ export function staffPage(query: StaffQuery) {
   return api<StaffPage>(`/users?${params.toString()}`, { envelope: true });
 }
 
+/**
+ * Whether an official the caller sees already holds the Job ID: read before the second step of a
+ * new official opens, so the person need not come back for it; the server checks it again at the
+ * save, also against officials outside the caller's reach.
+ */
+export async function jobIdTaken(jobId: string): Promise<boolean> {
+  const wanted = jobId.trim().toLowerCase();
+  const params = new URLSearchParams({ kind: 'staff', limit: '50', q: jobId.trim().slice(0, 100) });
+  const found = await api<StaffPage>(`/users?${params.toString()}`, { envelope: true });
+  return found.data.some((u) => u.jobId?.toLowerCase() === wanted);
+}
+
 /** How many officials an affiliation has in the caller's scope (the counts above the tabs). */
 export const staffCount = (affiliation: Affiliation) =>
   api<StaffPage>(`/users?kind=staff&affiliation=${affiliation}&limit=1&include=total`, {
