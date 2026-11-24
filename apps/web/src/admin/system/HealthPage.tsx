@@ -1,3 +1,4 @@
+import { FILE_KINDS } from '@css/shared/files';
 import { formatCount, formatDateTime, formatFileSize } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
@@ -23,6 +24,18 @@ import { HEALTH_KEY, type StorageFigure, systemHealth } from './system-api';
 import { LoadError } from '../../components/LoadError';
 
 const CHECKS = ['database', 'storage', 'queue'] as const;
+/** The values the server names with a code: the environment, the buckets and the file kinds. */
+const ENVIRONMENTS: readonly string[] = ['development', 'test', 'staging', 'production'];
+const BUCKETS: readonly string[] = [
+  'documents',
+  'photos',
+  'vouchers',
+  'profiles',
+  'media',
+  'exports',
+  'uploads',
+];
+const KINDS: readonly string[] = FILE_KINDS;
 const CHECK_ICON: Record<(typeof CHECKS)[number], ExtendedIconName> = {
   database: 'server',
   storage: 'storage',
@@ -77,13 +90,19 @@ export function HealthPage() {
       </>
     );
   const h = health.data;
+  // each code by its name; a code the page does not know yet as it is
+  type Key = Parameters<typeof t>[0];
+  const named = (group: 'env' | 'bucket' | 'kind', known: readonly string[], code: string) =>
+    known.includes(code) ? t(`${group}.${code}` as Key) : code;
+  const kindName = (kind: string) => named('kind', KINDS, kind);
+  const bucketName = (bucket: string) => named('bucket', BUCKETS, bucket);
   const figure = (f: StorageFigure) =>
     t('figure', { count: formatCount(f.count, locale), size: formatFileSize(f.bytes, locale) });
   const kindColumns: DataTableExtendedColumn<StorageFigure & { kind: string }>[] = [
     {
       id: 'kind',
       header: t('column.kind'),
-      cell: (k) => <span lang="en">{k.kind}</span>,
+      cell: (k) => kindName(k.kind),
       isRowHeader: true,
     },
     { id: 'count', header: t('column.count'), cell: (k) => formatCount(k.count, locale) },
@@ -98,7 +117,7 @@ export function HealthPage() {
     {
       id: 'bucket',
       header: t('column.bucket'),
-      cell: (b) => <span lang="en">{b.bucket}</span>,
+      cell: (b) => bucketName(b.bucket),
       isRowHeader: true,
     },
     { id: 'count', header: t('column.count'), cell: (b) => formatCount(b.count, locale) },
@@ -133,8 +152,8 @@ export function HealthPage() {
         <li className="admin-health-tile">
           <span className="admin-health-label">{t('environment')}</span>
           <IconTile icon="server" tone="warning" />
-          <strong className="admin-health-value" lang="en">
-            {h.environment}
+          <strong className="admin-health-value">
+            {named('env', ENVIRONMENTS, h.environment)}
           </strong>
           <span className="admin-health-note" lang="en">
             {t('build', { version: h.version })}
@@ -157,10 +176,10 @@ export function HealthPage() {
                 columns={bucketColumns}
                 rows={h.storage.byBucket}
                 getRowId={(b) => b.bucket}
-                rowLabel={(b) => b.bucket}
+                rowLabel={(b) => bucketName(b.bucket)}
                 cardRenderer={(b) => (
                   <div className="admin-permission-card">
-                    <strong lang="en">{b.bucket}</strong>
+                    <strong>{bucketName(b.bucket)}</strong>
                     <span>{figure(b)}</span>
                     <span>{t('growth', { size: growth(b) })}</span>
                   </div>
@@ -171,10 +190,10 @@ export function HealthPage() {
                 columns={kindColumns}
                 rows={h.storage.byKind}
                 getRowId={(k) => k.kind}
-                rowLabel={(k) => k.kind}
+                rowLabel={(k) => kindName(k.kind)}
                 cardRenderer={(k) => (
                   <div className="admin-permission-card">
-                    <strong lang="en">{k.kind}</strong>
+                    <strong>{kindName(k.kind)}</strong>
                     <span>{figure(k)}</span>
                   </div>
                 )}

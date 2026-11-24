@@ -422,7 +422,8 @@
       "photo_failed": "Could not load",
       "transfer": "Hand over applications",
       "pending": "{n, plural, one {{count} record not yet sent (as of {time})} other {{count} records not yet sent (as of {time})}}",
-      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}"
+      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}",
+      "sessions_out_of_reach": "You cannot see this volunteer’s devices. Only the devices of volunteers working on your projects are shown to you."
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",
@@ -1953,7 +1954,9 @@
     },
     "history": {
       "title": "History of changes",
-      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen."
+      "body": "Each new value is kept as its own version and an earlier value is never erased, so the nisab in force on any date can always be seen.",
+      "added": "{value} added, in force from {date}",
+      "withdrawn": "The nisab of {date} withdrawn"
     }
   },
   "audit": {
@@ -2069,7 +2072,37 @@
     },
     "eyebrow": "Administration",
     "description": "The state of the database, the file storage and the job queue, and how the storage grows.",
-    "build": "Version {version}"
+    "build": "Version {version}",
+    "env": {
+      "development": "Development (test computer)",
+      "test": "Test",
+      "staging": "Staging (final checks)",
+      "production": "Live system"
+    },
+    "bucket": {
+      "documents": "Documents",
+      "photos": "Work photos",
+      "vouchers": "Vouchers",
+      "profiles": "Profile and ID photos",
+      "media": "Media",
+      "exports": "Export files",
+      "uploads": "Uploads in progress"
+    },
+    "kind": {
+      "distribution_proof": "Distribution proof",
+      "construction_proof": "Construction proof",
+      "evidence": "Evidence",
+      "voucher": "Voucher",
+      "payment_copy": "Payment copy",
+      "document": "Document",
+      "animal_photo": "Animal photo",
+      "profile_photo": "Profile photo",
+      "nid_photo": "NID photo",
+      "media_asset": "Media file",
+      "issue_photo": "Issue photo",
+      "form_photo": "Application photo",
+      "cover_photo": "Cover photo"
+    }
   },
   "notification_templates": {
     "title": "Notification templates",
@@ -2092,8 +2125,8 @@
       "email": "Email"
     },
     "version": "{channel}, version {version}",
-    "edit": "Edit {key}",
-    "editor_title": "Edit {key}",
+    "edit": "Edit “{name}”",
+    "editor_title": "Edit “{name}”",
     "variables": "Values you can use: {list}",
     "variables_none": "This notification has no values to fill in.",
     "language": {
@@ -2107,7 +2140,7 @@
     "preview_title": "Preview with sample values",
     "save": "Save as new version",
     "cancel": "Cancel",
-    "saved": "{key} saved as version {version}.",
+    "saved": "“{name}” saved as version {version}.",
     "eyebrow": "Messages"
   },
   "deliveries": {

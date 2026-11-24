@@ -26,6 +26,7 @@ import {
   type Delivery,
   deliveriesPage,
 } from './notifications-admin-api';
+import { useTemplateName } from './template-name';
 import { LoadError } from '../../components/LoadError';
 import { useCountLine } from '../list-paging';
 
@@ -63,6 +64,7 @@ export function DeliveriesPage() {
     placeholderData: keepPreviousData,
   });
   const countLine = useCountLine();
+  const nameOf = useTemplateName();
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 
@@ -84,7 +86,7 @@ export function DeliveriesPage() {
     {
       id: 'template',
       header: t('column.template'),
-      cell: (d) => <code lang="en">{d.templateKey}</code>,
+      cell: (d) => nameOf(d.templateKey),
     },
     { id: 'recipient', header: t('column.recipient'), cell: recipient },
     {
@@ -123,7 +125,7 @@ export function DeliveriesPage() {
         columns={columns}
         rows={rows}
         getRowId={(d) => d.id}
-        rowLabel={(d) => `${formatDateTime(d.createdAt, locale)} ${d.templateKey}`}
+        rowLabel={(d) => `${formatDateTime(d.createdAt, locale)} ${nameOf(d.templateKey)}`}
         loading={page.isPending}
         error={
           page.error ? (
@@ -178,7 +180,7 @@ export function DeliveriesPage() {
         cardRenderer={(d) => (
           <div className="admin-permission-card">
             <Stack direction="row" wrap align="center" gap={2}>
-              <code lang="en">{d.templateKey}</code>
+              <strong>{nameOf(d.templateKey)}</strong>
               {statusBadge(d)}
             </Stack>
             <span>

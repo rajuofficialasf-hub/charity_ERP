@@ -8,6 +8,7 @@ import {
   NOTIFICATION_TEMPLATES,
   PERSON_VARIABLES,
   TEMPLATE_SAMPLES,
+  templateName,
   templateVariables,
 } from './templates.js';
 
@@ -27,6 +28,18 @@ describe('the notification templates', () => {
         }
       }
     }
+  });
+
+  it('each have a name in both languages for the admin screens, never a code or a placeholder', () => {
+    for (const t of NOTIFICATION_TEMPLATES) {
+      const name = templateName(t.key);
+      for (const locale of ['bn', 'en'] as const) {
+        expect(name?.[locale], `${t.key} ${locale}`).toBeTruthy();
+        expect(name![locale], t.key).not.toBe(t.key);
+        expect(name![locale], t.key).not.toMatch(/\{\{/);
+      }
+    }
+    expect(templateName('no_such_notification')).toBeNull();
   });
 
   it('fill every in-app text from the values an in-app row keeps', () => {

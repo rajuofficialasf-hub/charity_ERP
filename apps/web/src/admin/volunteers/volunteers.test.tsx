@@ -413,6 +413,37 @@ describe('the volunteer tab', () => {
     ).toBeInTheDocument();
   });
 
+  it('says in words when the devices of a volunteer are outside the caller’s reach', async () => {
+    refreshAs({ ...ME, roles: ['regional_program_manager'] });
+    serve();
+    server.use(
+      http.get('*/api/v1/users/:userId/sessions', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.not_found',
+              message: 'পাওয়া যায়নি।',
+              requestId: 'req_test',
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    const table = await screen.findByRole('table', { name: 'স্বেচ্ছাসেবক' });
+    await user.click(
+      await within(table).findByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'ডিভাইস ও সেশন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নমুনা স্বেচ্ছাসেবক-এর ডিভাইস' });
+    expect(
+      await within(dialog).findByText(/শুধু আপনার প্রকল্পে কাজ করছেন এমন স্বেচ্ছাসেবকের/),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /আবার চেষ্টা/ })).toBeNull();
+  });
+
   it('offers only the profile to a role without the other actions', async () => {
     refreshAs(DAEE);
     serve();

@@ -20,6 +20,8 @@ interface Text {
 
 export interface NotificationTemplateSeed {
   key: string;
+  /** The name the admin screens show, for a notification with no title or subject of its own. */
+  name?: Record<Locale, string>;
   variables: string[];
   channels: Partial<Record<NotificationChannel, Record<Locale, Text>>>;
 }
@@ -30,6 +32,10 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   // ---- 4.1 Registration, accounts and security ----
   {
     key: 'otp_registration_sms',
+    name: {
+      bn: 'নিবন্ধনের মোবাইল যাচাই কোড',
+      en: 'Mobile verification code for your registration',
+    },
     variables: ['code', 'minutes'],
     channels: {
       sms: {
@@ -881,6 +887,23 @@ export const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
 /** Placeholders used in a text, e.g. "{{code}}" → "code". */
 export function templateVariables(text: string): string[] {
   return [...text.matchAll(PLACEHOLDER)].map((m) => m[1] as string);
+}
+
+/**
+ * The name of a notification for the admin screens, in both languages: its own name, else its
+ * in-app title, else its email subject as shipped, a value in it shown as "…". Null for a key the
+ * catalogue does not know, which the screen shows as it is.
+ */
+export function templateName(key: string): Record<Locale, string> | null {
+  const t = NOTIFICATION_TEMPLATES.find((x) => x.key === key);
+  if (!t) return null;
+  const pick = (l: Locale) =>
+    // eslint-disable-next-line security/detect-object-injection -- l is one of the two languages
+    (t.name?.[l] ?? t.channels.in_app?.[l].title ?? t.channels.email?.[l].subject ?? key).replace(
+      PLACEHOLDER,
+      '…',
+    );
+  return { bn: pick('bn'), en: pick('en') };
 }
 
 /**

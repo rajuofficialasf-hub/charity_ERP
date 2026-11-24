@@ -876,7 +876,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | View the list and open a profile (the row menu's "প্রোফাইল দেখুন") | `volunteer.view_all` |
 | Review a pending registration (row menu, pending rows) | `registration.approve` |
 | Block or lift a block, with the reason (row menu) | `volunteer.block` |
-| See and end the device sessions (row menu) | `session.revoke_user` |
+| See and end the device sessions (row menu; an RPM reaches only the volunteers working on the own projects, and for anyone else the dialog says so in words) | `session.revoke_user` |
 | Export volunteers | `export.volunteers` |
 
 - **States.**
@@ -1137,7 +1137,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The zakat nisab, versioned with effective dates (BR-211, D-098).
 - **Roles.** Program Manager and above (`nisab.set`).
 - **Route.** `/admin/nisab`; sidebar "নিসাব".
-- **Data and actions.** The nisab in force today as a stat card; every version newest first with its effective date, amount, state (কার্যকর, আসন্ন, আগের, প্রত্যাহার করা), basis and who added or withdrew it. "নতুন নিসাব": amount in Taka (at most 1,00,00,000), an effective date from today to a year ahead and after the latest version, an optional basis; the server's message stands on the field it refuses. A version not yet in effect is withdrawn with a reason; a version is never edited.
+- **Data and actions.** The nisab in force today as a stat card; every version newest first with its effective date, amount, state (কার্যকর, আসন্ন, আগের, প্রত্যাহার করা), basis and who added or withdrew it. "নতুন নিসাব": amount in Taka (at most 1,00,00,000), an effective date from today to a year ahead and after the latest version, an optional basis; the server's message stands on the field it refuses. A version not yet in effect is withdrawn with a reason; a version is never edited. "পরিবর্তনের ইতিহাস" lists every addition (the amount, the date it takes effect from, who added it, the basis) and every withdrawal (who and why), newest first, read from the versions.
 - **Built.** `apps/web/src/admin/nisab/`; tests `nisab.test.tsx`, E2E above.
 
 ### SCR-068 Audit viewer
@@ -1161,7 +1161,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The state of the system and the storage growth for the IT team (BD-46, D-098).
 - **Roles.** Department Head and Monitoring Team (`system.health.view`).
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
-- **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment (by its name: চালু সিস্টেম, স্টেজিং, টেস্ট, ডেভেলপমেন্ট) and the month the audit partitions reach; the buckets and the file kinds are named in words, never by their codes; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
 - **Storage by bucket (T2.1).** A table before the kinds: each bucket with its files, bytes and the growth since the nightly snapshot of at least 30 days ago ("এখনো জানা নেই" until one exists); on a phone a list of cards.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
@@ -1170,7 +1170,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The texts of the notifications in both languages (NOTIFICATIONS.md §6, D-099).
 - **Roles.** Department Head and Monitoring Team (`notification.template.manage`).
 - **Route.** `/admin/notification-templates`; sidebar "নোটিফিকেশনের লেখা".
-- **Data and actions.** Every notification of the catalogue with its kind and the version of each channel; "বদলান" opens the editor: the channel (in the app or email), the title or subject and the text in Bangla and English, the values the notification can fill in, "প্রিভিউ" with sample values in both languages, and "নতুন ভার্সন হিসেবে সংরক্ষণ". A text with markup or a link, an unknown value or a person's name in an in-app text is refused with the message beside its field. Messages already written keep their version.
+- **Data and actions.** Every notification of the catalogue by its name (its in-app title or email subject as shipped, never its code) with its kind and the version of each channel; "বদলান" opens the editor: the channel (in the app or email), the title or subject and the text in Bangla and English, the values the notification can fill in, "প্রিভিউ" with sample values in both languages, and "নতুন ভার্সন হিসেবে সংরক্ষণ". A text with markup or a link, an unknown value or a person's name in an in-app text is refused with the message beside its field. Messages already written keep their version.
 - **Built.** `apps/web/src/admin/notifications/NotificationTemplatesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ### SCR-075 Message deliveries
@@ -1178,7 +1178,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** Whether the queued emails and SMS went out (NOTIFICATIONS.md §7, D-099).
 - **Roles.** Department Head and Monitoring Team (`notification.delivery.view`).
 - **Route.** `/admin/deliveries`; sidebar "বার্তার অবস্থা".
-- **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown. The one-time codes and the set-password links of new officials, which go out at once outside the queue, are listed too: what was sent and to whom, never the code or the link (the dummy code shows as পরীক্ষামূলক).
+- **Data.** Newest first: when queued, the notification by its name, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown. The one-time codes and the set-password links of new officials, which go out at once outside the queue, are listed too: what was sent and to whom, never the code or the link (the dummy code shows as পরীক্ষামূলক).
 - **Built.** `apps/web/src/admin/notifications/DeliveriesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ### SCR-077 Project list and project page
