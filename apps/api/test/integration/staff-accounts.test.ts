@@ -260,6 +260,15 @@ describe('creating an official', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.emailed).toBe(false);
     expect(await check(tokenOf(res.body.data.link)).then((r) => r.status)).toBe(200);
+    // the deliveries page lists the refused email with the SMTP class, never the link
+    const refused = await h.db.query(
+      `SELECT status, sent_at, last_error, params FROM outbound_messages
+        WHERE template_key = 'staff_invitation' AND recipient_user_id = $1`,
+      [res.body.data.userId],
+    );
+    expect(refused.rows).toEqual([
+      { status: 'failed', sent_at: null, last_error: 'smtp ECONNREFUSED', params: {} },
+    ]);
   });
 
   it('is refused to an official without the permission', async () => {

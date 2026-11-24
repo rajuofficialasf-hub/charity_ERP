@@ -90,8 +90,9 @@ test.describe('notifications', () => {
     await signIn(page, 'head@example.org');
     await page.goto('/admin/notification-templates');
     await expect(page.getByRole('heading', { level: 1, name: 'নোটিফিকেশনের লেখা' })).toBeVisible();
-    await page.getByRole('button', { name: 'registration_approved বদলান' }).click();
-    const dialog = page.getByRole('dialog', { name: 'registration_approved বদলান' });
+    // each notification by its name, never its code
+    await page.getByRole('button', { name: '“নিবন্ধন অনুমোদিত” বদলান' }).click();
+    const dialog = page.getByRole('dialog', { name: '“নিবন্ধন অনুমোদিত” বদলান' });
     await dialog.getByRole('button', { name: 'প্রিভিউ' }).click();
     const preview = dialog.getByRole('region', { name: 'নমুনা মান দিয়ে প্রিভিউ' });
     await expect(preview.getByText('নিবন্ধন অনুমোদিত', { exact: true })).toBeVisible();

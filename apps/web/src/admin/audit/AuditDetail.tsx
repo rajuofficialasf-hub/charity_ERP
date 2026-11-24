@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import type { AuditEntry } from './audit-api';
 
 /** What changed between the two snapshots: items added to or taken from a list, and fields changed. */
-export interface AuditChange {
+interface AuditChange {
   field: string | null;
   added: string[];
   removed: string[];
@@ -27,7 +27,7 @@ function listChange(field: string | null, before: unknown[], after: unknown[]): 
  * The changes of an entry, read from its old and new values: a list compared item by item, an
  * object field by field (a list inside it item by item again), anything else as before and after.
  */
-export function changesOf(before: unknown, after: unknown): AuditChange[] {
+function changesOf(before: unknown, after: unknown): AuditChange[] {
   if (Array.isArray(before) && Array.isArray(after))
     return [listChange(null, before, after)].filter((c): c is AuditChange => c !== null);
   const isObject = (v: unknown): v is Record<string, unknown> =>

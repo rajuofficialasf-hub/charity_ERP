@@ -249,7 +249,7 @@ test.describe('registration approval', () => {
     await openTab(page, 'স্বেচ্ছাসেবক');
     await page
       .getByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' })
-      .getByRole('button', { name: /^অপেক্ষমাণ \d/ })
+      .getByRole('button', { name: /^অনুমোদনের অপেক্ষায় \d/ })
       .click();
     await expect(page).toHaveURL(/state=pending/);
     await page.getByRole('link', { name: person.name }).click();
@@ -275,8 +275,8 @@ test.describe('registration approval', () => {
     ).toBeVisible();
     await fromProfileMenu(mobile, 'আমার প্রোফাইল');
     await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
-    await mobile.getByRole('button', { name: 'উত্তর দিন' }).click();
-    await mobile.getByRole('button', { name: 'আবার জমা দিন' }).click();
+    // one correction: the answer sends it back at once
+    await mobile.getByRole('button', { name: 'উত্তর দিয়ে জমা দিন' }).click();
     await expect(mobile.getByText(/সংশোধন জমা হয়েছে/)).toBeVisible();
 
     // the RPM sees the corrected name and approves

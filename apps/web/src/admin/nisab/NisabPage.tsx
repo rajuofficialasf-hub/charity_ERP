@@ -32,7 +32,7 @@ import { LoadError } from '../../components/LoadError';
  * it takes effect from) and each one withdrawn (by whom and why), read from the versions, which
  * keep both.
  */
-export function NisabHistory({ rows }: { rows: readonly NisabVersionView[] }) {
+function NisabHistory({ rows }: { rows: readonly NisabVersionView[] }) {
   const t = useTranslations('admin.nisab.history');
   const locale = useLocale() as Locale;
   if (!rows.length) return null;
