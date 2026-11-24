@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
-import { loginPath, returnPath } from '../../lib/auth';
+import { resetClientForTests } from '../../api/client';
+import { loginPath, RequireAuth, returnPath } from '../../lib/auth';
 import { PhotoPage } from './PhotoPage';
 
 // The app's own address of a photo: the viewer on the photo, the way to its record, and the same
@@ -100,6 +101,8 @@ describe('the return after signing in', () => {
       'javascript:alert(1)',
       `/photos/${PHOTO}/../../admin`,
       '/login?next=/admin',
+      '/LOGIN',
+      '/',
       '/a b',
       `\\\\evil.example/photos/${PHOTO}`,
       'x'.repeat(5),
@@ -107,6 +110,20 @@ describe('the return after signing in', () => {
       null,
     ])
       expect(returnPath(next), String(next)).toBeNull();
+  });
+
+  it('sends a signed-out reader to the sign-in with the whole address of the page, its filters too', async () => {
+    // no session from an earlier test: the reader is signed out
+    resetClientForTests();
+    refreshAs(null);
+    const { router } = renderApp(<RequireAuth>{() => null}</RequireAuth>, 'bn', {
+      path: '/admin/volunteers',
+      initialPath: '/admin/volunteers?state=pending&page=2',
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'), { timeout: 5000 });
+    expect(new URLSearchParams(router.state.location.search).get('next')).toBe(
+      '/admin/volunteers?state=pending&page=2',
+    );
   });
 
   it('names the page in the sign-in address only when it may return there', () => {

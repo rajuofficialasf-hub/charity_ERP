@@ -107,9 +107,12 @@ const RETURN_MAX = 1000;
 /** The path the sign-in may return to, or null. */
 export function returnPath(next: string | null | undefined): string | null {
   if (!next || next.length > RETURN_MAX || !RETURN_PATH.test(next)) return null;
-  const path = next.split(/[?#]/)[0]!;
+  // the router matches paths in any case, so the sign-in itself is told apart in any case too
+  const path = next.split(/[?#]/)[0]!.toLowerCase();
   if (path.split('/').some((step) => step === '..' || step === '.')) return null;
   if (path === '/login' || path.startsWith('/login/')) return null;
+  // home is where a sign-in goes anyway
+  if (next === '/') return null;
   return next;
 }
 
@@ -121,10 +124,12 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
   const { status, me, ended } = useAuth();
   const navigate = useNavigate();
   const t = useTranslations('common.state');
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   useEffect(() => {
-    if (status === 'signed-out') void navigate(loginPath(ended, pathname), { replace: true });
-  }, [status, ended, navigate, pathname]);
+    // the whole address of the page, so a list opens again with its filters and page
+    if (status === 'signed-out')
+      void navigate(loginPath(ended, pathname + search + hash), { replace: true });
+  }, [status, ended, navigate, pathname, search, hash]);
   const content = useMemo(() => (me ? children(me) : null), [me, children]);
   // a new password is due before anything else (a global role was approved)
   if (me?.passwordChangeRequired && pathname !== PASSWORD_PATH)
