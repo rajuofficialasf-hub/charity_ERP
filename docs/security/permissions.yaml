@@ -117,9 +117,9 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee, procurement_team]
     source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none. D-172: how often a person was helped (the profile's help summary, BR-307) goes with this class; a project outside the caller's rows of the profile is counted there but not named. The list's column, its filter on more than once in a year, its order and the two export columns use the total across all projects, so a holder whose scope is a few projects (the Procurement Team) learns there and on the profile that a person was helped elsewhere and in which year, never in which project. What a family received on the profile goes with this class and the contact class together, summed only over the profiles the caller reaches, the others a bare number of people. The family section of a profile is accepted to tell a viewer whose reach is narrower than the family one thing beyond it: how many of the family's members chose a profile the viewer cannot open that was helped, as a bare number, never who, when, where or how much"
   - key: beneficiary.care
-    fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked]
+    fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked, "the trail of the 360° profile (the audited steps of the person and of the applications the caller sees: what, who by name, when)"]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
-    source: "O-67, D-094: care and follow-up data and the blocklist status, not to the Media or Procurement Team"
+    source: "O-67, D-094: care and follow-up data and the blocklist status, not to the Media or Procurement Team. The trail never carries an audit entry's values or reason"
   - key: volunteer.identity
     fields: [volunteers.nid, volunteers.nid_photo_file_id, volunteers.nid_photo_back_file_id, volunteers.blood_group, volunteers.date_of_birth]
     visible_to: [program_manager, regional_program_manager, project_executive]

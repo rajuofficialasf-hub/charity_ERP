@@ -44,9 +44,9 @@ export function UnlockReview({
     onSuccess: () => onChanged(t('accepted')),
   });
   const ended = useMutation({
-    mutationFn: ({ unlock, kind, reason }: Step & { reason: string }) =>
+    mutationFn: ({ unlock, kind, reason, message }: Step & { reason: string; message?: string }) =>
       kind === 'refuse'
-        ? decideUnlock(unlock.id, 'refuse', reason)
+        ? decideUnlock(unlock.id, 'refuse', { reason, message })
         : cancelUnlock(unlock.id, reason),
     onSuccess: async (_, { kind }) => {
       setStep(null);
@@ -137,10 +137,14 @@ export function UnlockReview({
         <DecisionDialog
           title={t(step.kind === 'refuse' ? 'refuse_title' : 'cancel_title')}
           confirm={t(step.kind === 'refuse' ? 'refuse' : 'cancel')}
+          // a value sent back is told to the person who gave it, in words written for them
+          withMessage={step.kind === 'refuse'}
           danger
           pending={ended.isPending}
           error={ended.error ? failure(ended.error) : null}
-          onConfirm={({ reason }) => ended.mutate({ ...step, reason: reason ?? '' })}
+          onConfirm={({ reason, message }) =>
+            ended.mutate({ ...step, reason: reason ?? '', message })
+          }
           onClose={() => {
             ended.reset();
             setStep(null);

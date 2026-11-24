@@ -44,6 +44,7 @@ import {
   applicationListFilters,
   FILTER_KEYS,
 } from './applications-api';
+import { MediaBadge } from './MediaBadge';
 import { QuotaBars } from './QuotaBars';
 import './applications.css';
 import { ExportButton } from '../../features/exports/ExportButton';
@@ -129,7 +130,8 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, q, onSearch, initialSearch, page, cursor, goTo } =
+    useTabView(FILTER_KEYS);
   const list = useQuery({
     queryKey: [...APPLICATIONS_KEY, projectId, filters, q, page, cursor],
     queryFn: () => applicationPage(projectId, filters, q, page, cursor),
@@ -242,6 +244,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       ) : null}
       {r.hasDocument === false ? <NoDocumentChip /> : null}
       {r.hasMobile === false ? <ThroughVolunteerChip /> : null}
+      {r.mediaState ? <MediaBadge media={{ state: r.mediaState }} /> : null}
       {refusedOf.has(r.id) ? (
         <Chip tone="warning">{t(`bulk.reason_short.${refusedOf.get(r.id)!}`)}</Chip>
       ) : null}
@@ -496,6 +499,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         toolbar={
           <FilterBar
             onSearch={onSearch}
+            initialSearch={initialSearch}
             searchPlaceholder={t('search')}
             collapsible
             activeFilters={activeFilters}

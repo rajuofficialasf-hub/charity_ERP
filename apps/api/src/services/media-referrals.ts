@@ -13,7 +13,12 @@ import {
 } from '@css/shared/media';
 import { z } from 'zod';
 import type { EffectiveAccess } from '../access/effective.js';
-import { mediaReferralWhere, type Scope } from '../access/scope.js';
+import {
+  applicationWhere,
+  holdsPermission,
+  mediaReferralWhere,
+  type Scope,
+} from '../access/scope.js';
 import type { AccessService } from '../access/service.js';
 import { assertReachesApplication, reachesApplication } from '../applications/callers.js';
 import { readAnswers } from '../applications/answers.js';
@@ -449,6 +454,33 @@ export class MediaReferralsService {
    * reaches the application (the referrer's program or region, the directors), and whether the
    * caller may refer it now.
    */
+  /**
+   * The referral state of each application of a list page, for the official who would see it on
+   * the application's record (the work's viewer or a referrer whose scope reaches the
+   * application); the others are left out.
+   */
+  async statesFor(
+    principal: Principal,
+    access: EffectiveAccess,
+    applicationIds: readonly string[],
+  ): Promise<Map<string, ReferralState>> {
+    const states = new Map<string, ReferralState>();
+    if (principal.kind === 'volunteer' || !applicationIds.length) return states;
+    for (const permission of [VIEW_PERMISSION, REFER_PERMISSION]) {
+      if (!holdsPermission(permission, access.grants)) continue;
+      const scope = await this.access.scopeFor(principal, access, permission, 'application');
+      const rows = await this.prisma.mediaReferral.findMany({
+        where: {
+          applicationId: { in: [...applicationIds] },
+          application: applicationWhere(scope),
+        },
+        select: { applicationId: true, state: true },
+      });
+      for (const r of rows) states.set(r.applicationId, r.state as ReferralState);
+    }
+    return states;
+  }
+
   async forRecord(
     principal: Principal,
     access: EffectiveAccess,

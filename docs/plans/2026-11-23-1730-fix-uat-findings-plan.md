@@ -296,7 +296,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U6
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U16. Unlocks and volunteer notices
 - **Goal:** the volunteer fixes an opened answer cleanly and learns what happened.
@@ -308,7 +308,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U11
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U17. Profile history names people
 - **Goal:** the profile tells who did what.
@@ -320,7 +320,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U2
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U18. Entry without a document
 - **Goal:** the name search's answers carry into the form.
@@ -332,7 +332,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U5
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U19. Media and exports texts
 - **Goal:** media and export screens say what is going on.
@@ -344,7 +344,7 @@ Owner, in chat on 2026-11-23:
 - **Depends on:** U12
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U20. Sign-in, logout and devices
 - **Goal:** sign-in messages and devices are clear, and a new person starts on their own home.
@@ -476,9 +476,9 @@ Owner, in chat on 2026-11-23:
 - Code from abandoned attempts is removed
 
 ## Progress
-- **Branch:** `fix/uat-findings-2` (PR 2, U8–U14; from develop at 4c031b84, where PR 1 merged as #82)
-- **Updated:** 2026-11-24 12:30
-- **Next:** PR 2 complete; run the web contract test locally, then ask the owner before pushing it into develop; then U15 (PR 3)
-- **Reviewed through:** C7 at 31d96fb6 (T2 review of U10–U14, the end of PR 2)
+- **Branch:** `feat/uat-improve-applications` (PR 3, U15–U19; from develop at 76e73b33, where PR 2 merged as #83)
+- **Updated:** 2026-11-24 07:30
+- **Next:** PR 3 complete; ask the owner before pushing it into develop; then U20 (PR 4, branch from develop)
+- **Reviewed through:** C8 at b0f412c1 (T2 review of U15–U19, the end of PR 3)
 - **Uncommitted:** none
-- **Notes:** decisions are D-194 to D-204, rules BR-329 to BR-335 (register lines "deferred … in work" until each unit adds its tests). U3 must change the existing extra-areas test that asserts the old behaviour ("it stays when the RPM loses it"). C2 review: the merge refusal names an application only where the caller's application scope reaches it; a send and a public-entry verification both refuse a person merged with one who applied, after locking the person; left open (P3): the review read runs the twins query twice for a reviewed application. C3 review: a give locks its source row and reads the reach again when the source ended meanwhile, so a give and the end of its source cannot both pass; the ADR file path in down.sql stays as every down.sql in the repo carries it. U7: the office list lives in memory (`OfficeAddresses`), read at start, after each change and once a minute, so the limiter never reads the database; a new permission `security.office_ips.manage` (the Admin alone, a key permission) guards `GET`/`PUT /admin/office-addresses`; an IPv6 entry covers its /56. The demo seed of U2 was reformatted by prettier in the U7 commit (formatting only). C4 review: an IPv6 office entry in the /56 of zeros (`::1`, `::ffff:a.b.c.d`) covered every IPv4 client through Node's BlockList, so the setting refuses it and the matcher passes it over; submits keep a cap of 100 a day per address against made-up draft ids; the service parses the stored list instead of casting it. Dismissed: the secret-scan hit on the test's wrong password (now a random value) and the duplicate-code hit on closing JSX lines. C5 review: the offline journey on a known number with another name (`offline.spec.ts`) is the B-14 case itself, so it became U8's e2e and now presses twice; the component test checks the linked profile and volunteer after the second press. Run it with the first journey of its file (`-g "network returns|another name"`), since the file is serial. U9: the new mobile is written by the engine at every move that records the approval (`ApprovalWrites`, the `ApprovedMobile` service), not by a workflow effect, because the effects are named in the templates stored per project and a new one would not reach existing projects; the workflow engine is now built after the contact service in the container. C6 review: the approval writes the number only for an approver who may edit the person's contact (the contact-edit permission the send path asks, now `BeneficiaryContactService.mayEdit` for both), and never over a profile mobile changed after the send, a volunteer's own number or another profile's; the record's `profileMobileChange.kept` names which, per caller. A new number takes no owner, since the contact write clears the owner of a changed number. Dismissed: the unit-test lead on `answeredMobile` (the integration tests run it on the real database). U10: the office's orders live in `applications/list-order.ts` (arrival, and score with ties by arrival, empty values last, the id last), used by the list and its export alike; the tests' clock stands still, so a test of arrival order moves it between sends. U11: the change log's rows carry the names of each step (`changedByName`, `requestedByName`, `enteredByName`, `decidedByName`), read once per page; a sent-back unlock keeps `kind: unlock` with `decision: refused` rather than a new kind, and the screen marks it. U14: `NODE_ENV` has no staging value, so "outside development and test" is production, where an unset or loopback `APP_ORIGIN` now names the setting; a role the system gave reads `grantedBy: null`; `designation_changed` carries the reader's own designation, added to the in-app parameters; a PM who does not build forms opening a project's own form reads that the Monitoring Team builds forms and scoring, with "তৈরি ফর্ম বসান". Other fields of an official's own request still get the volunteer's "can now be changed" notice (left as found). C7 review: the arrival order is the office's only (a volunteer's project list keeps the newest first); the loopback check of `APP_ORIGIN` reads a malformed value as no loopback and counts 0.0.0.0 and a trailing dot; `list-order.spec.ts` tests the order's shapes and a bad cursor. Dismissed: the duplicate-code lead on an Alert with an action (shared JSX shape only).
+- **Notes:** PR 1 and PR 2 notes are in the plan as merged with #83. U15: the list's page number lives in the address through `useTabView` (each page a history step; a cursor page past the counted range stays in memory), a `?q=` link starts the search and leaves the address (the term is never written there); the asf DataTable keeps its bulk bar in place when the page gives bulk actions (`selectHint` label); "পরেরজনকে আনুন" reads `GET /projects/{projectId}/waitlist/next` (permission and scope as the pull, nothing held) and asks the comment at once for a full quota row; the lookup searches on Enter and names a woman "মহিলা". The applications E2E step for `?q=` is written but runs at C8 with the rest of PR 3's specs. U16: a volunteer's notices of one application carry `app_no` (an in-app parameter now) and link to `/my-applications/<id>`; a sent-back value tells the person who entered it (`field_refused`, the optional `message` of the decision, never the reason); `notifications:sync` now also gives a shipped text that changed a new version while the active row is one the system wrote (created by nobody or a system user), so existing installs get the new texts on `pnpm db:migrate` and old entries keep rendering from their version; the new answer of an unlock starts empty; a verified public entry reads as one. U17: the 360° profile carries `trail` (care class: the audited steps of the person and of the applications the caller sees, a fixed list of actions, what, who by name, when, never the entry's values or reason) and names on the contact log, the corrections and the blocks (a system user has no name); the Media and Procurement Teams get no trail; a reverted merge says when, and a blocked person shows no "সক্রিয়". U18: a new person after the name search starts with the searched names, address and village (so the draft is made with the first part); a refusal about one question is a `FieldRefusal` (`features/forms/field-refusal.ts`) the renderer does not repeat above the form, the own mobile now among them; the refused record stays failed in the outbox (removing it would also drop a draft saved on the phone earlier), so the shell's sync banner still shows for it. U19: the office's list rows carry `mediaState` for an official whose `media.work.view` or `media.referral.create` scope reaches the application (`MediaReferralsService.statesFor`); a migration adds `export_jobs.with_codes` (the request's `withCodes`, never for a PDF), and a coded column writes its words alone unless asked; `/account/exports` shows the forbidden page to whoever may not export (the API keeps answering a volunteer's list with their own, empty, and their request 403). C8 review: a send-back without a message made the `field_refused` entry fail to render (a missing variable throws), so the message is always passed, empty when none; the notice leads an official who entered the value to `/admin/applications/<id>`; axe found the bulk bar's muted hint too faint on the tinted bar, so it keeps the bar's colour. Kept as designed: a hand-made link with both `?q=` and `page=` opens that page of the search. Dismissed: two fixed sleeps in the beneficiary tests (older than this PR), the per-locale query of the template sync (runs once per migrate).

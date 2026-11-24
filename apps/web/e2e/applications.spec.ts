@@ -262,6 +262,12 @@ test.describe('the application cycle', () => {
     // their names
     await onDesk(browser, async (rpm) => {
       await signIn(rpm, RPM);
+      // a link that brings a search opens the list with that search done
+      await rpm.goto(`/admin/projects/${projectId}/applications?q=${appNo}&page=1`);
+      await expect(rpm.getByRole('searchbox')).toHaveValue(appNo!);
+      const found = rpm.getByRole('table', { name: 'আবেদনের তালিকা' });
+      await expect(found.getByRole('row')).toHaveCount(2);
+      await expect(found.getByText(appNo!)).toBeVisible();
       await rpm.goto(recordUrl);
       await expect(rpm.getByRole('heading', { level: 1, name })).toBeVisible();
       await rpm.getByRole('button', { name: 'অনুমোদন করুন' }).click();

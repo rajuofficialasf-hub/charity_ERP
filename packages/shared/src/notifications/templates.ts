@@ -588,43 +588,43 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'application_approved',
-    variables: ['project_name'],
+    variables: ['project_name', 'app_no'],
     channels: inApp(
       {
         title: 'আবেদন অনুমোদিত',
-        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি অনুমোদিত হয়েছে।',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদন {{app_no}} অনুমোদিত হয়েছে।',
       },
       {
         title: 'Application approved',
-        body: 'Your application in the project "{{project_name}}" has been approved.',
+        body: 'Your application {{app_no}} in the project "{{project_name}}" has been approved.',
       },
     ),
   },
   {
     key: 'application_rejected',
-    variables: ['project_name', 'message'],
+    variables: ['project_name', 'app_no', 'message'],
     channels: inApp(
       {
         title: 'আবেদন গৃহীত হয়নি',
-        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এবার গৃহীত হয়নি। {{message}}',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদন {{app_no}} এবার গৃহীত হয়নি। {{message}}',
       },
       {
         title: 'Application not accepted',
-        body: 'Your application in the project "{{project_name}}" was not accepted this time. {{message}}',
+        body: 'Your application {{app_no}} in the project "{{project_name}}" was not accepted this time. {{message}}',
       },
     ),
   },
   {
     key: 'application_waitlisted',
-    variables: ['project_name'],
+    variables: ['project_name', 'app_no'],
     channels: inApp(
       {
         title: 'আবেদন অপেক্ষমাণ তালিকায়',
-        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এখন অপেক্ষমাণ তালিকায় আছে। সুযোগ এলে অফিস অনুমোদন দেবে, তখন জানানো হবে।',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদন {{app_no}} এখন অপেক্ষমাণ তালিকায় আছে। সুযোগ এলে অফিস অনুমোদন দেবে, তখন জানানো হবে।',
       },
       {
         title: 'Application on the waitlist',
-        body: 'Your application in the project "{{project_name}}" is now on the waitlist. When a place opens, the office will approve it and you will be told.',
+        body: 'Your application {{app_no}} in the project "{{project_name}}" is now on the waitlist. When a place opens, the office will approve it and you will be told.',
       },
     ),
   },
@@ -658,43 +658,57 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'field_unlocked',
-    variables: ['project_name', 'field_name'],
+    variables: ['project_name', 'app_no', 'field_name'],
     channels: inApp(
       {
         title: 'উত্তর সংশোধনের জন্য খোলা হয়েছে',
-        body: '"{{project_name}}" প্রকল্পে আপনার একটি আবেদনের "{{field_name}}" উত্তরটি সংশোধনের জন্য খোলা হয়েছে। আবেদনটি খুলে নতুন উত্তর দিন।',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদন {{app_no}}-এর "{{field_name}}" উত্তরটি সংশোধনের জন্য খোলা হয়েছে। আবেদনটি খুলে নতুন উত্তর দিন।',
       },
       {
         title: 'An answer is open for correction',
-        body: 'The answer "{{field_name}}" of one of your applications in the project "{{project_name}}" is open for correction. Open the application and give the new answer.',
+        body: 'The answer "{{field_name}}" of your application {{app_no}} in the project "{{project_name}}" is open for correction. Open the application and give the new answer.',
       },
     ),
   },
   {
     key: 'field_updated',
-    variables: ['project_name', 'field_name'],
+    variables: ['project_name', 'app_no', 'field_name'],
     channels: inApp(
       {
         title: 'নতুন উত্তর যাচাইয়ের অপেক্ষায়',
-        body: '"{{project_name}}" প্রকল্পে আপনার খোলা "{{field_name}}" উত্তরের নতুন মান এসেছে। যাচাই করে গ্রহণ করুন বা ফেরত দিন।',
+        body: '"{{project_name}}" প্রকল্পে আবেদন {{app_no}}-এ আপনার খোলা "{{field_name}}" উত্তরের নতুন মান এসেছে। যাচাই করে গ্রহণ করুন বা ফেরত দিন।',
       },
       {
         title: 'A new answer awaits verification',
-        body: 'A new value came for the answer "{{field_name}}" you opened in the project "{{project_name}}". Verify it and accept it or send it back.',
+        body: 'A new value came for the answer "{{field_name}}" you opened on application {{app_no}} in the project "{{project_name}}". Verify it and accept it or send it back.',
+      },
+    ),
+  },
+  {
+    key: 'field_refused',
+    variables: ['project_name', 'app_no', 'field_name', 'message'],
+    channels: inApp(
+      {
+        title: 'নতুন উত্তর ফেরত এসেছে',
+        body: '"{{project_name}}" প্রকল্পে আবেদন {{app_no}}-এর "{{field_name}}" উত্তরের নতুন মান অফিস ফেরত দিয়েছে, আগের উত্তরই থাকছে। {{message}}',
+      },
+      {
+        title: 'Your new answer was sent back',
+        body: 'The office sent back the new value of the answer "{{field_name}}" of application {{app_no}} in the project "{{project_name}}"; the earlier answer stays. {{message}}',
       },
     ),
   },
   {
     key: 'application_reopened',
-    variables: ['project_name'],
+    variables: ['project_name', 'app_no'],
     channels: inApp(
       {
         title: 'আবেদন আবার বিবেচনায়',
-        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি আবার বিবেচনা করা হচ্ছে।',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদন {{app_no}} আবার বিবেচনা করা হচ্ছে।',
       },
       {
         title: 'Application reconsidered',
-        body: 'Your application in the project "{{project_name}}" is being considered again.',
+        body: 'Your application {{app_no}} in the project "{{project_name}}" is being considered again.',
       },
     ),
   },
@@ -839,6 +853,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   new_name: 'নমুনা নতুন জন',
   project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
   message: 'এবার সম্ভব হলো না',
+  app_no: 'WC-2026-00012',
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
   work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
@@ -864,6 +879,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'new_date',
   'region_name',
   'field_name',
+  // the application's number, never the person's name
+  'app_no',
   // the reader's own new designation
   'designation',
   'project_name',

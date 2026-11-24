@@ -47,31 +47,44 @@ export class ApplicationEvents {
 
   /**
    * A step of a field unlock, to one person: the owner volunteer hears that a question opened for
-   * a new answer (never the office's reason), and the official who opened it hears that the new
-   * value came. The entry names the question and leads to the application.
+   * a new answer (never the office's reason), the official who opened it hears that the new value
+   * came, and the person who gave a value the office sent back hears so, with the message written
+   * for them. The entry names the application's number and the question and leads to the
+   * application.
    */
   async publishUnlock(
     tx: Tx,
-    key: 'field_unlocked' | 'field_updated',
+    key: 'field_unlocked' | 'field_updated' | 'field_refused',
     input: {
       application: { id: string; projectId: string };
       question: { bn: string; en?: string };
       to: string;
       actorId: string;
+      /** The message for the person a value was sent back to. */
+      message?: string | null;
     },
   ): Promise<void> {
-    const project = await tx.project.findUniqueOrThrow({
-      where: { id: input.application.projectId },
-      select: { nameBn: true, nameEn: true },
-    });
+    const [project, application] = await Promise.all([
+      tx.project.findUniqueOrThrow({
+        where: { id: input.application.projectId },
+        select: { nameBn: true, nameEn: true },
+      }),
+      tx.application.findUniqueOrThrow({
+        where: { id: input.application.id },
+        select: { appNo: true },
+      }),
+    ]);
     await this.notifications.publish(tx, {
       key,
       recipients: [{ user: input.to }],
       params: {
         project_name: { bn: project.nameBn, en: project.nameEn },
+        app_no: application.appNo ?? '',
         field_name: { bn: input.question.bn, en: input.question.en ?? input.question.bn },
         projectId: input.application.projectId,
         applicationId: input.application.id,
+        // the returned value's notice names the message, an empty one when none was written
+        ...(key === 'field_refused' ? { message: input.message ?? '' } : {}),
       },
       about: input.application.id,
       actorId: input.actorId,
@@ -126,7 +139,7 @@ export class ApplicationEvents {
     now: Date = this.clock.now(),
   ): Promise<void> {
     if (!this.knows(key)) return;
-    const [project, owner] = await Promise.all([
+    const [project, owner, application] = await Promise.all([
       tx.project.findUniqueOrThrow({
         where: { id: target.projectId },
         select: { nameBn: true, nameEn: true },
@@ -136,6 +149,9 @@ export class ApplicationEvents {
             where: { id: target.ownerVolunteerId },
             select: { userId: true },
           })
+        : null,
+      OWNER_KEYS.includes(key)
+        ? tx.application.findUnique({ where: { id: target.id }, select: { appNo: true } })
         : null,
     ]);
     // the team member who created it hears too, while the owner is still their lead there
@@ -176,7 +192,9 @@ export class ApplicationEvents {
         projectId: target.projectId,
         // the office's entry collapses several submissions, so it links to the project's list;
         // the owner's entry is about one application
-        ...(OWNER_KEYS.includes(key) ? { applicationId: target.id } : {}),
+        ...(OWNER_KEYS.includes(key)
+          ? { applicationId: target.id, app_no: application?.appNo ?? '' }
+          : {}),
         ...(target.message ? { message: target.message } : {}),
       },
       // one entry per volunteer per hour for the office keys; one per application for the rest

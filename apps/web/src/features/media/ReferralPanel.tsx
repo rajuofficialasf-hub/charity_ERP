@@ -145,6 +145,7 @@ export function ReferralPanel({
       <ConfirmDialog
         open={asking === 'accept'}
         title={t('decision.accept')}
+        consequences={[t('decision.accept_note')]}
         confirmLabel={t('decision.accept')}
         pending={decide.isPending}
         onConfirm={() => decide.mutate({ decision: 'accept' })}

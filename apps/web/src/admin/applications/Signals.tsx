@@ -20,6 +20,9 @@ const KNOWN_FLAGS = [
   'stale_form_version',
 ] as const;
 
+/** The flags that ask for the verification only, told no more once the entry was verified. */
+const VERIFY_ONLY_FLAGS: readonly string[] = ['existing_identity'];
+
 /** The repeats a project may hold; where it does, the approval asks a reason. */
 const HELD_REASONS = ['same_person', 'family_match'] as const;
 
@@ -37,8 +40,12 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
   const t = useTranslations('applications.office.signals');
   const tr = useTranslations('admin.beneficiaries.duplicates.rules');
   const locale = useLocale() as Locale;
-  const flags = a.flags.filter((f): f is (typeof KNOWN_FLAGS)[number] =>
-    (KNOWN_FLAGS as readonly string[]).includes(f),
+  // once the office verified the entry, what asked for the verification is done
+  const verified = a.status !== 'needs_verification';
+  const flags = a.flags.filter(
+    (f): f is (typeof KNOWN_FLAGS)[number] =>
+      (KNOWN_FLAGS as readonly string[]).includes(f) &&
+      !(verified && VERIFY_ONLY_FLAGS.includes(f)),
   );
   const members = a.familyMemberSignals;
   const pairs = a.samePersonSignals;
@@ -61,11 +68,18 @@ export function Signals({ application: a }: { application: OfficeApplication }) 
   const nameOf = (words: { bn: string; en: string }) => (locale === 'en' ? words.en : words.bn);
   return (
     <Stack gap={2}>
-      {flags.map((flag) => (
-        <Alert key={flag} tone={BLOCK_FLAGS.includes(flag) ? 'error' : 'warning'}>
-          {t(`flag.${flag}`)}
-        </Alert>
-      ))}
+      {flags.map((flag) =>
+        flag === 'public_entry' && verified ? (
+          // linked to a profile, or refused at the verification
+          <Alert key={flag} tone="info">
+            {t(a.beneficiaryId ? 'flag.public_entry_verified' : 'flag.public_entry_came')}
+          </Alert>
+        ) : (
+          <Alert key={flag} tone={BLOCK_FLAGS.includes(flag) ? 'error' : 'warning'}>
+            {t(`flag.${flag}`)}
+          </Alert>
+        ),
+      )}
       {a.familyDuplicateWarnings.map((w) => (
         <Alert key={w.beneficiaryId} tone="warning">
           {t('family', {

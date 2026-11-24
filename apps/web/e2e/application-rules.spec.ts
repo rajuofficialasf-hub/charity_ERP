@@ -241,9 +241,10 @@ test.describe('the application rules', () => {
       await noViolations(desk, 'the quota bars');
       await quotas.getByRole('button', { name: /^পরেরজনকে আনুন/ }).click();
       const pull = desk.getByRole('dialog', { name: 'পরেরজনকে আনুন' });
-      // the pull asks first; the server then asks the comment of the full quota
-      await pull.getByRole('button', { name: 'পরেরজনকে আনুন' }).click();
+      // the pull asks first, naming who comes next, and the full quota's comment at once
+      await expect(pull.getByText(new RegExp(`^এবার আসবেন: ${lower}`))).toBeVisible();
       await expect(pull.getByText('এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?')).toBeVisible();
+      await expect(pull.getByRole('button', { name: 'পরেরজনকে আনুন' })).toBeDisabled();
       await pull.getByRole('textbox', { name: /মন্তব্য/ }).fill('বাড়তি মালামাল এসেছে');
       await pull.getByRole('button', { name: 'পরেরজনকে আনুন' }).click();
       await expect(desk.getByText(/অপেক্ষমাণ তালিকা থেকে অনুমোদিত হয়েছে।/)).toBeVisible();

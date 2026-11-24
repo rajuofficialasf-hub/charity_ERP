@@ -317,6 +317,10 @@ export class UnlocksService {
       this.assertOpenable(target);
       const accepted = body.decision === 'accept';
       if (accepted) await this.accept(tx, principal, target, unlock);
+      const refusedTo =
+        !accepted && unlock.enteredBy && unlock.enteredBy !== principal.userId
+          ? unlock.enteredBy
+          : null;
       const now = this.clock.now();
       await tx.fieldChange.update({
         where: { id: unlockId },
@@ -339,9 +343,24 @@ export class UnlocksService {
           field: unlock.field,
           decision: accepted ? 'accepted' : 'refused',
           ...(accepted ? { value: json(unlock.newValue) } : {}),
+          ...(!accepted && body.message ? { message: body.message } : {}),
         },
         reason: body.reason ?? null,
       });
+      // the person who gave the value hears it came back, with the message written for them and
+      // never the office's reason
+      if (refusedTo) {
+        const definition = await readDefinition(tx, target.formVersionId, 'official');
+        const question = questionOf(definition, answerOf(unlock.field).fieldKey);
+        if (question)
+          await this.events.publishUnlock(tx, 'field_refused', {
+            application: target,
+            question: question.field.label,
+            to: refusedTo,
+            actorId: principal.userId,
+            message: body.message ?? null,
+          });
+      }
     });
     return this.viewOf(principal, access, unlockId);
   }

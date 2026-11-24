@@ -17,6 +17,8 @@ export const exportRequestSchema = z
       .refine((ids) => new Set(ids).size === ids.length, { message: 'columns.duplicate' }),
     filters: z.record(z.string(), z.unknown()),
     projectId: z.uuid().optional(),
+    /** A coded column's code beside its words (a state, a type, a gender); the words alone by default. */
+    withCodes: z.boolean().optional(),
   })
   .refine((r) => (r.kind === 'applications') === (r.projectId !== undefined), {
     message: 'projectId.required_for_applications_only',

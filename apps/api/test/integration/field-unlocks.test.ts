@@ -181,7 +181,10 @@ describe('an unlock from opening to the decision', () => {
     expect(mine.body.data.mayUnlock).toBe(false);
     const told = await notificationsOf(h.db, 'field_unlocked', world.users.general);
     expect(told).toHaveLength(1);
-    expect(told[0]!.params).toMatchObject({ applicationId: id });
+    expect(told[0]!.params).toMatchObject({
+      applicationId: id,
+      app_no: expect.stringMatching(/-\d{5}$/),
+    });
     expect(JSON.stringify(told)).not.toContain('গ্রামের নাম ভুল');
     const home = await at(volunteer, 'get', '/me/attention');
     expect(home.body.data).toContainEqual({
@@ -254,8 +257,30 @@ describe('an unlock from opening to the decision', () => {
     const unlockId = await opened(rpm, id, 'q_count');
     await fill(await as(world.users.general), unlockId, { t: 'number', v: 9 });
     expect((await decide(rpm, unlockId, { decision: 'refuse' })).status).toBe(422);
-    const refused = await decide(rpm, unlockId, { decision: 'refuse', reason: 'সংখ্যা মেলেনি' });
+    const refused = await decide(rpm, unlockId, {
+      decision: 'refuse',
+      reason: 'সংখ্যা মেলেনি',
+      message: 'পরিবারের সদস্য আবার গুনে দিন',
+    });
     expect(refused.status, JSON.stringify(refused.body)).toBe(200);
+    // the volunteer who gave the value hears it came back, with the message and the number of
+    // the application, never the office's reason
+    const told = await notificationsOf(h.db, 'field_refused', world.users.general);
+    expect(told.at(-1)?.params).toMatchObject({
+      applicationId: id,
+      app_no: expect.stringMatching(/-\d{5}$/),
+      message: 'পরিবারের সদস্য আবার গুনে দিন',
+    });
+    expect(JSON.stringify(told)).not.toContain('সংখ্যা মেলেনি');
+    // a send-back without a message still tells, with nothing after the sentence
+    const again = await opened(rpm, id, 'q_count');
+    await fill(await as(world.users.general), again, { t: 'number', v: 8 });
+    expect((await decide(rpm, again, { decision: 'refuse', reason: 'আবার মেলেনি' })).status).toBe(
+      200,
+    );
+    expect(
+      (await notificationsOf(h.db, 'field_refused', world.users.general)).at(-1)?.params,
+    ).toMatchObject({ message: '' });
     expect(refused.body.data).toMatchObject({
       decision: 'refused',
       decisionReason: 'সংখ্যা মেলেনি',

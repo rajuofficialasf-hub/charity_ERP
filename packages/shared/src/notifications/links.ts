@@ -44,6 +44,10 @@ const ROUTES: Record<string, (p: Record<string, unknown>) => string | null> = {
   team_member_added: (p) => withId(p, 'projectId', '/my-projects'),
   project_consent_result: (p) => withId(p, 'projectId', '/admin/projects'),
   ops_alert: () => '/admin/deliveries',
+  application_approved: (p) => withId(p, 'applicationId', '/my-applications'),
+  application_rejected: (p) => withId(p, 'applicationId', '/my-applications'),
+  application_waitlisted: (p) => withId(p, 'applicationId', '/my-applications'),
+  application_reopened: (p) => withId(p, 'applicationId', '/my-applications'),
   field_unlocked: (p) => withId(p, 'applicationId', '/my-applications'),
   field_updated: (p) => withId(p, 'applicationId', '/admin/applications'),
   application_transferred: () => '/my-applications',
@@ -77,6 +81,14 @@ export function notificationLink(
       params,
       'projectId',
       audience === 'volunteer' ? '/my-projects' : '/admin/projects',
+    );
+  // a returned value goes to whoever entered it: a volunteer, or an official for an answer of
+  // the official section or an application without a volunteer
+  if (key === 'field_refused')
+    return withId(
+      params,
+      'applicationId',
+      audience === 'volunteer' ? '/my-applications' : '/admin/applications',
     );
   const route = Object.hasOwn(ROUTES, key) ? ROUTES[key] : undefined;
   return route ? route(params) : null;

@@ -104,8 +104,11 @@ export const correctionRequestSchema = z.object({
   reason: z.string(),
   status: z.enum(['submitted', 'approved', 'rejected']),
   requestedBy: z.string(),
+  /** Who asked and who decided, by name: on the 360° profile only. */
+  requestedByName: z.string().nullable().optional(),
   requestedAt: dateTime,
   decidedBy: z.string().nullable(),
+  decidedByName: z.string().nullable().optional(),
   decidedAt: dateTime.nullable(),
 });
 export type CorrectionRequest = z.infer<typeof correctionRequestSchema>;
@@ -128,6 +131,8 @@ export const beneficiaryProfileSchema = z.object({
         oldValue: z.string().nullable(),
         newValue: z.string().nullable(),
         by: z.string().nullable(),
+        /** Who made the change, by name; null for the system. */
+        byName: z.string().nullable(),
         at: dateTime,
       }),
     )
@@ -139,7 +144,9 @@ export const beneficiaryProfileSchema = z.object({
         id: z.uuid(),
         reason: z.string(),
         active: z.boolean(),
+        blockedByName: z.string().nullable(),
         blockedAt: dateTime,
+        releasedByName: z.string().nullable(),
         releasedAt: dateTime.nullable(),
         releaseReason: z.string().nullable(),
       }),
@@ -287,6 +294,22 @@ export const beneficiaryProfileSchema = z.object({
         stage: z.string().nullable(),
         status: z.string(),
         doneAt: dateTime,
+      }),
+    )
+    .optional(),
+  /**
+   * The audited steps of the person and of the applications the viewer sees, newest first: what,
+   * who by name (null for the system) and when; absent without the care class.
+   */
+  trail: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        action: z.string(),
+        at: dateTime,
+        byName: z.string().nullable(),
+        applicationId: z.uuid().nullable(),
+        appNo: z.string().nullable(),
       }),
     )
     .optional(),

@@ -9,6 +9,7 @@ import {
   officeApplicationRecordSchema,
   officeTimelineEntrySchema,
   publicSubmissionSchema,
+  nextWaitlistedSchema,
   pulledApplicationSchema,
   quotaSchema,
   unlockSchema,
@@ -190,6 +191,13 @@ describe.skipIf(!contractBase())('the office’s applications', () => {
     await decide(id, 'review');
     await decide(id, 'send_for_approval');
     expect((await decide(id, 'waitlist', { reason: REASON })).status).toBe('waitlisted');
+    // the dialog names who comes next before the pull is pressed
+    const next = expectEnvelope(
+      await call(office, 'GET', `/projects/${project.projectId}/waitlist/next`),
+      200,
+      nextWaitlistedSchema,
+    );
+    expect(next.data?.id).toBe(id);
     const pulled = expectEnvelope(
       await call(
         office,

@@ -2283,6 +2283,7 @@ components:
               oldValue: { type: [string, 'null'] }
               newValue: { type: [string, 'null'] }
               by: { type: [string, 'null'], format: uuid }
+              byName: { type: [string, 'null'], description: 'Who made the change, by name; null for the system' }
               at: { type: string, format: date-time }
         corrections:
           type: array
@@ -2298,7 +2299,9 @@ components:
               id: { $ref: '#/components/schemas/Uuid' }
               reason: { type: string }
               active: { type: boolean }
+              blockedByName: { type: [string, 'null'] }
               blockedAt: { type: string, format: date-time }
+              releasedByName: { type: [string, 'null'] }
               releasedAt: { type: [string, 'null'], format: date-time }
               releaseReason: { type: [string, 'null'] }
         merges:
@@ -2493,6 +2496,44 @@ components:
           x-sensitive-class: beneficiary.care
           description: Activity history, latest 20
           items: { type: object }
+        trail:
+          type: array
+          x-sensitive-class: beneficiary.care
+          description: >-
+            The audited steps of the person and of the applications the caller sees, latest 20,
+            newest first: the action, when, who by name (null for the system) and the application;
+            never the values or the reason of the audit entry.
+          items:
+            type: object
+            required: [id, action, at, byName, applicationId, appNo]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              action:
+                type: string
+                enum:
+                  - beneficiary.create
+                  - beneficiary.contact_updated
+                  - beneficiary.correction_requested
+                  - beneficiary.correction_decided
+                  - beneficiary.identity_added
+                  - beneficiary.merge
+                  - beneficiary.merge_reverted
+                  - blocklist.set
+                  - blocklist.lift
+                  - application.submit
+                  - application.public_submitted
+                  - application.reviewed
+                  - application.approve
+                  - application.reject
+                  - application.waitlisted
+                  - application.pull_from_waitlist
+                  - application.reopened
+                  - application.transferred
+                  - application.unlock_decided
+              at: { type: string, format: date-time }
+              byName: { type: [string, 'null'] }
+              applicationId: { type: [string, 'null'], format: uuid }
+              appNo: { type: [string, 'null'] }
         media:
           type: array
           description: The published and done media works about the person (D-101 (8)), for everyone who reads the profile
@@ -2681,8 +2722,10 @@ components:
         reason: { type: string }
         status: { type: string, enum: [submitted, approved, rejected] }
         requestedBy: { $ref: '#/components/schemas/Uuid' }
+        requestedByName: { type: [string, 'null'], description: 'On the 360° profile only, who asked by name' }
         requestedAt: { type: string, format: date-time }
         decidedBy: { type: [string, 'null'], format: uuid }
+        decidedByName: { type: [string, 'null'], description: 'On the 360° profile only, who decided by name' }
         decidedAt: { type: [string, 'null'], format: date-time }
     IdentityAdd:
       type: object
@@ -3982,6 +4025,10 @@ components:
         submittedAt: { type: [string, 'null'], format: date-time }
         waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
         pendingPhotos: { type: integer, minimum: 0, description: Photo slots an offline record still waits for; the office sees the record without them }
+        mediaState:
+          type: string
+          enum: [pending, sent_back, accepted, rejected]
+          description: "On the office's list only: the state of the application's referral to the Media Team, for an official who would see it on the record (the work's viewer or a referrer whose scope reaches the application); absent otherwise"
         etag: { type: string, description: "The version of the row, carried back by a bulk action's row as its If-Match" }
     Answer:
       type: object
@@ -5113,6 +5160,7 @@ components:
           description: Each id once; the file orders them itself (the list's columns, the details, then the questions)
         filters: { type: object, propertyNames: { type: string }, additionalProperties: {}, description: "The list's filters, checked with that list's own filter schema" }
         projectId: { type: string, format: uuid }
+        withCodes: { type: boolean, description: "A coded column's code written beside its words (a state, a type, a gender); the words alone when absent or false, and always in a PDF" }
     ExportJob:
       type: object
       required:
@@ -11109,7 +11157,9 @@ paths:
         accepted value replaces the answer if it is still the one the unlock opened (409
         application.unlock_stale otherwise); a mobile or an address reaches the person's profile
         through the contact service with its own change log, and the application's district and
-        union follow an address. Every step stays on the change log and in the audit log.
+        union follow an address. Every step stays on the change log and in the audit log. A refusal
+        tells the person who entered the value (`field_refused`, with the application's number and
+        the optional message written for them, never the reason).
       x-permission: application.unlock_field
       x-scope: application
       x-audit: application.unlock_decided
@@ -11126,6 +11176,7 @@ paths:
               properties:
                 decision: { type: string, enum: [accept, refuse] }
                 reason: { type: string, minLength: 3, maxLength: 1000, description: Required for a refusal }
+                message: { type: string, minLength: 3, maxLength: 2000, description: 'On a refusal, what the person who entered the value reads; an acceptance ignores it' }
       responses:
         '200':
           description: Decided; the answer is locked again
@@ -11198,6 +11249,51 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BulkResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/waitlist/next:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [applications]
+      operationId: applications.waitlist.next
+      summary: 'Who a pull of the area would take now (the highest score, then the earliest waitlisted), or null; nothing is held'
+      description: >-
+        Read before "পরেরজনকে আনুন", so the dialog names the person and the score. The area follows
+        the pull's rule (422 for an area the project's quotas do not weigh by). Only applications the
+        caller's application scope reaches are read; nothing is locked, so a pull in between may take
+        this person and the next pull another. A project out of reach 404.
+      x-permission: application.waitlist
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - name: areaId
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The next waitlisted application, or null when nobody waits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    oneOf:
+                      - type: 'null'
+                      - type: object
+                        required: [id, appNo, beneficiaryName, totalScore]
+                        properties:
+                          id: { $ref: '#/components/schemas/Uuid' }
+                          appNo: { type: [string, 'null'] }
+                          beneficiaryName: { type: [string, 'null'] }
+                          totalScore: { type: [number, 'null'] }
+                  meta: { $ref: '#/components/schemas/Meta' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }

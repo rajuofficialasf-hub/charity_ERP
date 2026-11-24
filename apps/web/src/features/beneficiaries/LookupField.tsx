@@ -7,7 +7,7 @@ import {
 import type { Locale } from '@css/shared/i18n';
 import { Alert, Button, DescriptionList, Grid, Icon, Stack, TextField } from '@/ui';
 import { useMutation } from '@tanstack/react-query';
-import { type ReactNode, useRef, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
   type LookupAutofill,
@@ -101,6 +101,14 @@ export function LookupField({
     search.mutate(q);
   };
 
+  const enter = (event: KeyboardEvent<HTMLDivElement>) => {
+    // a letter still being composed takes its own Enter
+    if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+    if (!(event.target instanceof HTMLInputElement)) return;
+    event.preventDefault();
+    if (projectId && typed.trim() && !search.isPending) submit();
+  };
+
   const fresh = !!asked && asked.projectId === projectId && search.variables === asked;
   const result = fresh ? search.data : undefined;
   const failure = fresh && search.error instanceof ApiFailure ? search.error : null;
@@ -122,29 +130,32 @@ export function LookupField({
           reset();
         }}
       />
-      <TextField
-        type="nid"
-        label={kind === 'nid' ? t('number_nid') : t('number_birth_reg')}
-        hint={projectId ? undefined : t('pick_project')}
-        value={typed}
-        error={error}
-        maxLength={40}
-        onChange={(value) => {
-          setTyped(value);
-          reset();
-        }}
-        endAction={
-          <Button
-            size="small"
-            startIcon="search"
-            onClick={submit}
-            disabled={!projectId || !typed.trim()}
-            loading={search.isPending}
-          >
-            {t('search')}
-          </Button>
-        }
-      />
+      {/* Enter, or the phone keyboard's go key, searches as the button does */}
+      <div onKeyDown={enter}>
+        <TextField
+          type="nid"
+          label={kind === 'nid' ? t('number_nid') : t('number_birth_reg')}
+          hint={projectId ? undefined : t('pick_project')}
+          value={typed}
+          error={error}
+          maxLength={40}
+          onChange={(value) => {
+            setTyped(value);
+            reset();
+          }}
+          endAction={
+            <Button
+              size="small"
+              startIcon="search"
+              onClick={submit}
+              disabled={!projectId || !typed.trim()}
+              loading={search.isPending}
+            >
+              {t('search')}
+            </Button>
+          }
+        />
+      </div>
       {failure && <Alert tone="error">{failure.message}</Alert>}
       {offline && asked && <Alert tone="info">{t('offline_note')}</Alert>}
       {result && asked && !offline && (

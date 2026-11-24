@@ -38,6 +38,7 @@ export const DEFAULT_LABELS: UiLabels = {
   selectAll: 'Select all',
   selectRow: 'Select {name}',
   selectedCount: '{count} selected',
+  selectHint: 'Tick rows to act on them together',
   rowActions: 'Actions',
   loadMore: 'Load more',
   pages: 'Pages',

@@ -554,47 +554,47 @@ model Handover {
 }
 
 model Location {
-  id                              String             @id @db.Uuid
-  parentId                        String?            @map("parent_id") @db.Uuid
+  id                              String                 @id @db.Uuid
+  parentId                        String?                @map("parent_id") @db.Uuid
   level                           String
   kind                            String
   code                            String
-  bbsCode                         String?            @map("bbs_code")
-  postCode                        String?            @map("post_code") @db.VarChar(4)
-  nameBn                          String             @map("name_bn")
-  nameEn                          String             @map("name_en")
-  active                          Boolean            @default(true)
-  version                         Int                @default(1)
-  createdAt                       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                       String?            @map("created_by") @db.Uuid
-  updatedAt                       DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                       String?            @map("updated_by") @db.Uuid
-  parent                          Location?          @relation("locations_parent_id", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef                    User?              @relation("locations_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef                    User?              @relation("locations_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  usersHomeDivision               User[]             @relation("users_home_division_id")
-  locationsParent                 Location[]         @relation("locations_parent_id")
-  projectAreasLocation            ProjectArea[]      @relation("project_areas_location_id")
-  projectStaffAreaLocation        ProjectStaff[]     @relation("project_staff_area_location_id")
+  bbsCode                         String?                @map("bbs_code")
+  postCode                        String?                @map("post_code") @db.VarChar(4)
+  nameBn                          String                 @map("name_bn")
+  nameEn                          String                 @map("name_en")
+  active                          Boolean                @default(true)
+  version                         Int                    @default(1)
+  createdAt                       DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                       String?                @map("created_by") @db.Uuid
+  updatedAt                       DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                       String?                @map("updated_by") @db.Uuid
+  parent                          Location?              @relation("locations_parent_id", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                    User?                  @relation("locations_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                    User?                  @relation("locations_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  usersHomeDivision               User[]                 @relation("users_home_division_id")
+  locationsParent                 Location[]             @relation("locations_parent_id")
+  projectAreasLocation            ProjectArea[]          @relation("project_areas_location_id")
+  projectStaffAreaLocation        ProjectStaff[]         @relation("project_staff_area_location_id")
   projectStaffDistrictsLocation   ProjectStaffDistrict[] @relation("project_staff_districts_location_id")
-  userExtraAreasLocation          UserExtraArea[]    @relation("user_extra_areas_location_id")
-  projectQuotasLocation           ProjectQuota[]     @relation("project_quotas_location_id")
-  beneficiariesDivision           Beneficiary[]      @relation("beneficiaries_division_id")
-  beneficiariesDistrict           Beneficiary[]      @relation("beneficiaries_district_id")
-  beneficiariesUpazila            Beneficiary[]      @relation("beneficiaries_upazila_id")
-  beneficiariesUnion              Beneficiary[]      @relation("beneficiaries_union_id")
-  volunteersDivision              Volunteer[]        @relation("volunteers_division_id")
-  volunteersDistrict              Volunteer[]        @relation("volunteers_district_id")
-  volunteersUpazila               Volunteer[]        @relation("volunteers_upazila_id")
-  volunteersUnion                 Volunteer[]        @relation("volunteers_union_id")
-  projectVolunteersRegionLocation ProjectVolunteer[] @relation("project_volunteers_region_location_id")
-  applicationsRegionLocation      Application[]      @relation("applications_region_location_id")
-  applicationsDistrict            Application[]      @relation("applications_district_id")
-  applicationsUnion               Application[]      @relation("applications_union_id")
-  animalsSpotDistrict             Animal[]           @relation("animals_spot_district_id")
-  animalsSpotUpazila              Animal[]           @relation("animals_spot_upazila_id")
-  animalsSpotUnion                Animal[]           @relation("animals_spot_union_id")
-  documentsDistrict               Document[]         @relation("documents_district_id")
+  userExtraAreasLocation          UserExtraArea[]        @relation("user_extra_areas_location_id")
+  projectQuotasLocation           ProjectQuota[]         @relation("project_quotas_location_id")
+  beneficiariesDivision           Beneficiary[]          @relation("beneficiaries_division_id")
+  beneficiariesDistrict           Beneficiary[]          @relation("beneficiaries_district_id")
+  beneficiariesUpazila            Beneficiary[]          @relation("beneficiaries_upazila_id")
+  beneficiariesUnion              Beneficiary[]          @relation("beneficiaries_union_id")
+  volunteersDivision              Volunteer[]            @relation("volunteers_division_id")
+  volunteersDistrict              Volunteer[]            @relation("volunteers_district_id")
+  volunteersUpazila               Volunteer[]            @relation("volunteers_upazila_id")
+  volunteersUnion                 Volunteer[]            @relation("volunteers_union_id")
+  projectVolunteersRegionLocation ProjectVolunteer[]     @relation("project_volunteers_region_location_id")
+  applicationsRegionLocation      Application[]          @relation("applications_region_location_id")
+  applicationsDistrict            Application[]          @relation("applications_district_id")
+  applicationsUnion               Application[]          @relation("applications_union_id")
+  animalsSpotDistrict             Animal[]               @relation("animals_spot_district_id")
+  animalsSpotUpazila              Animal[]               @relation("animals_spot_upazila_id")
+  animalsSpotUnion                Animal[]               @relation("animals_spot_union_id")
+  documentsDistrict               Document[]             @relation("documents_district_id")
 
   @@unique([code], map: "locations_code_key")
   @@unique([bbsCode], where: raw("bbs_code IS NOT NULL"), map: "locations_bbs_code_key")
@@ -936,28 +936,28 @@ model ProjectStaffDistrict {
 
 /// The extra areas of an official: a location, or the whole country, for volunteers alone.
 model UserExtraArea {
-  id           String    @id @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  locationId   String?   @map("location_id") @db.Uuid
-  wholeCountry Boolean   @default(false) @map("whole_country")
+  id           String          @id @db.Uuid
+  userId       String          @map("user_id") @db.Uuid
+  locationId   String?         @map("location_id") @db.Uuid
+  wholeCountry Boolean         @default(false) @map("whole_country")
   reason       String
-  grantedBy    String    @map("granted_by") @db.Uuid
-  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
-  endedAt      DateTime? @map("ended_at") @db.Timestamptz(6)
-  endedBy      String?   @map("ended_by") @db.Uuid
-  endReason    String?   @map("end_reason")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy    String?   @map("created_by") @db.Uuid
-  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy    String?   @map("updated_by") @db.Uuid
+  grantedBy    String          @map("granted_by") @db.Uuid
+  grantedAt    DateTime        @default(now()) @map("granted_at") @db.Timestamptz(6)
+  endedAt      DateTime?       @map("ended_at") @db.Timestamptz(6)
+  endedBy      String?         @map("ended_by") @db.Uuid
+  endReason    String?         @map("end_reason")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?         @map("created_by") @db.Uuid
+  updatedAt    DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?         @map("updated_by") @db.Uuid
   /// The giver's own extra area this one was passed on from; it ends with that source.
-  sourceAreaId String?   @map("source_area_id") @db.Uuid
-  user         User      @relation("user_extra_areas_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  location     Location? @relation("user_extra_areas_location_id", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  grantedByRef User      @relation("user_extra_areas_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  endedByRef   User?     @relation("user_extra_areas_ended_by", fields: [endedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef User?     @relation("user_extra_areas_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef User?     @relation("user_extra_areas_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceAreaId String?         @map("source_area_id") @db.Uuid
+  user         User            @relation("user_extra_areas_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  location     Location?       @relation("user_extra_areas_location_id", fields: [locationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  grantedByRef User            @relation("user_extra_areas_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  endedByRef   User?           @relation("user_extra_areas_ended_by", fields: [endedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?           @relation("user_extra_areas_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?           @relation("user_extra_areas_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   source       UserExtraArea?  @relation("user_extra_areas_source_area_id", fields: [sourceAreaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   passedOn     UserExtraArea[] @relation("user_extra_areas_source_area_id")
 
@@ -998,28 +998,28 @@ model ProjectArea {
 }
 
 model ProjectStaff {
-  id               String    @id @db.Uuid
-  projectId        String    @map("project_id") @db.Uuid
-  userId           String    @map("user_id") @db.Uuid
-  roleKey          String    @map("role_key")
-  areaLocationId   String?   @map("area_location_id") @db.Uuid
-  canView          Boolean   @default(true) @map("can_view")
-  canEdit          Boolean   @default(false) @map("can_edit")
-  canDelete        Boolean   @default(false) @map("can_delete")
-  extraPermissions String[]  @default([]) @map("extra_permissions")
-  grantedBy        String    @map("granted_by") @db.Uuid
-  endedAt          DateTime? @map("ended_at") @db.Timestamptz(6)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy        String?   @map("created_by") @db.Uuid
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy        String?   @map("updated_by") @db.Uuid
-  project          Project   @relation("project_staff_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  user             User      @relation("project_staff_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  role             Role      @relation("project_staff_role_key", fields: [roleKey], references: [key], onDelete: Restrict, onUpdate: NoAction)
-  areaLocation     Location? @relation("project_staff_area_location_id", fields: [areaLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  grantedByRef     User      @relation("project_staff_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef     User?     @relation("project_staff_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef     User?     @relation("project_staff_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id               String                 @id @db.Uuid
+  projectId        String                 @map("project_id") @db.Uuid
+  userId           String                 @map("user_id") @db.Uuid
+  roleKey          String                 @map("role_key")
+  areaLocationId   String?                @map("area_location_id") @db.Uuid
+  canView          Boolean                @default(true) @map("can_view")
+  canEdit          Boolean                @default(false) @map("can_edit")
+  canDelete        Boolean                @default(false) @map("can_delete")
+  extraPermissions String[]               @default([]) @map("extra_permissions")
+  grantedBy        String                 @map("granted_by") @db.Uuid
+  endedAt          DateTime?              @map("ended_at") @db.Timestamptz(6)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy        String?                @map("created_by") @db.Uuid
+  updatedAt        DateTime               @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy        String?                @map("updated_by") @db.Uuid
+  project          Project                @relation("project_staff_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user             User                   @relation("project_staff_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  role             Role                   @relation("project_staff_role_key", fields: [roleKey], references: [key], onDelete: Restrict, onUpdate: NoAction)
+  areaLocation     Location?              @relation("project_staff_area_location_id", fields: [areaLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  grantedByRef     User                   @relation("project_staff_granted_by", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef     User?                  @relation("project_staff_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef     User?                  @relation("project_staff_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   districts        ProjectStaffDistrict[] @relation("project_staff_districts_project_staff_id")
 
   @@unique([projectId, userId], where: raw("ended_at IS NULL"), map: "project_staff_project_id_user_id_key")
@@ -3317,6 +3317,8 @@ model ExportJob {
   format         String
   /// the column ids the person chose, in the file's order; empty only for a record's PDF
   columns        String[]
+  /// a coded column's code written beside its words, only when the person asked for it
+  withCodes      Boolean   @default(false) @map("with_codes")
   /// the scope instances and field classes the request froze; the job never reads live access
   access         Json
   rowsDone       Int       @default(0) @map("rows_done")

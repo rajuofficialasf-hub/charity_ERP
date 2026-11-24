@@ -45,6 +45,7 @@ import {
 import { NameMatch } from './NameMatch';
 import { loadStore, photoMessage, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
+import { FieldRefusal } from '../forms/field-refusal';
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png'];
 const PHOTO_MAX_BYTES = maxSizeOf('form_photo', 'image/jpeg') ?? 0;
@@ -59,7 +60,12 @@ type Person =
   | { kind: 'known'; number: string; result: LookupResult }
   | { kind: 'new'; number: string }
   | { kind: 'picked'; typed: TypedPerson; pickToken: string }
-  | { kind: 'without_document'; skipped: boolean };
+  | {
+      kind: 'without_document';
+      skipped: boolean;
+      /** What the name lookup was asked with, for the form to start from. */
+      typed?: TypedPerson;
+    };
 
 /** How a new draft's person was found without a document, as the draft tells the server. */
 type DraftPerson = { pickToken: string } | { nameLookupSkipped: true };
@@ -71,6 +77,15 @@ const IDENTITY_REFUSALS: ReadonlySet<string> = new Set([
   'beneficiary.lookup_outside_limit',
   'workflow.guard.identity_present',
 ]);
+/** The question of the form each refusal is about, by its standard column. */
+const columnOfRefusal = (code: string | null): string | null =>
+  !code
+    ? null
+    : IDENTITY_REFUSALS.has(code)
+      ? IDENTITY_COLUMN
+      : code === 'beneficiary.mobile_is_volunteer_mobile'
+        ? 'mobile'
+        : null;
 /** One empty set of refusals, so the form keeps the same object while nothing is refused. */
 const NOT_REFUSED: Record<string, string> = {};
 
@@ -228,7 +243,10 @@ function NewApplication({ me }: { me: Me }) {
                               },
                               pickToken: choice.pickToken,
                             }
-                          : { kind: 'without_document', skipped: choice.kind === 'offline' },
+                          : choice.kind === 'new'
+                            ? // the names, the address and the village as typed for the lookup
+                              { kind: 'without_document', skipped: false, typed: choice.typed }
+                            : { kind: 'without_document', skipped: true },
                       )
                     }
                   />
@@ -252,12 +270,14 @@ function NewApplication({ me }: { me: Me }) {
         </Card>
       </Stack>
     );
-  // a new person without a document starts with an empty form, as without the lookup
+  // a new person without a document starts from what the name lookup was asked with
   const initial =
     person.kind === 'picked'
       ? answersOfTyped(definition, person.typed)
       : person.kind === 'without_document'
-        ? []
+        ? person.typed
+          ? answersOfTyped(definition, person.typed)
+          : []
         : person.kind === 'known' && person.result.autofill
           ? answersOfProfile(definition, person.number, person.result.autofill)
           : answersOfNumber(definition, person.number);
@@ -393,15 +413,15 @@ function ApplicationForm({
   const teamMember = me.roles.includes(TEAM_MEMBER);
 
   /**
-   * The server's refusal of a record, in the reader's words: above the form, and under the
-   * identity question too when the refusal is about the person's number.
+   * The server's refusal of a record, in the reader's words: under the question it is about (the
+   * person's number, or a mobile that is the volunteer's own) and nowhere else, or above the form.
    */
   const refusal = (code: string | null, params?: Record<string, string> | null): Error => {
     const reason = failureReason(te, code, params, t('save_failed'));
-    const question =
-      code && IDENTITY_REFUSALS.has(code) ? fieldByColumn(form, IDENTITY_COLUMN) : null;
+    const column = columnOfRefusal(code);
+    const question = column ? fieldByColumn(form, column) : null;
     setRefused(question ? { [question.fieldKey]: reason } : NOT_REFUSED);
-    return new Error(reason);
+    return question ? new FieldRefusal(reason) : new Error(reason);
   };
   /** A failure of the store itself (no store and no network) in the reader's words, else the error as it came. */
   const worded = (error: unknown): Error =>
@@ -433,6 +453,9 @@ function ApplicationForm({
         ...(person && !current.serverId ? { person } : {}),
       })
       .catch((error: unknown) => {
+        // without a store the server answers at once: a refusal about one question goes under it
+        if (error instanceof ApiFailure && columnOfRefusal(error.code))
+          throw refusal(error.code, null);
         throw worded(error);
       });
     if (!current.serverId) current.clientUuid = saved.clientUuid;

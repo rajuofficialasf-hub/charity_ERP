@@ -1356,8 +1356,21 @@ export class ApplicationsService {
       }),
       total: query.include === 'total' ? await tx.application.count({ where: filter }) : undefined,
     }));
+    // the office's list marks a row sent to the Media Team, for an official who sees that
+    const media =
+      office && fetched.length
+        ? await this.media.statesFor(
+            viewer.principal,
+            await this.access.load(viewer.principal.userId),
+            fetched.map((r) => r.id),
+          )
+        : new Map<string, never>();
     const { rows, meta } = buildPage(
-      fetched.map((r) => this.summaryOf(r, now, viewer)),
+      fetched.map((r) => {
+        const row = this.summaryOf(r, now, viewer);
+        const state = media.get(r.id);
+        return state ? { ...row, mediaState: state } : row;
+      }),
       {
         limit: query.limit,
         sort,

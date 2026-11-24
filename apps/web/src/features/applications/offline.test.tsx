@@ -485,10 +485,10 @@ describe('applications without network', () => {
     await user.clear(note);
     await user.type(note, 'আবার');
     await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
-    // the reason stands above the form and under the identity question it is about
+    // the reason stands once, under the identity question it is about
     const reason = 'এই প্রকল্পে এই উপকারভোগীর আবেদন আগেই আছে।';
-    expect(await screen.findAllByText(reason, {}, { timeout: 5000 })).toHaveLength(2);
-    expect(screen.getByRole('alert')).toHaveTextContent(reason);
+    expect(await screen.findAllByText(reason, {}, { timeout: 5000 })).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /^nid_or_birth_reg/ })).toHaveAccessibleDescription(
       reason,
     );

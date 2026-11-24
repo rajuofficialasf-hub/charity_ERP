@@ -413,6 +413,12 @@ test.describe('the identity an application asks follows the project', () => {
     await fitsThePhone(page, 'the name lookup');
     await step.getByRole('button', { name: START_NEW }).click();
     await expect(page.getByRole('heading', { level: 2, name: 'আবেদন ফর্ম' })).toBeVisible();
+    // what the search was asked with is in the form already: nothing is typed twice
+    await expect(page.getByRole('textbox', { name: /উপকারভোগীর নাম/ })).toHaveValue(name);
+    await expect(page.getByRole('textbox', { name: /পিতা বা স্বামীর নাম/ })).toHaveValue(
+      'নমুনা পিতা',
+    );
+    await expect(page.getByRole('textbox', { name: /গ্রাম/ })).toHaveValue('নমুনা গ্রাম');
     await personWithoutNumbers(page, name);
     await fitsThePhone(page, 'the first part');
     // the first part done saves the draft, as for any new person

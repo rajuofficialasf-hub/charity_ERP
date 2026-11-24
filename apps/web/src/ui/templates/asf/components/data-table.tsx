@@ -323,7 +323,8 @@ export function DataTable<Row>({
         </Box>
       )}
       {toolbar && <Box sx={{ px: 2, pb: 2.5, pt: title ? 0 : 2.5 }}>{toolbar}</Box>}
-      {multiple && selectedCount > 0 && (
+      {/* with bulk actions the bar keeps its place, so a first tick does not move the rows */}
+      {multiple && (selectedCount > 0 || bulkActions) && (
         <Box
           sx={{
             display: 'flex',
@@ -338,8 +339,13 @@ export function DataTable<Row>({
             borderColor: 'divider',
           }}
         >
-          <Box component="span" role="status" sx={{ typography: 'subtitle2', fontVariantNumeric: 'tabular-nums' }}>
-            {fill(labels.selectedCount, { count: selectedCount })}
+          <Box
+            component="span"
+            role="status"
+            // the hint keeps the bar's own text colour: the tinted bar leaves a muted grey too faint
+            sx={{ typography: selectedCount > 0 ? 'subtitle2' : 'body2', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {selectedCount > 0 ? fill(labels.selectedCount, { count: selectedCount }) : labels.selectHint}
           </Box>
           {bulkActions && <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>{bulkActions}</Box>}
         </Box>

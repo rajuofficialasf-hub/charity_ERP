@@ -106,6 +106,23 @@ describe('a referral to the Media Team', () => {
     expect(volunteer.body.data.mayReferToMedia).toBe(false);
   });
 
+  it('marks the row of the office’s list for whoever sees the referral on the record, never in a volunteer’s list', async () => {
+    const id = await application();
+    await referred(id, world.users.pm);
+    const rowOf = async (user: string, path: string) => {
+      const res = await at(await as(user), 'get', path);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      return (res.body.data as { id: string; mediaState?: string }[]).find((r) => r.id === id);
+    };
+    for (const user of [world.users.pm, world.users.rpmDhaka])
+      expect(await rowOf(user, `/projects/${project}/applications?limit=100`), user).toMatchObject({
+        mediaState: 'pending',
+      });
+    const own = await rowOf(world.users.general, `/me/applications?limit=100`);
+    expect(own).toBeDefined();
+    expect(own).not.toHaveProperty('mediaState');
+  });
+
   it('offers the referral on an approved application only to whoever may send it', async () => {
     const id = await application();
     expect((await read(await as(world.users.rpmDhaka), id)).body.data).toMatchObject({

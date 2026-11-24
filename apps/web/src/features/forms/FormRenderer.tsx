@@ -26,6 +26,7 @@ import type { UploadAdapter } from './upload-adapter';
 import { useFormAnswers } from './use-form-answers';
 import { answerText } from '../applications/AnswerList';
 import './forms.css';
+import { FieldRefusal } from './field-refusal';
 
 /** What a screen receives when the form is sent: the clean answers and the client id. */
 export interface Submission {
@@ -331,7 +332,14 @@ export function FormRenderer({
       try {
         await onPartDone({ answers: state.answers, clientUuid: state.clientUuid });
       } catch (error) {
-        setSummary(error instanceof Error && error.message ? error.message : t('send_failed'));
+        // a refusal already shown under its question is not said again above the form
+        setSummary(
+          error instanceof FieldRefusal
+            ? null
+            : error instanceof Error && error.message
+              ? error.message
+              : t('send_failed'),
+        );
         return;
       }
     }
@@ -365,7 +373,13 @@ export function FormRenderer({
       await onSubmit({ answers: result.answers, clientUuid: state.clientUuid });
       clear();
     } catch (error) {
-      setSummary(error instanceof Error && error.message ? error.message : t('send_failed'));
+      setSummary(
+        error instanceof FieldRefusal
+          ? null
+          : error instanceof Error && error.message
+            ? error.message
+            : t('send_failed'),
+      );
     } finally {
       sendingNow.current = false;
       setSending(false);

@@ -18,6 +18,20 @@ export const pullNextSchema = z.strictObject({
 });
 export type PullNext = z.infer<typeof pullNextSchema>;
 
+/** The area of the next person read before a pull, as the pull itself takes it. */
+export const nextQuerySchema = z.strictObject({ areaId: z.uuid().optional() });
+
+/** Who a pull would take now, for the official to see before pressing. */
+export const nextWaitlistedSchema = z
+  .object({
+    id: z.uuid(),
+    appNo: z.string().nullable(),
+    beneficiaryName: z.string().nullable(),
+    totalScore: z.number().nullable(),
+  })
+  .nullable();
+export type NextWaitlisted = z.infer<typeof nextWaitlistedSchema>;
+
 /** The one pull's answer, kept under its key so a repeat answers the same person. */
 interface Pulled extends Prisma.JsonObject {
   id: string;
@@ -42,25 +56,40 @@ export class WaitlistService {
     private readonly workflow: WorkflowEngine,
   ) {}
 
+  /**
+   * Who a pull of the area would take now: the first waitlisted application in the pull's order
+   * that the caller's scope reaches, or null. Nothing is held, so the pull itself may take another
+   * person when someone else pulled in between.
+   */
+  async next(principal: Principal, projectId: string, areaId?: string): Promise<NextWaitlisted> {
+    const { scope, area } = await this.reach(principal, projectId, areaId);
+    const row = await this.prisma.application.findFirst({
+      where: { AND: [{ projectId, status: 'waitlisted', ...area }, applicationWhere(scope)] },
+      orderBy: WAITLIST_ORDER,
+      select: {
+        id: true,
+        appNo: true,
+        applicantName: true,
+        totalScore: true,
+        beneficiary: { select: { name: true } },
+      },
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      appNo: row.appNo,
+      beneficiaryName: row.beneficiary?.name ?? row.applicantName ?? null,
+      totalScore: row.totalScore === null ? null : Number(row.totalScore),
+    };
+  }
+
   async pullNext(
     principal: Principal,
     projectId: string,
     key: string | undefined,
     body: PullNext,
   ): Promise<{ replay: boolean; pulled: Pulled }> {
-    const access = await this.access.load(principal.userId);
-    if (!holdsPermission(PERMISSION, access.grants)) {
-      this.access.denied(principal.userId, PERMISSION, 'application');
-      throw new ApiError('permission.denied', 403);
-    }
-    const scope = await this.access.scopeFor(principal, access, PERMISSION, 'application');
-    // a project outside the caller's reach is not found, whatever its waitlist holds
-    const projectScope = await this.access.scopeFor(principal, access, 'project.view', 'project');
-    const reached = await this.prisma.project.count({
-      where: { AND: [{ id: projectId }, projectWhere(projectScope)] },
-    });
-    if (!reached) throw new ApiError('permission.not_found', 404);
-    const area = await this.areaOf(projectId, body.areaId);
+    const { scope, area } = await this.reach(principal, projectId, body.areaId);
     const outcome = await this.idempotency.runWithKey<Pulled>(
       key,
       { userId: principal.userId, deviceSessionId: principal.sessionId },
@@ -85,6 +114,23 @@ export class WaitlistService {
       { requestHash: JSON.stringify([projectId, body.areaId ?? null]) },
     );
     return { replay: outcome.replay, pulled: outcome.results[0]! };
+  }
+
+  /** The caller's scope of the pull and the asked area, once the project is in their reach. */
+  private async reach(principal: Principal, projectId: string, areaId: string | undefined) {
+    const access = await this.access.load(principal.userId);
+    if (!holdsPermission(PERMISSION, access.grants)) {
+      this.access.denied(principal.userId, PERMISSION, 'application');
+      throw new ApiError('permission.denied', 403);
+    }
+    const scope = await this.access.scopeFor(principal, access, PERMISSION, 'application');
+    // a project outside the caller's reach is not found, whatever its waitlist holds
+    const projectScope = await this.access.scopeFor(principal, access, 'project.view', 'project');
+    const reached = await this.prisma.project.count({
+      where: { AND: [{ id: projectId }, projectWhere(projectScope)] },
+    });
+    if (!reached) throw new ApiError('permission.not_found', 404);
+    return { scope, area: await this.areaOf(projectId, areaId) };
   }
 
   /**

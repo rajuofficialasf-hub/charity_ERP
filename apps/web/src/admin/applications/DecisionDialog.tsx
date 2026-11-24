@@ -1,5 +1,5 @@
 import { Alert, Dialog, Form, FormTextField, Text } from '@/ui';
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
@@ -43,6 +43,7 @@ export function DecisionDialog({
   withReason = true,
   withMessage = false,
   note,
+  lead,
   comments = [],
   mobileChange = null,
   danger = false,
@@ -59,6 +60,8 @@ export function DecisionDialog({
   withMessage?: boolean;
   /** What follows from the decision, said before it is confirmed. */
   note?: string;
+  /** Who or what the decision is about, shown first (the person a pull takes). */
+  lead?: ReactNode;
   /** Why the decision asks for a comment; none asks no comment. */
   comments?: readonly CommentReason[];
   /** The mobile an approval writes to the known person's profile, told before it is sent. */
@@ -111,6 +114,7 @@ export function DecisionDialog({
       }
     >
       <Form form={form} onSubmit={send} label={title} error={error ?? undefined}>
+        {lead}
         {note ? <Text>{note}</Text> : null}
         {mobileChange ? (
           mobileChange.kept ? (

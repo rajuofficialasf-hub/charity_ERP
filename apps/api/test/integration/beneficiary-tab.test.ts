@@ -590,6 +590,7 @@ describe('the 360° profile', () => {
       'photoFileId',
       'applications',
       'help',
+      'trail',
     ])
       expect(data, key).not.toHaveProperty(key);
     expect(data).toMatchObject({
@@ -608,10 +609,82 @@ describe('the 360° profile', () => {
     const data = (await profile(procurement, someone)).body.data;
     expect(data.applications.map((a: { projectId: string }) => a.projectId)).toEqual([house.id]);
     expect(data).toMatchObject({ unionId: world.dhaka.union });
-    for (const key of ['mobile', 'dawah', 'followUps', 'activities', 'nid', 'fatherOrHusbandName'])
+    for (const key of [
+      'mobile',
+      'dawah',
+      'followUps',
+      'activities',
+      'trail',
+      'nid',
+      'fatherOrHusbandName',
+    ])
       expect(data, key).not.toHaveProperty(key);
     const head = await as(world.users.head);
     expect((await profile(head, someone)).body.data.applications).toHaveLength(2);
+  });
+
+  it('names who did each step: the audited trail of the person and of the applications the caller sees, the contact changes and the blocks', async () => {
+    const someone = await person(world.dhaka);
+    const here = await applyTo(world.a1, world.dhaka, someone);
+    const elsewhere = await applyTo(world.b1, world.dhaka, someone);
+    const audit = (actor: string | null, action: string, type: string, id: string) =>
+      h.db.query(
+        `INSERT INTO audit_log (id, actor_user_id, action, entity_type, entity_id, reason)
+         VALUES ($1, $2, $3, $4, $5, 'a reason the trail never shows')`,
+        [randomUUID(), actor, action, type, id],
+      );
+    await audit(world.users.rpmDhaka, 'application.approve', 'application', here);
+    await audit(world.users.pm, 'application.approve', 'application', elsewhere);
+    await audit(world.users.executive, 'beneficiary.contact_updated', 'beneficiary', someone);
+    await audit(world.users.rpmDhaka, 'beneficiary.looked_up', 'beneficiary', someone);
+    await audit(null, 'beneficiary.create', 'beneficiary', someone);
+    await h.db.query(
+      `INSERT INTO field_changes (id, entity_type, entity_id, field, old_value, new_value, kind, created_by)
+       VALUES ($1, 'beneficiary', $2, 'village', '"পুরনো গ্রাম"', '"নতুন গ্রাম"', 'contact_update', $3)`,
+      [randomUUID(), someone, world.users.executive],
+    );
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by, active,
+                              released_by, released_at, release_reason)
+       VALUES ($1, 'beneficiary', $2, 'নমুনা কারণ', $3, false, $4, now(), 'ভুল করে')`,
+      [randomUUID(), someone, world.users.head, world.users.rpmDhaka],
+    );
+    const nameOf = async (id: string) =>
+      (await h.db.query('SELECT display_name FROM users WHERE id = $1', [id])).rows[0]
+        .display_name as string;
+    const data = (await profile(await as(world.users.rpmDhaka), someone)).body.data;
+    const appNo = (await h.db.query('SELECT app_no FROM applications WHERE id = $1', [here]))
+      .rows[0].app_no as string | null;
+    // the steps of the applications the RPM sees and of the person, never a lookup, and no
+    // value or reason of the entry
+    expect(data.trail).toEqual([
+      expect.objectContaining({ action: 'beneficiary.create', byName: null }),
+      expect.objectContaining({
+        action: 'beneficiary.contact_updated',
+        byName: await nameOf(world.users.executive),
+        applicationId: null,
+      }),
+      expect.objectContaining({
+        action: 'application.approve',
+        byName: await nameOf(world.users.rpmDhaka),
+        applicationId: here,
+        appNo,
+      }),
+    ]);
+    expect(JSON.stringify(data.trail)).not.toContain('a reason the trail never shows');
+    expect(data.contactLog[0]).toMatchObject({
+      field: 'village',
+      byName: await nameOf(world.users.executive),
+    });
+    expect(data.blocks[0]).toMatchObject({
+      blockedByName: await nameOf(world.users.head),
+      releasedByName: await nameOf(world.users.rpmDhaka),
+    });
+    // the head sees both projects, so both approvals
+    const all = (await profile(await as(world.users.head), someone)).body.data.trail;
+    expect(all.map((t: { applicationId: string | null }) => t.applicationId)).toEqual(
+      expect.arrayContaining([here, elsewhere]),
+    );
   });
 
   it('keeps an older distribution when many other activities follow it', async () => {

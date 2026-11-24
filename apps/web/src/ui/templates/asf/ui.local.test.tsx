@@ -139,18 +139,29 @@ describe('the table', () => {
     }
   });
 
-  it('reports the selected ids and shows the bulk actions while any is selected', async () => {
+  it('reports the selected ids, and keeps the bulk bar in its place before the first tick', async () => {
     stubWidth(false);
     const user = userEvent.setup();
     const onSelectionChange = vi.fn();
     renderTable({ selectionMode: 'multiple', onSelectionChange, bulkActions: <button type="button">Approve</button> });
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    // the bar is there with a hint, so the first tick moves no row
+    expect(screen.getByText('Tick rows to act on them together')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox', { name: 'Select Rahim Uddin' }));
     expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['p2']));
     expect(screen.getByText('1 selected')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
     expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['p1', 'p2']));
+  });
+
+  it('shows no bulk bar without bulk actions until a row is ticked', async () => {
+    stubWidth(false);
+    const user = userEvent.setup();
+    renderTable({ selectionMode: 'multiple', onSelectionChange: vi.fn() });
+    expect(screen.queryByText('Tick rows to act on them together')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Select Rahim Uddin' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
   });
 
   it('selects on the cards too', async () => {

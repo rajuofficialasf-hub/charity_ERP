@@ -12,6 +12,7 @@ import type {
   OfficeApplicationPage,
   OfficeApplicationRecord,
   OfficeTimelineEntry,
+  NextWaitlisted,
   PulledApplication,
   ScoreItem,
   Unlock,
@@ -148,6 +149,10 @@ export const pullNext = (
     envelope: true,
   });
 
+/** Who a pull of the area would take now; nothing is held, so the pull may take another. */
+export const nextWaitlisted = (projectId: string, areaId?: string) =>
+  api<NextWaitlisted>(`/projects/${projectId}/waitlist/next${listQuery({ areaId })}`);
+
 /** The comment reasons a refused decision names, when the server asked for a comment. */
 export const askedComments = (error: unknown): CommentReason[] | null =>
   error instanceof ApiFailure && error.code === 'workflow.comment_required'
@@ -167,10 +172,18 @@ export const openUnlock = (applicationId: string, fieldKey: string, reason: stri
   });
 
 /** Accepts the entered value, or sends it back with a reason. */
-export const decideUnlock = (unlockId: string, decision: 'accept' | 'refuse', reason?: string) =>
+export const decideUnlock = (
+  unlockId: string,
+  decision: 'accept' | 'refuse',
+  texts: { reason?: string; message?: string } = {},
+) =>
   api<Unlock>(`/application-unlocks/${unlockId}/decision`, {
     method: 'POST',
-    body: { decision, ...(reason ? { reason } : {}) },
+    body: {
+      decision,
+      ...(texts.reason ? { reason: texts.reason } : {}),
+      ...(texts.message ? { message: texts.message } : {}),
+    },
   });
 
 /** Ends a waiting unlock with a reason; the old value stays. */

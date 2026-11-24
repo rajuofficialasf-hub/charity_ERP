@@ -98,7 +98,8 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [blocking, setBlocking] = useState<VolunteerRow | null>(null);
   const [sessionsOf, setSessionsOf] = useState<VolunteerRow | null>(null);
-  const { filters, setFilters, change, q, onSearch, page, cursor, goTo } = useTabView(FILTER_KEYS);
+  const { filters, setFilters, change, q, onSearch, initialSearch, page, cursor, goTo } =
+    useTabView(FILTER_KEYS);
 
   const list = useQuery({
     queryKey: [...VOLUNTEERS_KEY, 'page', filters, q, page, cursor],
@@ -369,6 +370,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
         toolbar={
           <FilterBar
             onSearch={onSearch}
+            initialSearch={initialSearch}
             searchPlaceholder={t('search')}
             collapsible
             activeFilters={activeFilters}

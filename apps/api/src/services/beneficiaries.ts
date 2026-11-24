@@ -53,6 +53,31 @@ const ADDRESS = 'beneficiary.address_detail';
 const CARE = 'beneficiary.care';
 const DETAIL = 'beneficiary.profile_detail';
 const HISTORY = 'beneficiary.application_history';
+/**
+ * The audited steps the profile's history tells, of the person and of their applications: who did
+ * what and when, never the before and after of the entry or its reason.
+ */
+export const TRAIL_ACTIONS = [
+  'beneficiary.create',
+  'beneficiary.contact_updated',
+  'beneficiary.correction_requested',
+  'beneficiary.correction_decided',
+  'beneficiary.identity_added',
+  'beneficiary.merge',
+  'beneficiary.merge_reverted',
+  'blocklist.set',
+  'blocklist.lift',
+  'application.submit',
+  'application.public_submitted',
+  'application.reviewed',
+  'application.approve',
+  'application.reject',
+  'application.waitlisted',
+  'application.pull_from_waitlist',
+  'application.reopened',
+  'application.transferred',
+  'application.unlock_decided',
+] as const;
 
 export interface BeneficiaryViewer {
   principal: Principal;
@@ -307,6 +332,14 @@ export class BeneficiariesService {
         ...read,
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
+        // the audited steps, of the person and of the applications the caller sees
+        trail: viewer.fieldClasses.has(CARE)
+          ? await trailOf(
+              tx,
+              read.b.id,
+              read.all.filter((a) => read.visible.has(a.project.id)),
+            )
+          : null,
         media: await publishedWorksOf(tx, read.b.id, rows ?? undefined),
         // the household, its links and what it received: with the contact class, which holds
         // the members, and the help only with the application history class too
@@ -338,6 +371,7 @@ export class BeneficiariesService {
       all,
       visible,
       family,
+      trail,
     } = found;
     // the projects the caller sees in the profile, each with the state of the person's latest
     // application there (the list is newest first)
@@ -480,6 +514,7 @@ export class BeneficiariesService {
       })),
       // the published works about the person, for everyone who reads the profile
       media,
+      ...(trail ? { trail } : {}),
     };
   }
 
@@ -582,7 +617,9 @@ export class BeneficiariesService {
             id: true,
             reason: true,
             active: true,
+            blockedBy: true,
             blockedAt: true,
+            releasedBy: true,
             releasedAt: true,
             releaseReason: true,
           },
@@ -621,6 +658,12 @@ export class BeneficiariesService {
           select: { fileId: true, slot: true, file: { select: { kind: true } } },
         })
       : [];
+    // who did each step, by name: a person the system stands for has none
+    const nameOf = await peopleNames(tx, [
+      ...contactLog.map((c) => c.createdBy),
+      ...corrections.flatMap((c) => [c.requestedBy, c.decidedBy]),
+      ...blocks.flatMap((b) => [b.blockedBy, b.releasedBy]),
+    ]);
     const live = !state.mergedIntoId;
     const revertible = merges.some((m) => m.status === 'merged');
     return {
@@ -647,6 +690,7 @@ export class BeneficiariesService {
         oldValue: text(c.oldValue),
         newValue: text(c.newValue),
         by: c.createdBy,
+        byName: nameOf(c.createdBy),
         at: c.createdAt.toISOString(),
       })),
       corrections: corrections.map((c) => ({
@@ -658,15 +702,19 @@ export class BeneficiariesService {
         reason: c.reason,
         status: c.status,
         requestedBy: c.requestedBy,
+        requestedByName: nameOf(c.requestedBy),
         requestedAt: c.createdAt.toISOString(),
         decidedBy: c.decidedBy,
+        decidedByName: nameOf(c.decidedBy),
         decidedAt: c.decidedAt ? c.decidedAt.toISOString() : null,
       })),
       blocks: blocks.map((b) => ({
         id: b.id,
         reason: b.reason,
         active: b.active,
+        blockedByName: nameOf(b.blockedBy),
         blockedAt: b.blockedAt.toISOString(),
+        releasedByName: nameOf(b.releasedBy),
         releasedAt: b.releasedAt ? b.releasedAt.toISOString() : null,
         releaseReason: b.releaseReason,
       })),
@@ -829,4 +877,72 @@ interface ProjectOfYear {
   nameBn: string;
   nameEn: string;
   status: string;
+}
+
+/** The names of the people who took steps; a person the system stands for, or nobody, has none. */
+async function peopleNames(
+  tx: Tx,
+  ids: readonly (string | null)[],
+): Promise<(id: string | null) => string | null> {
+  const wanted = [...new Set(ids.filter((id): id is string => id !== null))];
+  const names = new Map(
+    wanted.length
+      ? (
+          await tx.user.findMany({
+            where: { id: { in: wanted }, kind: { not: 'system' } },
+            select: { id: true, displayName: true },
+          })
+        ).map((u) => [u.id, u.displayName])
+      : [],
+  );
+  return (id) => (id ? (names.get(id) ?? null) : null);
+}
+
+/**
+ * The audited steps of a person and of the given applications of theirs, newest first: what was
+ * done, by whom (by name), when, and on which application. The entry's before and after values and
+ * its reason stay in the audit log.
+ */
+async function trailOf(
+  tx: Tx,
+  beneficiaryId: string,
+  applications: readonly { id: string; appNo: string | null }[],
+) {
+  const appNos = new Map(applications.map((a) => [a.id, a.appNo]));
+  const rows = await tx.auditLog.findMany({
+    where: {
+      action: { in: [...TRAIL_ACTIONS] },
+      OR: [
+        { entityType: 'beneficiary', entityId: beneficiaryId },
+        ...(appNos.size
+          ? [{ entityType: 'application', entityId: { in: [...appNos.keys()] } }]
+          : []),
+      ],
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: SECTION_ROWS,
+    select: {
+      id: true,
+      action: true,
+      entityType: true,
+      entityId: true,
+      actorUserId: true,
+      createdAt: true,
+    },
+  });
+  const nameOf = await peopleNames(
+    tx,
+    rows.map((r) => r.actorUserId),
+  );
+  return rows.map((r) => {
+    const application = r.entityType === 'application' ? r.entityId : null;
+    return {
+      id: r.id,
+      action: r.action,
+      at: r.createdAt.toISOString(),
+      byName: nameOf(r.actorUserId),
+      applicationId: application,
+      appNo: application ? (appNos.get(application) ?? null) : null,
+    };
+  });
 }

@@ -1,5 +1,5 @@
 import { EXPORT_FORMATS, type ExportFormat, type ExportList } from '@css/shared/exports';
-import { Alert, Button, Dialog, Form, RadioGroup, Skeleton, Stack, Text } from '@/ui';
+import { Alert, Button, Checkbox, Dialog, Form, RadioGroup, Skeleton, Stack, Text } from '@/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -27,10 +27,14 @@ const FORMAT_LABELS = new Map<ExportFormat, string>([
   ['pdf', 'PDF'],
 ]);
 
-/** The file type, and the columns once the person changes them (none yet: the remembered ones). */
+/**
+ * The file type, the columns once the person changes them (none yet: the remembered ones), and
+ * whether a coded column's code goes beside its words.
+ */
 const EXPORT_SCHEMA = z.object({
   format: z.enum(EXPORT_FORMATS),
   columns: z.array(z.string()).nullable(),
+  withCodes: z.boolean(),
 });
 type ExportFields = z.infer<typeof EXPORT_SCHEMA>;
 
@@ -44,10 +48,11 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
   const queryClient = useQueryClient();
   const form = useForm<ExportFields>({
     resolver: useSchemaResolver(EXPORT_SCHEMA),
-    defaultValues: { format: 'xlsx', columns: null },
+    defaultValues: { format: 'xlsx', columns: null, withCodes: false },
     reValidateMode: 'onSubmit',
   });
   const chosen = useWatch({ control: form.control, name: 'columns' });
+  const format = useWatch({ control: form.control, name: 'format' });
   const [jobId, setJobId] = useState<string | null>(null);
   const columns = useQuery({
     queryKey: [...EXPORTS_KEY, 'columns', list, projectId ?? null],
@@ -57,7 +62,15 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
   const picked = chosen ?? (columns.data ? rememberedColumns(list, columns.data) : []);
 
   const start = useMutation({
-    mutationFn: ({ format: as, ids }: { format: ExportFormat; ids: string[] }) => {
+    mutationFn: ({
+      format: as,
+      ids,
+      withCodes,
+    }: {
+      format: ExportFormat;
+      ids: string[];
+      withCodes: boolean;
+    }) => {
       rememberColumns(list, ids);
       const set = Object.fromEntries(
         Object.entries(filters).filter((entry): entry is [string, string] => Boolean(entry[1])),
@@ -68,6 +81,8 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
         columns: ids,
         filters: set,
         ...(projectId ? { projectId } : {}),
+        // a PDF shows the words alone
+        ...(withCodes && as !== 'pdf' ? { withCodes: true } : {}),
       });
     },
     onSuccess: (job) => {
@@ -81,7 +96,7 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
   // the button's own path: columns chosen, and nothing twice while the start is on its way
   const send = (fields: ExportFields) => {
     if (none || !columns.data || start.isPending) return;
-    start.mutate({ format: fields.format, ids: picked });
+    start.mutate({ format: fields.format, ids: picked, withCodes: fields.withCodes });
   };
 
   if (jobId)
@@ -150,6 +165,20 @@ export default function ExportDialog({ list, projectId, filters, onClose }: Expo
               />
             )}
           />
+          {format === 'pdf' ? null : (
+            <Controller
+              control={form.control}
+              name="withCodes"
+              render={({ field }) => (
+                <Checkbox
+                  label={t('with_codes')}
+                  hint={t('with_codes_hint')}
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          )}
         </Form>
         {columns.isPending ? (
           <Skeleton shape="row" count={4} />

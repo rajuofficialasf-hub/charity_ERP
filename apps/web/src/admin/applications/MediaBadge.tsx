@@ -3,8 +3,15 @@ import { useTranslations } from 'use-intl';
 import { useMediaLabels } from '../../features/media/use-media-lists';
 import type { OfficeApplication } from './applications-api';
 
-/** The application's media state beside its own state: the work's stage once there is one. */
-export function MediaBadge({ media }: { media: NonNullable<OfficeApplication['media']> }) {
+/**
+ * The application's media state beside its own state: the work's stage once there is one (on the
+ * record; a list row knows the referral's state alone).
+ */
+export function MediaBadge({
+  media,
+}: {
+  media: Pick<NonNullable<OfficeApplication['media']>, 'state'> & { workStageCode?: string | null };
+}) {
   const t = useTranslations('media');
   const labels = useMediaLabels();
   const tone =
