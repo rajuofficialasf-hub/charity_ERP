@@ -469,6 +469,56 @@ describe('the rows of an export job', () => {
     for (const line of lines.slice(1)) expect(line).toMatch(/^BEN-\d{7}$/);
   });
 
+  it('writes a coded column as its words, and its code beside them only when asked', async () => {
+    const linesOf = async (withCodes?: boolean) => {
+      const { s, id } = await job({
+        kind: 'beneficiaries',
+        format: 'csv',
+        columns: ['name', 'status'],
+        filters: { divisionId: world.dhaka.division },
+        ...(withCodes === undefined ? {} : { withCodes }),
+      });
+      await runner().run(id, 0);
+      const done = (await at(s, 'get', `/exports/${id}`)).body.data;
+      const text = (await contentOf(done.fileId)).subarray(3).toString('utf8');
+      return text.trimEnd().split('\r\n');
+    };
+    const plain = await linesOf();
+    expect(plain[0]).toBe('নাম,অবস্থা');
+    expect(plain[1]).not.toContain(',active');
+    expect((await linesOf(false))[0]).toBe('নাম,অবস্থা');
+    const coded = await linesOf(true);
+    expect(coded[0]).toBe('নাম,অবস্থা,অবস্থা (কোড)');
+    expect(coded[1]).toMatch(/,active$/);
+  });
+
+  it('gives a volunteer no export: a request is refused, the list holds nothing, and another’s job and file stay out of reach', async () => {
+    const { s, id } = await job({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await runner().run(id, 0);
+    const fileId = (await at(s, 'get', `/exports/${id}`)).body.data.fileId as string;
+    const volunteer = await as(world.users.general);
+    const listed = await at(volunteer, 'get', '/exports');
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toEqual([]);
+    expect(
+      (
+        await at(volunteer, 'post', '/exports').send({
+          kind: 'beneficiaries',
+          format: 'csv',
+          columns: ['name'],
+          filters: {},
+        })
+      ).status,
+    ).toBe(403);
+    expect((await at(volunteer, 'get', `/exports/${id}`)).status).toBe(404);
+    expect([403, 404]).toContain((await at(volunteer, 'get', `/files/${fileId}/content`)).status);
+  });
+
   it('fails a PDF this server cannot make on the first attempt, saying so', async () => {
     const { s, id } = await job({
       kind: 'beneficiaries',

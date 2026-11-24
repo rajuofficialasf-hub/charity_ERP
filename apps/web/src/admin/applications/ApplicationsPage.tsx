@@ -44,6 +44,7 @@ import {
   applicationListFilters,
   FILTER_KEYS,
 } from './applications-api';
+import { MediaBadge } from './MediaBadge';
 import { QuotaBars } from './QuotaBars';
 import './applications.css';
 import { ExportButton } from '../../features/exports/ExportButton';
@@ -243,6 +244,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       ) : null}
       {r.hasDocument === false ? <NoDocumentChip /> : null}
       {r.hasMobile === false ? <ThroughVolunteerChip /> : null}
+      {r.mediaState ? <MediaBadge media={{ state: r.mediaState }} /> : null}
       {refusedOf.has(r.id) ? (
         <Chip tone="warning">{t(`bulk.reason_short.${refusedOf.get(r.id)!}`)}</Chip>
       ) : null}

@@ -3,6 +3,7 @@ import { COMMENT_REASONS } from './decision-rules.js';
 import { unlockView } from './unlocks.js';
 import { answerValueSchema } from '@css/shared';
 import { APPLICATION_STATES } from '@css/shared';
+import { REFERRAL_STATES } from '@css/shared/media';
 import { z } from 'zod';
 import { sensitive } from '../access/field-mask.js';
 import { versionView } from '../routes/forms.js';
@@ -64,6 +65,11 @@ export const applicationSummary = z.object({
   waitingDays: z.int().nullable(),
   /** Photo slots an offline record still waits for; the office sees the record without them. */
   pendingPhotos: z.int().min(0),
+  /**
+   * The state of the application's referral to the Media Team, on the office's list for an
+   * official who would see it on the record; absent otherwise.
+   */
+  mediaState: z.enum(REFERRAL_STATES).optional(),
   /** The version of the row, carried back by a bulk action's row as its If-Match. */
   etag: z.string(),
 });

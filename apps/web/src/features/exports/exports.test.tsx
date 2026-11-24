@@ -82,6 +82,12 @@ describe('the export dialog', () => {
       ]),
     );
     await user.click(within(dialog).getByRole('radio', { name: 'CSV' }));
+    // the code columns only when asked, and never for a PDF
+    const codes = within(dialog).getByRole('checkbox', { name: 'কোডের কলামও দিন' });
+    expect(codes).not.toBeChecked();
+    await user.click(within(dialog).getByRole('radio', { name: 'PDF' }));
+    expect(within(dialog).queryByRole('checkbox', { name: 'কোডের কলামও দিন' })).toBeNull();
+    await user.click(within(dialog).getByRole('radio', { name: 'CSV' }));
     await user.click(within(dialog).getByRole('button', { name: 'এক্সপোর্ট শুরু করুন' }));
     await waitFor(() => expect(bodies).toHaveLength(1));
     expect(bodies[0]).toEqual({

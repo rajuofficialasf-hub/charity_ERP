@@ -244,6 +244,10 @@ describe('the media work page', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'গ্রহণ করুন' }));
     const confirm = await screen.findByRole('alertdialog', { name: 'গ্রহণ করুন' });
+    // says what follows before it is pressed
+    expect(
+      within(confirm).getByText('গ্রহণ করলে কাজ শুরু হবে; এরপর কাজের দল বেছে নিতে হবে।'),
+    ).toBeInTheDocument();
     await user.click(within(confirm).getByRole('button', { name: 'গ্রহণ করুন' }));
     await waitFor(() => expect(decided).toEqual([{ decision: 'accept' }]));
   });
@@ -403,6 +407,18 @@ describe('the media work page', () => {
         { at: 'review', ifMatch: '"v1"', body: { decision: 'send_back', comment: 'আলো কম' } },
       ]),
     );
+  });
+
+  it('says the final review is approved once it is', async () => {
+    const user = userEvent.setup();
+    refreshAs(DIRECTOR);
+    serve(referral({ work: work({ stageCode: 'ready_to_publish', mayReview: true }) }));
+    open();
+    await user.click(await screen.findByRole('button', { name: 'চূড়ান্ত পর্যালোচনা অনুমোদন' }));
+    await waitFor(() =>
+      expect(writes).toEqual([{ at: 'review', ifMatch: '"v1"', body: { decision: 'approve' } }]),
+    );
+    expect(await screen.findByText('চূড়ান্ত পর্যালোচনা অনুমোদিত হলো')).toBeInTheDocument();
   });
 
   it('adds a published post with its link and date, and clears an emptied note of one', async () => {

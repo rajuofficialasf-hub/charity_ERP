@@ -4025,6 +4025,10 @@ components:
         submittedAt: { type: [string, 'null'], format: date-time }
         waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
         pendingPhotos: { type: integer, minimum: 0, description: Photo slots an offline record still waits for; the office sees the record without them }
+        mediaState:
+          type: string
+          enum: [pending, sent_back, accepted, rejected]
+          description: "On the office's list only: the state of the application's referral to the Media Team, for an official who would see it on the record (the work's viewer or a referrer whose scope reaches the application); absent otherwise"
         etag: { type: string, description: "The version of the row, carried back by a bulk action's row as its If-Match" }
     Answer:
       type: object
@@ -5156,6 +5160,7 @@ components:
           description: Each id once; the file orders them itself (the list's columns, the details, then the questions)
         filters: { type: object, propertyNames: { type: string }, additionalProperties: {}, description: "The list's filters, checked with that list's own filter schema" }
         projectId: { type: string, format: uuid }
+        withCodes: { type: boolean, description: "A coded column's code written beside its words (a state, a type, a gender); the words alone when absent or false, and always in a PDF" }
     ExportJob:
       type: object
       required:

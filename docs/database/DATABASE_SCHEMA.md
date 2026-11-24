@@ -1889,6 +1889,7 @@ Constraints: partial UNIQUE (kind, subject_type, subject_id) WHERE status <> 're
 | row_count | integer | yes | — | rows counted at the request |
 | format | text | no | — | csv, xlsx, pdf |
 | columns | text[] | no | — | the column ids the person chose, in the file's order; at least one for a list, empty for a record's PDF |
+| with_codes | boolean | no | false | a coded column's code written beside its words (a state, a type, a gender), only when the person asked; never in a PDF (migration 20261124100000) |
 | access | jsonb | no | — | the scope instances and field classes frozen at the request; the job never reads live access (D-143) |
 | rows_done | integer | no | 0 | progress, ≥ 0 |
 | rows_total | integer | yes | — | the rows the job will write, ≥ 0 |

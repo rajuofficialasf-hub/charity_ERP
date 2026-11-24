@@ -130,6 +130,8 @@
     "filters_note": "The file holds exactly the rows the list shows now, with its filters and search.",
     "format": "File type",
     "format_pdf_hint": "A PDF holds at most 1,000 rows. For more, choose Excel or CSV.",
+    "with_codes": "Add the code columns",
+    "with_codes_hint": "A column such as the state, the type or the gender also gets its code in a column of its own, such as \"Status (code)\".",
     "columns": "Columns",
     "select_all": "Select all",
     "select_none": "Select none",

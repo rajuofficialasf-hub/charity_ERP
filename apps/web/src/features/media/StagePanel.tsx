@@ -74,9 +74,12 @@ export function StagePanel({
   const review = useMutation({
     mutationFn: (body: { decision: 'approve' | 'send_back'; comment?: string }) =>
       reviewWork(work.id, work.version, body),
-    onSuccess: (next) => {
+    onSuccess: (next, body) => {
       setSendingBack(false);
-      onSaved(next, t('work.saved'));
+      onSaved(
+        next,
+        body.decision === 'approve' ? t('work.review_done') : t('work.review_sent_back_done'),
+      );
     },
     onError: (error) => {
       if (failureOf(error, texts).stale) onStale();

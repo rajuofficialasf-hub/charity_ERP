@@ -757,6 +757,14 @@ describe('the list', () => {
     await waitFor(() => expect(listCalls.at(-1)).toContain('status=needs_verification'));
   });
 
+  it('marks a row sent to the Media Team, as the server tells it', async () => {
+    refreshAs(EXECUTIVE);
+    serve([row(A1, { mediaState: 'pending' }), row(A2, { appNo: 'WC-2026-00013' })]);
+    openList();
+    const grid = await screen.findByRole('table');
+    expect(await within(grid).findAllByText(/^মিডিয়া:/)).toHaveLength(1);
+  });
+
   it('refuses a volunteer the office screens', async () => {
     refreshAs(VOLUNTEER);
     serve();

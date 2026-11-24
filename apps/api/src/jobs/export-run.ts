@@ -145,7 +145,15 @@ export class ExportRunner {
         });
       const written = (
         frozen
-          ? this.write(job.id, job.format, job.columns, frozen, frozen.list.locale, measure, signal)
+          ? this.write(
+              job.id,
+              job.format,
+              { ids: job.columns, withCodes: job.withCodes },
+              frozen,
+              frozen.list.locale,
+              measure,
+              signal,
+            )
           : this.printRecord(record!, measure)
       ).catch((error: unknown) => {
         measure.destroy(error as Error);
@@ -322,7 +330,7 @@ export class ExportRunner {
   private async write(
     jobId: string,
     format: string,
-    columnIds: readonly string[],
+    chosen: { ids: readonly string[]; withCodes: boolean },
     frozen: FrozenExport,
     locale: 'bn' | 'en',
     out: Measure,
@@ -330,7 +338,7 @@ export class ExportRunner {
   ): Promise<number> {
     const list = frozen.list.kind;
     const questions = frozen.questions;
-    const columns = fileColumns(list, columnIds, questions, locale);
+    const columns = fileColumns(list, chosen.ids, questions, locale, chosen.withCodes);
     const limit = format === 'pdf' ? this.limits.maxPdfRows : this.limits.maxRows;
     const sink =
       format === 'csv'
@@ -451,19 +459,28 @@ export function clearedOf(record: FrozenRecord | null): Prisma.InputJsonObject |
     : undefined;
 }
 
-/** The file's columns: the list's chosen ones in the job's language, then the questions. */
+/**
+ * The file's columns: the list's chosen ones in the job's language, then the questions. A coded
+ * column writes its code beside its words only when the person asked for the codes; otherwise its
+ * words alone, as text.
+ */
 function fileColumns(
   list: ExportList,
   ids: readonly string[],
   questions: readonly QuestionColumn[],
   locale: 'bn' | 'en',
+  withCodes: boolean,
 ): FileColumn[] {
   const catalogue = new Map(columnsOf(list).map((c) => [c.id, c]));
   const byId = new Map(questions.map((q) => [q.id, q]));
+  const kindOf = (kind: FileColumn['kind']): FileColumn['kind'] =>
+    kind === 'coded' && !withCodes ? 'text' : kind;
   return ids.flatMap((id): FileColumn[] => {
     const fixed = catalogue.get(id);
     if (fixed)
-      return [{ id, header: translate(locale, fixed.header as MessageKey), kind: fixed.kind }];
+      return [
+        { id, header: translate(locale, fixed.header as MessageKey), kind: kindOf(fixed.kind) },
+      ];
     const q = byId.get(id);
     if (!q) return [];
     return [
@@ -472,7 +489,7 @@ function fileColumns(
         // eslint-disable-next-line security/detect-object-injection -- the locale is one of two literals
         header: q.label[locale],
         // a repeated question's rows are joined into one text cell on the list
-        kind: q.group === null ? questionKind(q) : 'text',
+        kind: q.group === null ? kindOf(questionKind(q)) : 'text',
       },
     ];
   });

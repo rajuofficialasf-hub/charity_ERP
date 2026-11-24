@@ -14,7 +14,10 @@ import {
 } from '@/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
+import { ForbiddenContent } from '../../admin/AdminLayout';
+import { canExport } from '../../admin/roles';
 import { AccountPage } from '../../components/AccountPage';
+import { useAuth } from '../../lib/auth';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { LoadError } from '../../components/LoadError';
 import { EXPORTS_KEY, type ExportJob, failureKey, myExports } from './exports-api';
@@ -24,9 +27,15 @@ import './exports.css';
 /** How often the list is asked again while one of its exports waits or runs. */
 const POLL_MS = 3000;
 
-/** My exports: the person's own exports of the last 30 days, their state and their download. */
+/**
+ * My exports: the person's own exports of the last 30 days, their state and their download; for
+ * whoever may export, as the profile menu offers it.
+ */
 export function MyExportsPage() {
   const t = useTranslations('exports.mine');
+  const { me } = useAuth();
+  // a volunteer never exports, so the page is not theirs, as the menu says (the API refuses too)
+  if (me && !canExport(me)) return <ForbiddenContent />;
   return (
     <AccountPage title={() => t('title')}>
       {() => (

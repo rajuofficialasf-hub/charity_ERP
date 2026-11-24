@@ -290,6 +290,8 @@ export class ExportsService {
         sensitive,
         format: input.format,
         columns: ordered,
+        // a PDF shows the words only
+        withCodes: input.format !== 'pdf' && input.withCodes === true,
         access: access as unknown as Prisma.InputJsonObject,
         rowsTotal: total,
       },
@@ -348,6 +350,7 @@ export class ExportsService {
       sensitive: boolean;
       format: string;
       columns: string[];
+      withCodes?: boolean;
       access: Prisma.InputJsonObject;
       rowsTotal: number;
     },

@@ -3,6 +3,7 @@ import type { Answer } from '@css/shared/forms';
 import { z } from 'zod';
 import { dateTime, pageOf, recordOf } from './common';
 import { formDefinitionShape } from './forms';
+import { REFERRAL_STATES } from '@css/shared/media';
 
 /** One answer as the API stores it: the field key, the repeat row and the typed value. */
 export const answerSchema = z.object({
@@ -41,6 +42,8 @@ export const applicationSummarySchema = z.object({
   waitingDays: z.number().int().nullable(),
   /** The priority score, for the office only; none when the form gives no points. */
   totalScore: z.number().nullable().optional(),
+  /** On the office's list: the state of the referral to the Media Team, for whoever sees it. */
+  mediaState: z.enum(REFERRAL_STATES).optional(),
   etag: z.string(),
 });
 export type ApplicationSummary = z.infer<typeof applicationSummarySchema>;

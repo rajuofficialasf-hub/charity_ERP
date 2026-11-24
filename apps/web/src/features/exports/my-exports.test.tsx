@@ -78,6 +78,14 @@ describe('my exports', () => {
     renderApp(<MyExportsPage />, 'bn', { path: '/account/exports' });
     expect(await screen.findByText('এখনও কোনো এক্সপোর্ট নেই।')).toBeInTheDocument();
   });
+
+  it('is not a volunteer’s page, though they type its address', async () => {
+    refreshAs(VOLUNTEER);
+    serveMine([]);
+    renderApp(<MyExportsPage />, 'bn', { path: '/account/exports' });
+    expect(await screen.findByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeInTheDocument();
+    expect(screen.queryByText(/তালিকা থেকে/)).toBeNull();
+  });
 });
 
 describe('the profile menu', () => {

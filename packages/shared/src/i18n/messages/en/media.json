@@ -103,6 +103,7 @@
     "reject_title": "Reject the referral",
     "comment": "What to correct",
     "reason": "Reason",
+    "accept_note": "Accepting starts the work; then choose the team for it.",
     "accepted": "Referral accepted; the work has started",
     "sent_back": "Referral sent back",
     "rejected": "Referral rejected",
@@ -176,6 +177,8 @@
     "no_comments": "No comments yet",
     "history": "History",
     "saved": "Saved",
+    "review_done": "The final review is approved",
+    "review_sent_back_done": "The work is sent back for changes",
     "not_started": "The work starts once the referral is accepted."
   },
   "event": {
