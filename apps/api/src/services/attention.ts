@@ -80,7 +80,12 @@ export class AttentionService {
       [
         'corrections',
         this.prisma.volunteerChangeRequest.count({
-          where: { volunteer: { userId: principal.userId }, kind: CORRECTION, status: 'open' },
+          // asked and not yet sent again: an answered row waits for the person's resubmit too
+          where: {
+            volunteer: { userId: principal.userId },
+            kind: CORRECTION,
+            status: { in: ['open', 'submitted'] },
+          },
         }),
       ],
       [

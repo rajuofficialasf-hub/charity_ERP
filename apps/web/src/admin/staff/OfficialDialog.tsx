@@ -262,7 +262,8 @@ function OfficialForm({
     // a Job ID another official holds is told now, not after the second step; without an
     // answer the second step opens and the save checks it
     const jobId = form.getValues('jobId').trim();
-    if (!official || jobId !== (official.jobId ?? '')) {
+    // the official's own Job ID, in any case, is not taken by them
+    if (!official || jobId.toLowerCase() !== (official.jobId ?? '').toLowerCase()) {
       const taken = await jobIdTaken(jobId).catch(() => false);
       if (taken) {
         form.setError('jobId', { message: te('user.job_id_taken') });

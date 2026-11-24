@@ -138,6 +138,19 @@ describe('GET /me/attention', () => {
     expect(await attention(userId)).toEqual([
       { kind: 'corrections', count: 1, href: '/account/profile' },
     ]);
+    // answered but not yet sent again, it stays the person's to do; sent again, it is gone
+    await h.db.query(
+      `UPDATE volunteer_change_requests SET status = 'submitted' WHERE volunteer_id = $1`,
+      [volunteerId],
+    );
+    expect(await attention(userId)).toEqual([
+      { kind: 'corrections', count: 1, href: '/account/profile' },
+    ]);
+    await h.db.query(
+      `UPDATE volunteer_change_requests SET status = 'closed', decided_at = now() WHERE volunteer_id = $1`,
+      [volunteerId],
+    );
+    expect(await attention(userId)).toEqual([]);
   });
 
   it('counts the edit requests waiting in the approver’s region, and tells the volunteer of a recent answer', async () => {

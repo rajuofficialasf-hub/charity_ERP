@@ -62,11 +62,13 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
   const again = useMutation({ mutationFn: resubmit, onSuccess: refresh });
   if (!rows.length && !again.isSuccess) return null;
   const allAnswered = rows.every((r) => r.status === 'submitted');
+  // sent again and nothing new asked since: a later round of corrections shows its rows
+  const sent = again.isSuccess && !rows.some((r) => r.status === 'open');
   return (
     <section aria-labelledby="corrections-title">
       <Stack gap={4}>
         <h2 id="corrections-title">{t('title')}</h2>
-        {again.isSuccess ? (
+        {sent ? (
           <Alert tone="success">{t('resubmitted')}</Alert>
         ) : (
           <>
@@ -81,7 +83,8 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
               />
             ))}
             {again.error && <Alert tone="error">{messageOf(again.error)}</Alert>}
-            {allAnswered && rows.length > 1 && (
+            {/* one field sends itself with its answer; the button stays for a send that failed */}
+            {allAnswered && (rows.length > 1 || again.isError) && (
               <Button onClick={() => again.mutate()} loading={again.isPending}>
                 {t('resubmit')}
               </Button>
